@@ -10,10 +10,11 @@ Until now we have used the open source UI library Toast UI Editor ([https://ui.t
 	- easy to integrate with frameworks and other libs: jeasyui, Openui5,  codiware, jQuery comments. 
 - turns an HTML element (text or div) into an interactive editor
 - editor looks like an editor (not regular content becoming editable on hover or so)
-- get/set value works with markdown. Calling `set(markdown)` and then `get()` should not change anything. 
+- get/set value and persisted content use Markdown, not editor-specific JSON or HTML as the document format. Markdown syntax and whitespace may be normalized, but supported content and formatting semantics must be preserved, including meaningful whitespace such as hard line breaks and code indentation. The stored Markdown must remain renderable by regular Markdown software, including GitHub and GitLab, without Markian-specific processing.
 - easy to use for typical word users
 - fast to use for markdown pros
 - compatible with github and gitlab
+- custom add-ons must gracefully degrade in other Markdown software: ordinary content remains readable, while extension metadata and placeholder delimiters remain invisible HTML comments. Preserve those comments and their meaning through import, editing, and export. Generated content between placeholder delimiters must remain independently renderable without executing the add-on. Do not emit proprietary visible delimiters, obscure characters, or editor-specific wrappers like the custom Markdown elements used by Toast UI. Loss of interactive behavior is acceptable outside Markian; visible syntax debris or silent content loss is not.
 
 ## Library name
 
