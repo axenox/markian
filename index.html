@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Markian | Workspace launch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;450;500;550;600;650;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="app">
+      <header class="masthead">
+        <a class="brand" href="./" aria-label="Markian home"><span class="brand-symbol" aria-hidden="true">m.</span>markian<span class="prototype-label">PROTOTYPE 01</span></a>
+        <div class="masthead-actions"><span class="session-label">Local session</span><button id="theme-toggle" class="icon-button" aria-label="Switch to dark theme"></button></div>
+      </header>
+      <main>
+        <div class="document-heading">
+          <div><div class="breadcrumb">Documents <span>/</span> Operations</div><h1>Workspace launch<span class="document-extension">.md</span></h1></div>
+          <div class="document-actions"><button id="reset" class="quiet-button">Reset example</button><button id="download" class="primary-button"></button></div>
+        </div>
+        <section class="editor-frame" aria-label="Markdown editor">
+          <div id="toolbar" class="toolbar" role="toolbar" aria-label="Document formatting"></div>
+          <div id="mermaid-toolbar" class="toolbar" role="toolbar" aria-label="Mermaid editing" hidden></div>
+          <div id="mermaid-mode" class="mermaid-layout" hidden>
+            <section class="mermaid-code-pane" aria-label="Mermaid code"><div class="mermaid-pane-title">MERMAID</div><div id="mermaid-editor"></div></section>
+            <section class="mermaid-preview-pane" aria-label="Diagram preview"><div class="mermaid-pane-title">PREVIEW</div><div id="mermaid-preview" class="mermaid-render" aria-live="polite"></div></section>
+          </div>
+          <div id="visual-mode" class="editor-layout">
+            <div class="editing-surface">
+              <div id="editor" class="editor-mount" aria-label="Document content"></div>
+            </div>
+            <aside class="outline"><div class="outline-title">IN THIS DOCUMENT</div><nav id="outline" aria-label="Document outline"></nav><div class="document-label">OPERATIONS / 004</div></aside>
+          </div>
+          <div id="source-mode" class="editor-layout" hidden>
+            <div class="editing-surface">
+              <div id="source-editor"></div>
+              <p id="source-error" class="form-error" role="alert" hidden></p>
+            </div>
+            <aside class="outline"><div class="outline-title">MARKDOWN OUTLINE</div><nav id="source-outline" aria-label="Source document outline"></nav><div id="source-lines" class="document-label"></div></aside>
+          </div>
+          <footer class="editor-status"><span id="document-state" role="status">Opening document...</span><div><span id="word-count"></span><span class="status-divider"></span><span>Markdown</span><span class="engine-label">Milkdown</span></div></footer>
+        </section>
+        <div class="workspace-footer"><span>Workspace launch</span><span>Personal draft <span class="footer-dot"></span> Not synced</span></div>
+      </main>
+      <div id="floating-toolbar" class="floating-toolbar" role="toolbar" aria-label="Selection formatting" hidden></div>
+      <div id="toast" class="toast" role="status" hidden></div>
+      <dialog id="link-dialog" class="link-dialog" aria-labelledby="link-title">
+        <form id="link-form"><div class="dialog-header"><h2 id="link-title">Insert link</h2><button type="button" class="icon-button" id="link-close" aria-label="Close link dialog"></button></div>
+          <label>Text<input id="link-text" required autocomplete="off"></label><label>URL<input id="link-url" required placeholder="https:// or relative/path.md" autocomplete="off"></label><p id="link-error" class="form-error" role="alert" hidden></p>
+          <div class="dialog-footer"><button type="button" class="quiet-button" id="link-cancel">Cancel</button><button class="primary-button" type="submit">Insert link</button></div>
+        </form>
+      </dialog>
+      <dialog id="reset-dialog" class="link-dialog" aria-labelledby="reset-title"><div class="dialog-header"><h2 id="reset-title">Reset this draft?</h2></div><p>Your edits will be replaced by the example document.</p><div class="dialog-footer"><button id="reset-cancel" class="quiet-button">Cancel</button><button id="reset-confirm" class="primary-button">Reset example</button></div></dialog>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
