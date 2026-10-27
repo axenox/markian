@@ -34,6 +34,9 @@ Extract responsibilities from the prototype without treating its current file bo
 | Shared rendering and policy | Markdown-to-output pipeline, sanitization, URL/heading rules, block fallback, and content styles shared by editor Preview and W16 viewer. | Editor-engine imports, sessions/history, toolbar UI, host I/O, or widget bindings. |
 | UI and command registry | Toolbar/menu configuration, command availability, dialogs, focus, and accessible states. | Direct host framework dependencies. |
 | Host adapters | Framework lifecycle/bindings, file I/O, provider transport, document URL base, and host layout integration. | Editor engine internals as their integration API. |
+| Visual engine adapter (planned, W1) | Milkdown editor creation, context/plugin registration, mdast-to-ProseMirror parsing and serialization, and teardown. The only module importing `@milkdown/*`. | Commands, node views, sessions, extensions, or public API, which use Markian-owned node definitions and plain ProseMirror APIs. |
+
+Milkdown is a replaceable wiring layer; ProseMirror, remark/mdast, and CodeMirror are the long-term foundations. The target confines Milkdown to the visual engine adapter, imports ProseMirror through one internal re-export module, and enforces this with an import-graph check. Do not add an abstraction over ProseMirror itself. The current prototype still calls Milkdown directly from several modules.
 
 The target exposes `Markian.create(element, options)` for editor instances, including disabled/read-only instances. Each handle owns its documents, histories, selection, callbacks, URL base, theme, and pending work. Queries must be scoped to its root; IDs must not collide across instances. Shared immutable dependencies or safe loader promises are acceptable; singleton document state is not.
 

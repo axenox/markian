@@ -9,6 +9,7 @@ This is an implementation plan, not a statement that the described library, pack
 Decisions for implementation:
 
 - Keep Milkdown/ProseMirror and its remark-based Markdown model for visual editing. The prototype has passed the initial UX gate; do not restart editor selection unless a concrete preservation or interaction blocker emerges.
+- Treat Milkdown as a replaceable wiring layer, not a foundation. Markian exists because Toast UI became unmaintained; ProseMirror, remark/mdast, and CodeMirror are the long-term foundations. Confine Milkdown to one internal engine adapter (W1), so leaving it would mean rewriting that adapter's Markdown bridge and plugin wiring and vendoring the MIT-licensed preset schemas, not the commands, views, sessions, extensions, or public API. Do not abstract over ProseMirror itself.
 - Keep CodeMirror for raw Markdown, expanded code editing, and Mermaid editing. Each view owns its toolbar, sidebar, selection, and scrolling behavior.
 - Start all migrated integrations in the regular WYSIWYG-like visual mode, including Power UI and Codiware. Keep an optional raw-start setting in the standalone library, but do not use it in the current integrations; users can still switch to raw mode after opening.
 - Persist ordinary Markdown with documented normalization, not editor JSON or rendered HTML. Preserve meaningful whitespace, invisible extension comments, and readable generated bodies.
@@ -355,7 +356,7 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 | 3 | W2 | Establish Build, Distribution, and Packages | | |
 | 4 | W3 | Complete Markdown Import, Export, and Viewing | | |
 | 5 | W4 | Complete Editing Controls and Responsive UI | | |
-| 6 | W5 | Finish Tables and Clipboard | | |
+| 6 | W5 | Finish Tables | | |
 | 7 | W6 | Links, Images, and Repository Providers | | |
 | 8 | W7 | Shared View Navigation and Outlines | | |
 | 9 | W8 | Templates and Mentions | | |
@@ -367,6 +368,7 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 | 15 | W11 | Integrate Markian in JEasyUIFacade | | |
 | 16 | W12 | Integrate Markian in UI5Facade | | |
 | 17 | W15 | Deliver Core's DocsPlaceholders Extension | | |
+| 18 | W17 | Rich Paste from HTML, Word, and Excel | | |
 
 ### W0. Freeze Contracts and Compatibility Fixtures
 
@@ -386,13 +388,23 @@ Separate the document controller, engines, mode views, command registry, toolbar
 
 Prepare W16's boundary now: shared render/policy/content-style modules must not import Milkdown/ProseMirror, CodeMirror, editor state, or toolbar/session code. Editor-specific schema/engine adapters depend on those modules, not the reverse. Establish a rendering-only import-graph check or minimal fixture during extraction; this does not require delivering the viewer API before W10.
 
+Isolate Milkdown behind one internal engine adapter during the same extraction:
+
+- Only the adapter module imports `@milkdown/*`. It owns editor creation, Milkdown's context and plugin registration, the mdast-to-ProseMirror parser and serializer, and teardown. It exposes Markian-owned operations: create, parse Markdown to a ProseMirror document, serialize a document to Markdown, access the ProseMirror view, and destroy.
+- Describe nodes in a Markian-owned format, conceptually `{ id, schema, fromMarkdown, toMarkdown, nodeView, inputRules, keymap }`, using plain ProseMirror and mdast types. The adapter translates these into Milkdown registrations. Use the same format as W0's construction-time structural contribution contract, so extensions never see Milkdown runners.
+- Write commands as ProseMirror commands in the Markian command registry, not as Milkdown command keys. Node views, input rules, task controls, block sessions, and the Mermaid/code views use ProseMirror APIs only. Derive change events from ProseMirror transactions rather than Milkdown's listener plugin.
+- Import ProseMirror through one internal re-export module, currently backed by Milkdown's re-exports, so a later switch changes one file and the bundle keeps a single ProseMirror instance.
+- CodeMirror raw and code views remain independent of the adapter.
+
+Add an import-graph check that fails on `@milkdown/*` imports outside the adapter, next to the rendering-only check. W3's round-trip corpus is the regression net for any future adapter replacement.
+
 Before broad extraction, implement a minimal vertical slice of W14's Code extension as the public-API proof-of-concept. Use one ordinary fenced code block, a target-aware toolbar command, a renderer contribution, and an expanded CodeMirror view with local undo/redo and Back. Verify complete-document draft values, one-step commit, permissions, disposal, and independent enabled/disabled instances without Mermaid or host services. Exercise asynchronous initialization failure/destruction and rollback of owned additions. This slice develops only the necessary W1/W7 foundations; full W14 delivery retains its later dependencies and packaging gates. Reuse the slice in W14 rather than maintaining a separate demonstration implementation.
 
 Code fences already have a core schema, so a passing Code slice does not prove registration of new node types. Keep a focused construction-time contract test for schema/parser/serializer contributions and late-registration rejection before claiming that generated-region extensions are supported; the test does not require implementing DocsFacade grammar. Templates and mentions remain core features, implemented through the same public customization operations rather than privileged extension-only access.
 
 Move the demonstration page onto the new public factory. Support multiple independently themed editable/read-only editors, textarea mounting/submission/reset, hidden-tab remeasurement, compact containers around 300 by 400 pixels, read-only/disabled transitions, and full disposal. Define a stable readiness/error surface for asynchronous asset or renderer failures.
 
-Acceptance: classic-script fixture mounts independent editable and read-only editors without a framework; values, histories, mode changes, focus, overlays, and destruction remain independent. Read-only search/copy/navigation work while every user mutation path is blocked, including extension and asynchronous paths; permission changes retain drafts/history. Verify visual startup by default and explicit raw startup for standalone callers. Demo-specific network/assets are absent from library startup.
+Acceptance: classic-script fixture mounts independent editable and read-only editors without a framework; values, histories, mode changes, focus, overlays, and destruction remain independent. Read-only search/copy/navigation work while every user mutation path is blocked, including extension and asynchronous paths; permission changes retain drafts/history. Verify visual startup by default and explicit raw startup for standalone callers. Demo-specific network/assets are absent from library startup. The import-graph check confirms that only the engine adapter imports Milkdown, and node definitions, commands, and node views use the Markian-owned format and ProseMirror APIs.
 
 ### W2. Establish Build, Distribution, and Packages
 
@@ -422,19 +434,21 @@ Provide compact text-color swatches for a configurable 5-10 color palette. Store
 
 Implement overflow menus, optional bottom/mobile placement, touch controls, focus-preserving dialogs, keyboard menus, accessible tooltips, and a reliable maximize/restore overlay. Keep the same instance, history, selection, and scroll state, and restore host layout and focus. Define iframe viewport limits; parent-level expansion requires a host bridge. Do not use global body state that one editor can accidentally undo for another.
 
+Implement search and replace as a view-scoped panel in the main work area, as described in the style guide. Search applies to the visible view's session: rendered text in visual mode, Markdown source in raw mode, and the block draft in code/Mermaid sessions; Help and Preview search their own presented text without replace. Provide match highlighting, a current/total count, next/previous navigation with scrolling into view, and case-sensitive and whole-word options. Regular expressions are optional; if offered, bound their execution under W9's limits and report invalid patterns without blocking editing. Keep search state per instance and session; switching views must not apply a stale query or replacement to a hidden session.
+
+In visual mode, matches stay within one textblock and may cross inline formatting; a replacement inherits the formatting at the match start. Replace never edits invisible extension comments, protected generated bodies, or mention/HTML-stencil boundaries it cannot represent safely; skip or report such matches instead. Replace one and replace all are each a single undoable step and emit one `change`. Disabled/read-only editors keep search but hide or disable replace, including its shortcut. Bind Ctrl/Cmd+F and the replace shortcut only while the editor has focus, so the browser's page search remains available otherwise; Escape closes the panel and restores focus/selection. Search works in compact, fullscreen, and mobile layouts.
+
 Make fullscreen behavior configurable through `onFullscreenEnter({ instance, element, signal })`. Without the callback, use Markian's built-in maximize/restore behavior within the current document viewport; this does not require the browser Fullscreen API. With the callback, delegate layout, reparenting, host overlays, stacking, and any parent-frame bridge to trusted host code instead of also applying the built-in overlay. The callback returns a synchronous, idempotent restore function, directly or through a promise; this is the paired exit/cleanup operation, not merely a fullscreen notification.
 
 Markian owns the fullscreen command/control state, duplicate-request prevention, exit/Escape handling, and remeasurement after transitions; the host owns reversal of its layout changes. Enter fullscreen state only after successful callback completion. Report exceptions/rejections without changing content or losing the prior state; a failing callback must undo any partial host changes before rejecting. On exit or destruction, invoke the returned restore function once and report cleanup errors. Abort pending entry on destruction or a cancelled request; if an obsolete entry still resolves, immediately invoke its restore function rather than leaving an orphan overlay. Keep restoration independent of document history and test focus/selection/scroll preservation without recreating the editor.
 
-Acceptance: command parity in visual/raw views, separate selection toolbar configuration, keyboard/screen-reader checks, and real-device mobile/IME tests pass in small embedded hosts as well as fullscreen. Cover default behavior and custom synchronous/asynchronous fullscreen callbacks, rejected/cancelled entry, repeated toggles, Escape, destruction during entry, and multiple independently maximized instances.
+Acceptance: command parity in visual/raw views, separate selection toolbar configuration, keyboard/screen-reader checks, and real-device mobile/IME tests pass in small embedded hosts as well as fullscreen. Search/replace tests cover each view's scope, matches across inline formatting, single-step undo for replace one/all, skipped protected content, read-only search without replace, focus-bound shortcuts, and no replacement in hidden sessions. Cover default behavior and custom synchronous/asynchronous fullscreen callbacks, rejected/cancelled entry, repeated toggles, Escape, destruction during entry, and multiple independently maximized instances.
 
-### W5. Finish Tables and Clipboard
+### W5. Finish Tables
 
-Reuse ProseMirror table primitives and finish row/column insertion/deletion, header/alignment controls, keyboard navigation, selection, and touch/context menus. Avoid unsupported merged-cell promises in a GFM table model. Include undo/redo for every operation and mode round trips.
+Reuse ProseMirror table primitives and finish row/column insertion/deletion, header/alignment controls, keyboard navigation, selection, and touch/context menus. Avoid unsupported merged-cell promises in a GFM table model. Include undo/redo for every operation and mode round trips. Pasting tables from Excel and other external sources belongs to W17.
 
-Implement sanitized HTML-table paste and TSV fallback for Excel. Preserve cell text and shape, not styling/formulas. Define header policy and handling of merged cells, embedded line breaks, pipes, ragged input, and oversized clipboard content. Report explicit flattening/rejection instead of silently losing cells. General sanitized rich-text paste is separate from table parsing.
-
-Acceptance: representative Excel clipboard fixtures and actual clipboard browser workflows produce readable portable tables; deleting the final row/column and undoing remain stable.
+Acceptance: table commands, keyboard/touch navigation, and mode round trips pass browser tests; deleting the final row/column and undoing remain stable.
 
 ### W6. Links, Images, and Repository Providers
 
@@ -544,6 +558,22 @@ Acceptance: publish a rendering-only proof build and measure editor versus viewe
 
 Run the shared semantic/security corpus through editor Preview and viewer, checking meaningful rendering rather than identical DOM. Browser/distribution tests cover viewer-only startup without editor assets, packaged/offline/subdirectory paths, themes, desktop/mobile overflow, safe links/images, rapid replacements/stale rendering, destruction, multiple viewers, and editor coexistence. Add a standalone viewer example to Chapter 11 and document the small API, render-only extension boundaries, and measured artifact sizes. W11/W12 own actual display-widget binding, rerender, disposal, fallback, and rollout tests.
 
+### W17. Rich Paste from HTML, Word, and Excel
+
+Owner: Markian. Depend on W3's dialect, allowed-HTML and unsupported-content policies, W5's table model, W6's image insertion and callbacks, and W9's HTML/URL policy and limits. This package is sequenced last. Until it is delivered, paste uses Markian-internal copy/paste and the `text/plain` clipboard flavor only; external HTML is not interpreted. Toast UI already pastes simple Excel tables: a consumer that needs this parity before W17 either waits or records a temporary, accepted difference under W0's compatibility policy before migrating.
+
+Build one paste pipeline for the visual view. Select the clipboard flavor deliberately (Markian-internal content, then HTML, then spreadsheet TSV, then plain text), sanitize with the shared W9 policy before conversion, and map the result onto the editor's supported schema. A generic HTML-to-Markdown converter such as Turndown may assist paste only; it never processes existing documents. Each paste is one undoable step and emits one `change`. Provide an explicit paste-as-plain-text action and shortcut. In visual mode, plain text is parsed as Markdown and pasted as formatted content, as in the prototype; paste as plain text inserts it literally. Raw, code, and Mermaid sessions always insert plain text. Disabled/read-only editors block paste as specified in W1.
+
+Web HTML: map headings, paragraphs, emphasis, strikethrough, inline code, preformatted code, nested and task lists, quotes, rules, line breaks, links, and tables. Drop styles, classes, scripts, event handlers, embedded frames, and forms; unsupported elements degrade to their text content. Keep only safe link schemes and define handling of relative links copied from another page. Map allowed-HTML elements such as `<kbd>` only when the active preset permits them.
+
+Word and Outlook: recognize Office HTML, including list paragraphs with nesting levels, heading styles, conditional comments, Office namespaces, and empty spacer paragraphs. Convert them to ordinary lists, headings, and paragraphs without `mso-` or style debris. Define policies for non-breaking spaces, smart quotes, soft hyphens, and Word footnotes/comments. Route pasted images through W6's insertion path (bounded data URIs by default, or the host's `onImageInsert` callback) and respect image permissions. Report local `file:` or other unresolvable image references instead of saving them as links.
+
+Excel and spreadsheets: parse sanitized HTML tables with a TSV fallback. Use displayed cell text, not formulas or styling. Define the header-row policy and handling of merged cells, embedded line breaks, pipes, empty and ragged rows, and oversized ranges. GFM cells cannot contain block content: flatten it visibly or reject it with an explanation, never silently drop cells. Define pasting into an existing table, such as filling cells from the cursor or inserting a separate table, rather than nesting tables.
+
+Bound clipboard size, node count, nesting depth, table dimensions, and conversion time. Over-limit content is rejected with a message or offered as plain text; it must not freeze the editor. Mention rules apply to pasted text as ordinary decorated text.
+
+Acceptance: an anonymized fixture corpus of captured clipboard payloads (HTML, plain text, and image items) from Word desktop and online, Outlook, Google Docs, typical web pages, Excel desktop and online, Google Sheets, and LibreOffice, captured in the agreed browsers. Converted Markdown matches the expected output, renders on GitHub and GitLab, and contains no style or Office debris, scripts, `file:` images, or HTML outside the active preset. The malicious-HTML corpus, single-step undo, Markdown parsing of pasted plain text, literal paste as plain text, read-only blocking, image callback success and failure, limits, and paste into existing tables pass. Real clipboard browser workflows cover representative Word and Excel pastes, not only synthetic events.
+
 ## 6. Existing Toast UI Features and Newly Identified Gaps
 
 The following are features/behaviors found in the current integrations that were missing, insufficiently explicit, or intentionally different in the previous prototype/approach. They are now assigned in this plan. This is the migration parity checklist, not a list of features already implemented in Markian.
@@ -573,7 +603,7 @@ The following are features/behaviors found in the current integrations that were
 | HTML-tag stencils with captions/icons/hints/styles | Trait supports `HtmlTagStencil` insertion and custom inline rendering. | Keeping `<kbd>` as inert text is not feature parity. | Safe explicit HTML mapping and configuration translation, not direct selection DOM surgery: W3/W8/M3. |
 | Fullscreen behavior integrated with host overlays | Shared/UI5 code changes size, parents, preview style, and z-index. | Built-in maximize needs an optional host replacement rather than hard-coded framework behavior. | Configure `onFullscreenEnter` with paired restoration for host overlays/iframe bridges; test state/focus restoration, failures, disposal, and multiple instances: W4/M3. |
 | Host preview styles, theme, asset URLs/cache busting | Codiware supports preview CSS/class configuration; facades inject assets; IDE overrides URLs. | Global demo styles and hard-coded Core paths cannot replace this contract. | Scoped themes, supported render-root classes, deduplicated configurable assets, cache/version policy: W1-W2/M2-M4. |
-| Table editing beyond insertion | Toast UI is exposed with table editing; the prototype only adds rows/columns. | Delete/alignment/menu and Excel workflows are incomplete. | Verify actual required controls on migration fixtures, implement/test GFM-compatible operations and clipboard: W5. |
+| Table editing beyond insertion | Toast UI is exposed with table editing; the prototype only adds rows/columns. | Delete/alignment/menu and Excel workflows are incomplete. | Verify actual required controls on migration fixtures and implement/test GFM-compatible operations: W5. Excel and HTML table paste: W17. |
 | Locale and command labels | Shared trait explicitly selects English; hosts provide translated messages. | The library needs configurable labels even if initial default remains English. | Locale dictionaries, safe host overrides, translated provider errors: W9/M2-M4. |
 | Teardown and hidden-tab sizing | Codiware disconnects observers/destroys; UI5 registers resize callbacks. | No reusable disposal/resize contract exists in the prototype. | Cancel all owned resources and remeasure without reloading Markdown: W1/M2-M4. |
 
@@ -702,11 +732,13 @@ Retiring the bundled integrations does not automatically authorize removing Core
 | Invisible metadata and independently readable generated bodies | W3/W15 | Exact comment payload checks, unknown-provider/malformed-pair fixtures, independent rendering without extensions. |
 | Word-friendly visual editing and Markdown-pro typing | W4 | Caret/selection/shortcuts, inline-code exit, lists, fences, IME and ordinary-user review. |
 | MDI, themes, GitHub-like output, programmatic theme switching | W1/W4/W9 | Scoped CSS, two themes in one page, host stylesheet coexistence, icon/contrast review. |
+| Search and replace in visual, raw, and block views; read-only search | W4/W9 | View-scoped matching, single-step undo, protected-content skipping, bounded patterns, focus-bound shortcuts, disabled replace in read-only editors. |
 | Configurable pinned/floating/mobile/custom toolbars | W4 | Separate layouts, floating-only preset, dropdowns, overflow and keyboard/touch tests. |
 | Formatting, headings, lists/tasks, code, quotes, links/images, colors | W3-W4/W6/W14 | Command/history parity; explicit color portability and image-policy tests. |
 | Raw mode, separate view toolbars/sidebars, history/events | W1/W3-W4/W7/W13-W14 | Active-value/draft events, no-op mode transitions, failed imports, conflict tests. |
 | Small embedded editors, maximize/restore, mobile support | W1/W4/W9 | Compact host, default/custom fullscreen callback lifecycle, overlay/iframe tests, keyboard/viewport restoration, real devices. |
-| Tables, add/remove rows/columns, Excel paste | W5 | Table command/navigation suite and HTML/TSV clipboard fixtures. |
+| Tables, add/remove rows/columns | W5 | Table command/navigation suite and mode round trips. |
+| Rich paste from web HTML, Word/Outlook, and Excel tables | W17/W6/W9 | Captured clipboard fixture corpus, Office list/heading mapping, HTML/TSV table conversion, image routing, paste as plain text, limits, and malicious-HTML fixtures. |
 | Pasted images and image-URL autocomplete | W6/M2 | Standalone bounded raster data URIs; Codiware paste-to-file callback with regular Markdown URLs and no pasted binary, pending/failure tests, alt text, and repository suggestions. |
 | Relative/absolute links, heading targets, URL validation | W3/W6 | Slugs/base preservation, inspector cancellation, Ctrl/Cmd/mobile opening, safe schemes. |
 | Mermaid render/edit/pan/zoom; configurable renderer | W13 | Host-injected renderer, no global scans, SVG policy, Back commit, touch controls. |
@@ -757,6 +789,7 @@ Recommended dependency order:
 4. W9 hardening runs throughout, with its final gate before stable release.
 5. After W10's Codiware integration, deliver W16's separate lightweight viewer using the rendering boundary established in W1-W3. Codiware integration must not wait for the viewer. Complete its size/dependency/security gates before display-widget adoption.
 6. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Their display-widget adapters use W16; disabled inputs remain editors. Deliver W15 in Core once its public API foundations are available, then enable it in the selected M4 hosts. Work-package numbering does not impose a dependency between the facades or optional extensions. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
+7. Deliver W17 rich paste last. Consumers that need Toast UI's Excel table paste before then follow the parity decision recorded under W0.
 
 Confirm these before finalizing v1 estimates:
 
@@ -794,7 +827,8 @@ Include standalone examples in tagged checkouts and published npm/Composer archi
 | Templates and allowed HTML | Fixed insertion, `{{selection}}` wrappers, `<kbd>` stencils, and the explicit HTML allowlist. | W3/W8 |
 | Mentions and hash-tags | Multiple prefixes with local suggestions and separate click/hover/focus handlers; no backend request needed. | W8 |
 | Links and images | Relative destinations, heading suggestions/inspection, local callback results, bounded image insertion, and recoverable callback failure. | W6 |
-| Tables and clipboard | Row/column controls, alignment, undo, and sanitized HTML/TSV paste using sample spreadsheet content. | W5 |
+| Tables | Row/column controls, alignment, keyboard navigation, and undo. | W5 |
+| Rich paste | Paste sample web, Word, and spreadsheet clipboard content, paste as plain text, and see rejected unsafe content. | W17 |
 | Views, drafts, and navigation | Visual/raw switching, outlines, a small host-created view through the public API, and Help/Back without losing pending work. | W7 |
 | Mermaid extension | Explicit factory registration, renderer supply/loading, insert/edit, preview, pan/zoom, and source-preserving errors. | W13 |
 | Code extension | Explicit opt-in, selected local language assets, expanded editing, language/Tab settings, and ordinary-code fallback. | W14 |
