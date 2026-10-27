@@ -1,8 +1,14 @@
 {
   "name": "axenox/markian",
-  "description": "Prebuilt framework-independent Markdown editor",
+  "description": "framework-independent JavaScript Markdown editor",
   "type": "library",
   "license": "MIT",
+  "keywords": ["markdown", "editor", "wysiwyg"],
+  "homepage": "https://github.com/axenox/markian",
+  "support": {
+    "issues": "https://github.com/axenox/markian/issues",
+    "source": "https://github.com/axenox/markian"
+  },
   "archive": {
     "exclude": ["/node_modules", "/Prototype", "/.prototype-tests", "/.test-results", "/src", "/Tests", "/Scripts", "/.github", "/.githooks"]
   }

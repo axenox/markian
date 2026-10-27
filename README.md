@@ -16,6 +16,19 @@ Open <http://127.0.0.1:5177/> for the [editor workspace](Examples/editor-workspa
 
 Consumers need only a static HTTP server and the prebuilt assets. No npm, Node.js, compiler, import map, remote fonts, or sibling Core package is required at runtime.
 
+## Composer Installation
+
+Install directly from Git by adding the repository to your application's Composer configuration:
+
+```powershell
+composer config repositories.markian vcs https://github.com/axenox/markian.git
+composer require axenox/markian:@dev
+```
+
+The `@dev` flag permits the current development version without changing your application's global stability setting. Once a stable release is published on Packagist, the repository configuration and development flag are unnecessary.
+
+The package installs to `vendor/axenox/markian`. Serve or copy its prebuilt `dist` assets through your application's static asset routing, then use the script-tag API below. No Composer plugins, install scripts, PHP autoloading, or consumer build step are needed. Optional Mermaid rendering still requires a host-supplied renderer as described below.
+
 ## Script-Tag API
 
 ```html
