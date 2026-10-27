@@ -8,6 +8,103 @@ This is the living reference for look-and-feel, shared UI patterns, and interact
 
 The current implementation is in [style.css](../src/style.css) and the [prototype](../README.md). Rules for the extracted library below are design requirements, not claims that scoped themes, configurable toolbars, or every accessibility state already exist.
 
+### Global layout
+
+The editor consists of 
+- toolbar
+- main work area
+- status bar
+
+### Toolbar
+
+The toolbar is positioned on the top on larger screens and moves to the bottom on smartphones (to be better accessible for fingers). 
+
+Toolbar buttons depend on the view. The mermaid toolbar shows different buttons than the markdown-toolbar. Howerrver, the toolbar always has the same structure (from left to right):
+
+- back button - swith to previous view (not shown in regular markdown view)
+- undo/redo
+- one or more view-specific groups
+- overflow-button - only visible of the width was not enough to show all buttons
+- search button - shows a small input with search&replace controls in the main workarea
+- full-screen button
+
+Toolbar items are buttons. They can either execute a command or show a dropdown with more buttons. 
+
+Toolbar items have a toggled-state. E.g. the `bold` item should appear toggled when the cursor is placed on a bold word. 
+
+Toolbar items can be arranged in groups for better visualization. 
+
+When the screen is to narrow to house all items, the toolbar must overflow into a `...`  dropdown. 
+### Status bar
+
+The status bar is small. Its contents depends on the current view. It is hidden on smartphones to save some space. It must not contain critical information. 
+
+Typical contents:
+- current view name
+- character count 
+- max length if set
+
+### Main work area
+
+Contents depends on the view:
+
+- WYSIWYG: editable markdown render + sidebar
+- Raw: editable code editor + sidebar
+- Mermaid: split editor with code and preview
+
+## Views
+
+**A view is the visible content of the main work area together with its appropriate toolbar, not a separate Markdown value.** Views are task-specific and use the same shell whether supplied by Markian, an extension, or a host application.
+
+The editor retains the complete Markdown document. Editing sessions can modify the whole document or one target, such as a Mermaid/code block; Help modifies nothing. Switching presentation does not implicitly commit or discard a session. Opening Help from Mermaid preserves the draft, local undo history, and selection, and Back restores that task. The editor's `get()` still returns the complete document including the unfinished draft, never the displayed help text or just the code block.
+
+Avoid large dialogs for substantial tasks. Instead, replace the main work area and align the toolbar with that view, keeping the editor shell in place. Small transient menus and simple prompts may remain popups. View navigation alone is not a content edit and must not reset history or mark a document dirty.
+
+Views expose only applicable actions: Mermaid uses session-local undo and diagram controls, while Help offers navigation but no document editing undo or replace. Keep shared Back, overflow, search, and fullscreen placement consistent; disable or omit unsupported actions rather than applying them to a hidden session. Back from Help restores the previous task; Back from Mermaid itself applies its block draft as specified by the editing-session contract.
+
+By default Markian includes the following built-in views:
+
+- Markdown view (rendered, editable)
+- Source view (raw markdown) - toggle by a button at the end of the main toolbar
+- Preview view (rendered, not editable) - used for the editor's disabled/read-only presentation. Retain search, selection, safe navigation, and a Copy Markdown action; do not make the entire toolbar inert. This is a view within the editor, not a standalone lightweight viewer.
+- Help view (rendered, not editable) - very short manual for the editor. It shall have a chapter describing hotkeys and a separate chapter for each extension. Extensions shall contribute help as markdown via `getHelp()` and `getHelpForHotkeys()`
+
+Other views can be added through the ordinary public instance API, equally by extensions and host applications. They follow the same presentation/session boundary and toolbar conventions.
+
+### Disabled / Read-Only Editor
+
+Markian is an editor, including when editing is disabled. Power UI's separate display-only widgets are host-owned and do not require a separate Markian viewer API. For Markian, disabled/read-only means document mutation is blocked, not that focus, selection, or the whole toolbar is disabled.
+
+Keep search (without replace), text selection, copying text or the complete current Markdown, safe link/outline navigation, Help, fullscreen, and diagram pan/zoom available. Disable or omit typing, paste/drop, insertion/formatting, undo/redo, replace, task-checkbox changes, uploads, and regeneration. Source/code views, if accessible, must be noneditable too. Apply the same rules to keyboard shortcuts, extension commands, and asynchronous results, not just visible buttons.
+
+Entering or leaving this state must retain the current document, drafts, selection/history, and pending-workspace policy without implicitly committing edits or marking the document dirty. Do not copy Help content or only a block draft when Copy Markdown is used; copy the editor's complete current value. The host can still supply an intentional new value through its normal value-setting API.
+
+## Controls and Shared Patterns
+
+| Pattern | Presentation and behavior |
+| --- | --- |
+| Command button | Use selected MDI icons, accessible names, and tooltips. The prototype uses 20px icons. Use text for explicit actions such as Back, not labels in place of familiar formatting icons. |
+| Pinned toolbar | Group document commands predictably. Route every action to the active view and reflect its availability. |
+| Selection toolbar | Stay near the selection without obscuring it; share command identities and state styling with the pinned toolbar. Preserve selection when interacting. |
+| Option set | Use a menu for headings, lists, templates, or language choices; use recognizable selection state. |
+| Mode choice | Clearly identify visual/raw or workspace mode. Switching mode must not resemble saving, discarding, or creating a new document. |
+| Binary/numeric setting | Use a checkbox/toggle for binary settings and an appropriate input/stepper/slider for numeric values. |
+| Dialog | Use shared field, label, error, action, and focus patterns for links, images, and similar tasks. Escape closes transient UI and focus returns to its origin. |
+| Suggestion list | Use consistent loading, empty, error, and selected states with keyboard and pointer navigation. Never fabricate a successful result while work is pending. |
+| Details/hover content | Provide the same information through keyboard focus and an explicit touch-accessible action, not hover alone. |
+
+New patterns must be documented here and implemented through shared classes/components before being repeated elsewhere. Keep normal, hover, focus-visible, active, disabled, loading, and error states distinguishable. Individual disabled controls must not appear actionable, but the editor's disabled/read-only state must leave permitted nonmutating controls usable.
+
+## Content and Specialized Views
+
+- Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
+- Task checkboxes look and behave like checkboxes. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
+- Hidden comments and extension delimiters remain invisible in the normal document view. Do not render metadata as badges or private syntax without a specific approved interaction.
+- Raw mode uses CodeMirror, source-local selection/history, and its own outline. Keep the toolbar and surrounding frame consistent with visual mode rather than introducing a separate application aesthetic.
+- Mermaid uses a dedicated code/preview workspace. On desktop show both panes; on narrow layouts stack them without overlap. Keep Back as the default return/apply action; do not add redundant Apply/Cancel controls.
+- Diagram previews must expose useful loading and syntax-error states without replacing editable source. Pan/zoom/reset controls affect only presentation.
+- Images retain alternative text and show bounded pending/error presentation. Temporary upload state must not look like confirmed persisted content.
+
 ## Visual Language
 
 - Keep the document visually dominant. Use restrained borders and tonal surfaces to separate toolbar, writing area, outline, and specialized workspaces.
@@ -40,7 +137,7 @@ Scope extracted-library selectors and theme variables to its root. Reuse the sam
 The prototype uses Public Sans for ordinary UI/body text, Space Grotesk for display/brand headings, and IBM Plex Mono for code. These establish the baseline character; they are not mandatory remote font dependencies. Library typography must support host overrides and usable local fallbacks.
 
 - Separate document hierarchy from tool hierarchy. Toolbar labels, outline headings, dialogs, and status text stay compact; demo branding does not set tool heading sizes.
-- Use consistent document spacing for headings, paragraphs, lists, quotes, code, and tables in editor and viewer output.
+- Use consistent document spacing for headings, paragraphs, lists, quotes, code, and tables in editable and disabled/read-only editor output.
 - Keep code monospaced, preserve meaningful whitespace, and provide scrolling for long lines where appropriate.
 - Do not use viewport-scaled type or negative letter spacing. Allow labels to wrap or constrain their layout without overlapping neighbors.
 
@@ -53,32 +150,6 @@ The desktop prototype uses a document area with a 212px outline, reduced to 180p
 - Give toolbars, icons, pane tracks, and status areas stable dimensions so hover, selection, and loading do not shift the layout.
 - Overflow tools through a deliberate horizontal strip or menu. Do not let controls overlap content or become unreachable on narrow screens.
 - Fullscreen remains the same editing experience with more space. Restore the prior host layout, focus, and scrolling on exit.
-
-## Controls and Shared Patterns
-
-| Pattern | Presentation and behavior |
-| --- | --- |
-| Command button | Use selected MDI icons, accessible names, and tooltips. The prototype uses 20px icons. Use text for explicit actions such as Back, not labels in place of familiar formatting icons. |
-| Pinned toolbar | Group document commands predictably. Route every action to the active view and reflect its availability. |
-| Selection toolbar | Stay near the selection without obscuring it; share command identities and state styling with the pinned toolbar. Preserve selection when interacting. |
-| Option set | Use a menu for headings, lists, templates, or language choices; use recognizable selection state. |
-| Mode choice | Clearly identify visual/raw or workspace mode. Switching mode must not resemble saving, discarding, or creating a new document. |
-| Binary/numeric setting | Use a checkbox/toggle for binary settings and an appropriate input/stepper/slider for numeric values. |
-| Dialog | Use shared field, label, error, action, and focus patterns for links, images, and similar tasks. Escape closes transient UI and focus returns to its origin. |
-| Suggestion list | Use consistent loading, empty, error, and selected states with keyboard and pointer navigation. Never fabricate a successful result while work is pending. |
-| Details/hover content | Provide the same information through keyboard focus and an explicit touch-accessible action, not hover alone. |
-
-New patterns must be documented here and implemented through shared classes/components before being repeated elsewhere. Keep normal, hover, focus-visible, active, disabled, loading, and error states distinguishable. Disabled controls must not appear actionable; read-only presentation is a separate state.
-
-## Content and Specialized Views
-
-- Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
-- Task checkboxes look and behave like checkboxes. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
-- Hidden comments and extension delimiters remain invisible in the normal document view. Do not render metadata as badges or private syntax without a specific approved interaction.
-- Raw mode uses CodeMirror, source-local selection/history, and its own outline. Keep the toolbar and surrounding frame consistent with visual mode rather than introducing a separate application aesthetic.
-- Mermaid uses a dedicated code/preview workspace. On desktop show both panes; on narrow layouts stack them without overlap. Keep Back as the default return/apply action; do not add redundant Apply/Cancel controls.
-- Diagram previews must expose useful loading and syntax-error states without replacing editable source. Pan/zoom/reset controls affect only presentation.
-- Images retain alternative text and show bounded pending/error presentation. Temporary upload state must not look like confirmed persisted content.
 
 ## Accessibility and Motion
 

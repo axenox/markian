@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Build Markian as a framework-independent, **Markdown-oriented visual editor, evaluating Milkdown/Crepe first**, with a shared Markdown import/export and rendering policy. Deliver it as one browser-ready JavaScript file and one stylesheet. Reuse established libraries for editing, Markdown parsing, sanitization, and Mermaid rendering; build the product-specific extensions ourselves.
+Build Markian as a framework-independent, **Markdown-oriented visual editor, evaluating Milkdown/Crepe first**, with a shared Markdown import/export and rendering policy. Deliver a prebuilt browser-ready core plus optional extension/dependency assets, without a consumer build step. Reuse established libraries for editing, Markdown parsing, sanitization, and Mermaid rendering; build the product-specific extensions ourselves. The later extension-based modularity decision replaces the original single-file delivery requirement.
 
 Keep the requested Obsidian-like interaction as the UX target, with an always-discoverable toolbar and Markdown typing shortcuts. Milkdown does not provide source-decoration editing by default: the prototype must establish whether its visual editing satisfies that target. Raw Markdown mode should import/export the same supported content model, not introduce another persistence format.
 
@@ -64,14 +64,14 @@ Use five responsibilities with clear boundaries:
 | Editor model and transactions | Structured document, selections, formatting commands, undo/redo, and change events. |
 | Markdown import/export | Supported dialect, portable serialization, custom-node mappings, comment preservation, and unsupported-input handling. |
 | Editing presentation | Milkdown/ProseMirror views, table controls, toolbar, menus, dialogs, and contextual controls. |
-| Shared rendering | Render display-only content and visual blocks using the same dialect, link policy, extensions, themes, and sanitization rules. |
+| Editor rendering | Render visual blocks and disabled/read-only editor presentation using the same dialect, link policy, extensions, themes, and sanitization rules. |
 | Host adapters | Translate framework lifecycle, existing widget configuration, AJAX providers, and document URLs into Markian's public API. |
 
 All user changes, including checkbox and table-cell edits, become editor-model transactions. Serialize that model through the defined Markdown exporter, including explicit comment/placeholder mappings. Rendered HTML is disposable output, never the persistence format; do not generate Markdown by scraping the editor DOM.
 
 Milkdown's ProseMirror model drives visual editing, with remark-based Markdown conversion. Share dialect and extension definitions with display rendering where practical, and test a common conformance corpus. CodeMirror owns raw Markdown while source mode is active, and specialized code buffers in their workspaces. Only the active mode is authoritative; transfer at explicit mode boundaries rather than continuously reparsing raw typing into the rich-text model. Comments must be captured during Markdown import, before conversion to sanitized display HTML could remove them.
 
-For display-only `Markdown` widgets, reuse the rendering component without creating an editor instance. Editor and display need matching output semantics, not identical DOM implementations. Existing server-rendered documentation must also be checked against the same compatibility fixtures.
+Markian is an editor, not a separate lightweight viewer library. Disabled/read-only mode retains search, selection, copying complete Markdown, and other nonmutating interactions while blocking all document-changing actions. Power UI owns separate display-only `Markdown` widgets and their rendering implementation. Compare those widgets and existing server-rendered documentation against editor compatibility fixtures without requiring a Markian viewer API or identical DOM implementations.
 
 ## Suggested Libraries
 
@@ -90,14 +90,14 @@ For display-only `Markdown` widgets, reuse the rendering component without creat
 
 For supported embedded HTML such as `<kbd>`, define explicit editor schema and Markdown mappings. In display rendering, `rehype-raw` can parse raw HTML into the HTML tree before sanitization. Never mark arbitrary raw HTML as trusted. Preserve placeholder comments as explicit node data and serialize them back to comments, not visible text or editor-only wrappers. Sanitizers may omit comments from disposable rendered HTML; they must not define the stored Markdown representation.
 
-Reuse CodeMirror's language parsers for editable code blocks. For display highlighting, evaluate its Lezer highlighting utilities before adding another highlighter. Restrict bundled languages to the agreed baseline; any optional language loading must respect the single-file distribution contract.
+Reuse CodeMirror's language parsers for editable code blocks. For display highlighting, evaluate its Lezer highlighting utilities before adding another highlighter. Deliver programming-language support through the optional code extension and declared prebuilt language assets; do not make those dependencies mandatory for ordinary comment editing or basic raw Markdown. Explicit optional loading follows the modular distribution contract.
 
 ### Supporting and Alternative Libraries
 
 - **Markdown renderer alternative: [markdown-it](https://github.com/markdown-it/markdown-it), MIT.** Simpler rendering API, established plugin model, and table support. Task lists and other dialect features require selected plugins. It can serve display rendering, but does not replace the chosen editor's import/export mappings. Prefer sharing Milkdown's remark ecosystem initially to limit dialect drift.
 - **HTML-paste conversion: [Turndown](https://github.com/mixmark-io/turndown), MIT, optionally with its GFM plugin.** Useful for general rich-text paste after sanitization. It is not a round-trip serializer and should never process existing documents on save. Excel table import should use structured clipboard table data and a defined conversion policy, not depend solely on generic HTML conversion.
 - **Diagram pan/zoom: evaluate [svg-pan-zoom](https://github.com/bumbu/svg-pan-zoom), BSD-2-Clause.** It can supply a ready SVG navigation layer. Check current maintenance and touch behavior before adoption. Begin with explicit zoom/reset controls and scrolling if that meets usability needs; do not introduce a dependency solely for decorative gestures.
-- **Build tooling: Rollup, with TypeScript if desired.** Bundle modules into a classic-script IIFE exposing `window.Markian`. A modular development codebase is compatible with a vanilla JavaScript runtime API. Rollup is MIT; TypeScript is Apache-2.0.
+- **Build tooling: Rollup, with TypeScript if desired.** Produce a classic-script core exposing `window.Markian` and separately loadable prebuilt extension/dependency assets. A modular distribution is compatible with a vanilla JavaScript runtime API and requires no consumer bundler. Rollup is MIT; TypeScript is Apache-2.0.
 - **Testing: Vitest and Playwright.** Use unit tests for source transformations and browser tests for selections, clipboard interactions, focus, and visual states. Their licenses are MIT and Apache-2.0 respectively. Real-device checks remain necessary for mobile keyboards and IME input.
 
 Do not introduce a general UI framework, a full spreadsheet grid, or another code-editing library beyond CodeMirror initially. None is required by the requested integration contract.
@@ -123,7 +123,7 @@ Create one command registry used by the pinned toolbar, selection toolbar, conte
 
 Formatting commands should understand their context: use selected text when present, the current word for inline formatting when appropriate, and the current block for headings, lists, or quotes. At an empty insertion point, allow continued typing in a selected format. Define and test the ambiguous word-boundary cases rather than relying on incidental browser selection behavior.
 
-Render task checkboxes as controls that update task nodes and serialize as `[ ]` or `[x]`. Provide an explicit permission for interactive task toggling in display widgets; otherwise display mode is read-only. Test leaving inline code at the end of a line using arrows, touch, and subsequent typing, without inserting invisible characters into saved Markdown.
+Render task checkboxes as controls that update task nodes and serialize as `[ ]` or `[x]`. Block task toggling when the editor is disabled/read-only; host display widgets own any separate interaction policy. Test leaving inline code at the end of a line using arrows, touch, and subsequent typing, without inserting invisible characters into saved Markdown.
 
 ### Tables and Clipboard
 
@@ -165,15 +165,15 @@ Emit a change event for every committed document-changing transaction, including
 
 Keep settings JSON-serializable: toolbar arrays, feature flags, colors, templates, mention rules, endpoint descriptions, and named provider/command IDs. Register actual callback functions separately in trusted JavaScript. Never evaluate JavaScript embedded in JSON. Validate configurations and report unknown extension IDs clearly.
 
-Keep the core independent of Power UI, jQuery, OpenUI5, and Codiware. Integration adapters own framework-specific lifecycle and configuration translation. Codiware supplies repository file providers; the IDE app adds Power UI documentation placeholders and custom links. Inventory current `InputMarkdown` mentions, stencils, and event semantics before migration, then add contract tests and translation adapters rather than assuming similarly named features are compatible.
+Keep Markian's core independent of Power UI, jQuery, OpenUI5, and Codiware. Integration adapters own framework-specific lifecycle and configuration translation. Codiware supplies repository file providers; ExFace/Power UI Core supplies the optional prebuilt `docsPlaceholders` extension and DocsFacade grammar. The IDE app configures that extension and adds IDE-specific links/callbacks, without duplicating the grammar. The host loads/registers the external factory and opts in per editor; Markian neither packages it nor requires Core, and no consumer build is needed. Inventory current `InputMarkdown` mentions, stencils, and event semantics before migration, then add contract tests and translation adapters rather than assuming similarly named features are compatible.
 
 Use the same approach for display widgets and jQuery comments. Pilot integrations one at a time, retaining a host-level switch back to Toast UI during rollout. Syntax may normalize during migration, but do not introduce a new proprietary storage format or change existing placeholder conventions.
 
 ## Packaging and Visual Design
 
-Develop in modules, but publish prebuilt classic-script JavaScript and CSS in the distributed package. Consumers, including Composer installations, must not need npm, a bundler, or compilation. Bundle the baseline editing/parser/sanitizer code and selected icons without runtime module imports or hidden chunk requests. An optional ESM distribution can be added alongside, not instead of, this artifact.
+Publish a prebuilt core and optional extension JavaScript/CSS in the distributed package. Consumers, including Composer installations, must not need npm, a bundler, or compilation. Core provides ordinary Markdown editing, basic raw editing, parsing/sanitization, and core controls. Mermaid, programming-language highlighting, language packs, and expanded-code features are optional. An ESM distribution can be added alongside, not instead of, ordinary script/link-tag delivery.
 
-Interpret the single-file requirement as one Markian script plus CSS, with Mermaid as the explicitly configurable external dependency already contemplated in the requirements. If absolutely every feature must work from one script offline, publish a full bundle including Mermaid and the chosen languages; expect a larger download. Do not silently introduce lazy-loaded features into the single-file baseline. Pin dependencies, retain license notices, and establish an update policy for security-sensitive libraries.
+The modular decision supersedes the earlier single-file promise. Hosts explicitly load/register extension factories and enable them per instance. Enabled extensions may load declared prebuilt dependencies through documented local/configurable URLs; absent/disabled extensions must not trigger those downloads, including when corresponding fences exist. Reuse host-supplied dependencies, deduplicate compatible loads, retain instance-local state, and preserve plain-code fallback. No hidden chunk discovery or implicit CDN requests. Offline installations serve/preload the selected files locally. Pin dependencies, retain notices, and verify all core/optional artifacts in deterministic builds and packages.
 
 Use scoped Markian CSS classes and theme variables for both editor and display rendering. Match GitHub-like document typography while keeping the editor frame and toolbar visually clear. Provide programmatic light/dark switching and selected MDI icons. Avoid global resets that affect host frameworks.
 

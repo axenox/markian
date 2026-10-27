@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Decisions
 
-Turn the approved look-and-feel prototype into a reusable, framework-independent Markdown editor and viewer, implementing the [requirements](Requirements.md) using the architecture in [Approach.md](Approach.md). Then replace Toast UI Editor in Power UI and Codiware without changing Markdown into a proprietary storage format or requiring front-end builds on consumer installations.
+Turn the approved look-and-feel prototype into a reusable, framework-independent Markdown editor, implementing the [requirements](Requirements.md) using the architecture in [Approach.md](Approach.md). Then replace Toast UI Editor in Power UI and Codiware without changing Markdown into a proprietary storage format or requiring front-end builds on consumer installations. Markian has no separate lightweight viewer API; Power UI owns separate display-only widgets.
 
 This is an implementation plan, not a statement that the described library, packages, hooks, or adapters already exist. The inventory below was checked against the workspace on 2026-10-26. No consumer code or package configuration is changed by this document.
 
@@ -12,9 +12,10 @@ Decisions for implementation:
 - Keep CodeMirror for raw Markdown, expanded code editing, and Mermaid editing. Each view owns its toolbar, sidebar, selection, and scrolling behavior.
 - Start all migrated integrations in the regular WYSIWYG-like visual mode, including Power UI and Codiware. Keep an optional raw-start setting in the standalone library, but do not use it in the current integrations; users can still switch to raw mode after opening.
 - Persist ordinary Markdown with documented normalization, not editor JSON or rendered HTML. Preserve meaningful whitespace, invisible extension comments, and readable generated bodies.
-- Supply both editor and display-only rendering. A read-only widget must not need an editable document instance just to display Markdown.
+- Keep Markian an editor, including in disabled/read-only mode. Prevent document changes while retaining search, selection, Markdown copying, safe navigation, and other nonmutating controls. Separate display-only widgets belong to Power UI/host applications, not a Markian viewer product.
 - Implement no AJAX/data-request transport in Markian. Accept callbacks in configuration; the host callback may use AJAX, local data, generated results, or any other source.
 - Publish a prebuilt classic-script JavaScript file plus CSS in the GitHub repository and release tags. Consumer use must not require Node.js, npm, Vite, import maps, or a build step.
+- Replace the earlier all-features/single-bundle approach with a core plus optional prebuilt extensions/dependencies. Comment editors must not load Mermaid or programming-language highlighting. Keep factory registration explicit and allow declared dependency loading only for enabled extensions, with host-controlled asset URLs and multi-instance deduplication.
 - Publish the direct Composer package as `axenox/markian` and the npm package as `markian`. Also publish npm metadata/artifacts so Asset Packagist can expose the browser package as `npm-asset/markian`.
 - Run `npm run build` before every normal developer commit and verify committed artifacts in mandatory CI. Local Git hooks are a convenience/enforcement layer, not an unbypassable security boundary.
 - Keep the current Mermaid interaction: a dedicated code/preview view with a Back button that applies changes. Do not add Apply/Cancel controls by default merely because the earlier approach suggested them.
@@ -73,24 +74,25 @@ Default editor startup to visual mode. Provide an optional `initialMode: 'raw'` 
 | API | Required behavior |
 | --- | --- |
 | `Markian.create(element, options)` | Return an independently owned editor handle with a `ready` promise; take initial Markdown explicitly. Support textarea and div hosts. |
-| `Markian.createViewer(element, options)` | Return a lightweight viewer handle; reuse dialect, URL policy, theme, extensions, and heading rules without mounting an editing engine. |
 | `get()` | Return current Markdown synchronously after initialization, including active raw or specialized-view drafts; never require DOM scraping or hidden mode switches. |
 | `set(markdown, options)` | Validate/import before replacing content. Specify origin, history reset, and pending-workspace policy; failures retain the old value. Identical host echoes must not disturb selection or history. |
 | `execute(commandId, payload)` | Run a registered command in the active view or report that it is unsupported there. Do not silently apply commands to a hidden editor. |
 | `setMode(mode)` | Transfer between visual/raw views at defined boundaries; preserve pending source on validation failure. Support a host-forced mode where required. |
 | `setTheme(theme)` | Change light/dark presentation without content events or history changes; do not modify unrelated host instances. |
-| `setReadOnly(value)` / `setDisabled(value)` | Make permission semantics explicit, including controls, keyboard commands, source edits, drops, tasks, and provider actions. Disabled and read-only are not identical. |
+| `setReadOnly(value)` / `setDisabled(value)` | Both prevent user document changes, not all interaction. Retain search without replace, selection, copying complete Markdown, safe navigation, Help, fullscreen, and diagram pan/zoom. Block editing commands, undo/redo, replace, source/draft edits, paste/drop, task toggles, uploads, and regeneration, including asynchronous results. Preserve drafts/history through state changes; trusted host `set()` remains available under its explicit replacement policy. Do not infer native HTML disabled/form-submission semantics. |
 | `on(event, callback)` / returned unsubscribe | Support change, ready, mode, focus/blur, error, tag-click, and host save-request integration. Event payloads identify instance, origin, revision, and active view. |
 | `focus()` / `resize()` | Focus the active view and remeasure after hidden tabs or host layout changes, without resetting the value. |
 | `destroy()` | Cancel providers/renders, remove listeners/observers/overlays/styles owned by the instance, release engine views, and restore the original host. Be safe when called twice. |
 
 For textareas, preserve name/form association and synchronize the submitted value, including raw/Mermaid drafts. Restore visibility and host attributes on destruction. Define form reset behavior. Initial content is Markdown text, never inferred trusted HTML.
 
-Create an instance root with instance-scoped queries, unique generated IDs, and no singleton document state. Repeated mount/unmount, multiple editors plus viewers, and editors in iframes must not collide. Share immutable dependencies or a library-loader promise only where safe; providers, histories, selections, URL bases, and themes belong to instances.
+Create an instance root with instance-scoped queries, unique generated IDs, and no singleton document state. Repeated mount/unmount, multiple editable/read-only editors, and editors in iframes must not collide. Share immutable dependencies or a library-loader promise only where safe; providers, histories, selections, URL bases, and themes belong to instances.
 
 ### 3.2 Content, History, and Events
 
-Use a document controller with an explicit active-view contract. Visual editing owns a ProseMirror document; raw mode owns a CodeMirror buffer; Mermaid/expanded-code sessions own a draft plus a stable target identity and source revision. Each supplies current value, selection, command availability, toolbar/sidebar description, focus, resize, and disposal behavior.
+Separate the complete editor document, editing sessions, and views. A view is the visible main work area with its appropriate toolbar, not the owner of the Markdown value. Editing sessions modify either the whole document or a specific target: visual editing uses a ProseMirror document, raw editing a CodeMirror buffer, and Mermaid/expanded-code sessions a block draft plus stable target identity and source revision. Help modifies nothing. The document controller projects the complete current Markdown, including pending session drafts even when another view is visible. Views supply presentation, available actions, toolbar/sidebar descriptions, focus, and measurement; sessions retain edits, selection, and history independently of visibility. Applications and extensions use the same public view APIs, without a separate category or privileged interface for nonediting views.
+
+Substantial tasks replace the main work area and its view-specific toolbar within a stable editor shell rather than opening large dialogs. Keep shell navigation, overflow, and fullscreen consistent, and allow small transient menus/prompts. Route commands only to supported actions for the visible task; Help must not edit a hidden session.
 
 Rules:
 
@@ -101,12 +103,15 @@ Rules:
 5. Mermaid and expanded-code sessions use local undo/redo. Back applies one parent-document update; unchanged Back adds no undo step. Invalid Mermaid remains editable and may be saved as a normal code fence with an error preview.
 6. Detect target deletion or revision conflicts before applying specialized drafts. For a genuinely different host replacement, require an explicit commit/discard/reject policy; never overwrite a newer document silently. Host permissions may change while a workspace is open.
 7. New-record loads reset history; intentional replacement within the same document can be transactional. Presentation, resizing, maximization, and diagram pan/zoom do not enter content history.
+8. Opening Help or Preview suspends the prior editing presentation without committing or discarding its session. Test Mermaid draft -> Help -> Back: draft, selection, local history, dirty state, and the complete `get()` value remain unchanged by navigation. Back from Help restores Mermaid; Back from Mermaid applies the block update under rule 5. Help content and preview HTML must never become the editor value.
 
 ### 3.3 Configuration and Extensions
 
 Keep declarative settings JSON-serializable: modes, toolbar groups, feature flags, palettes, tab width, templates, matching rules, limits, locale, and URL base. Allow actual callback functions directly in the JavaScript configuration. General handlers are top-level `on<Subject><Action>` options, such as `onLinkInspect` and `onLinkSuggest`, so alphabetical sorting groups related handlers. Mention-specific handlers remain first-level `onSuggest`, `onHover`, and `onClick` options on each `tags[]` entry, beside its matching and storage rules. Do not nest either set under a `callbacks` object. JSON/UXON cannot contain functions: host adapters combine those declarative settings with trusted JavaScript callbacks before creating the instance. Named callback IDs resolved by a trusted host registry are an optional serialization bridge, not a requirement for standalone callers. Never evaluate function strings from UXON or document comments.
 
-Define typed/documented extension points for commands, render extensions, mention matchers, placeholder grammars, suggestions, link inspection, image insertion, and Mermaid adapters. Validate callback types, registered IDs, returned data, and malformed options with actionable errors. Built-in extensions follow the same API that third parties use; do not expose Milkdown or CodeMirror internals as the required host contract. In this plan, a data provider means a configured callback, not a built-in HTTP client.
+Define one typed/documented public instance API used equally by applications, built-in extensions, and third-party extensions for commands, toolbar groups, views, renderers, mentions, help, and other customization. Extensions package ordinary public calls, such as `markian.getToolbar().insert(...)`, rather than using a separate privileged customization API or overwriting configuration. Validate callback types, registered IDs, returned data, and malformed options with actionable errors; do not expose Milkdown or CodeMirror internals as the required host contract. In this plan, a data provider means a configured callback, not a built-in HTTP client.
+
+Public customization methods modify live instance state without mutating original user options or silently replacing host callbacks. Define stable IDs, explicit ordering, collision errors, and explicit host-authorized replacement of existing items/exclusive handlers; notification listeners compose independently. Return removal handles or equivalent cleanup for owned additions. Extension `init(markian)` returns a disposer, and failed initialization must roll back completed additions. Cleanup is idempotent and must not remove unrelated additions or overwrite newer host changes. Enforce permissions, active-view routing, and lifecycle checks equally for applications and extensions. W0/W1 must finalize and test these shared public contracts, including host and extension calls to the same methods.
 
 Markian must not implement `fetch`, XMLHttpRequest, jQuery AJAX, upload requests, endpoint configuration, request headers, credentials, retries, or response-format knowledge for these features. Callbacks own any transport and can instead return in-memory, cached, computed, or worker-generated results. Hosts own authentication, authorization, CSRF headers, and endpoint access. Normal browser resource loading, such as configured script/CSS includes and image URLs, is distinct from this data-request boundary.
 
@@ -203,13 +208,18 @@ const editor = Markian.create(document.querySelector('#notes'), {
 
 #### Example: Host Services and Render Extensions
 
-Callback bodies are pseudocode. `hostMermaid` is a supplied supported renderer instance; `docsPlaceholders` is a trusted host extension implementing the documented placeholder API, not executable configuration from Markdown. Host services own requests; image insertion returns a saved destination, and fullscreen entry returns its restore function.
+Callback bodies are pseudocode. Load extension code and register trusted factories once by ID before editor creation. `hostMermaid` is a supplied supported renderer instance; `docsPlaceholderExtension` implements the proposed placeholder contract, not executable configuration from Markdown. Registration alone does not activate an extension or create shared editor state. Each enabled factory creates an independent extension instance. Omitted or `enabled: false` entries have no initialization, contributions, or optional dependency loading; an enabled unknown ID is a configuration error. Instance entries contain `enabled` and `config`, not a code-loading `source`; optional dependency loaders belong to documented extension-specific configuration. Host services own requests; image insertion returns a saved destination, and fullscreen entry returns its restore function.
 
 ```javascript
+Markian.registerExtension('mermaid', mermaidExtension);
+Markian.registerExtension('docsPlaceholders', docsPlaceholderExtension);
+
 const editor = Markian.create(document.querySelector('#notes'), {
   markdown: '',
-  mermaid: { instance: hostMermaid },
-  extensions: [docsPlaceholders],
+  extensions: {
+    mermaid: { enabled: true, config: { renderer: hostMermaid } },
+    docsPlaceholders: { enabled: true, config: {} },
+  },
   onFullscreenEnter: ({ element, signal }) => { /* expand host layout; return restore */ },
   onImageInsert: ({ blob, signal }) => { /* save file; return { url, alt } */ },
   onImageSuggest: ({ query, signal }) => { /* return image suggestions */ },
@@ -218,6 +228,8 @@ const editor = Markian.create(document.querySelector('#notes'), {
   onLinkSuggest: ({ query, signal }) => { /* return destination suggestions */ },
   onPlaceholderRegenerate: ({ value, signal }) => { /* return authorized generated body */ },
 });
+
+await editor.ready;
 ```
 
 W0/W1 must finalize these option/result shapes and turn the sketches into tested public-API examples; they do not authorize engine-internal access or built-in AJAX.
@@ -233,17 +245,29 @@ dist/
   markian.min.js
   markian.css
   markian.d.ts
+  extensions/
+    mermaid.min.js
+    code.min.js
+    code.css
+    languages/
+      ...
   manifest.json
   THIRD_PARTY_NOTICES.txt
 ```
 
-The required script is a classic-script IIFE exposing the library factory as `window.Markian`, not a live editor instance. Bundle the baseline editor, raw/code editors, Markdown conversion/rendering, selected icons, supported baseline languages, and sanitization. It must load using normal `<script src>` and `<link>` elements without dynamic module imports, workers/chunks fetched implicitly, an import map, or runtime CDN dependencies. An ESM build can be added alongside, but cannot replace the classic-script artifact.
+The core script is a classic-script IIFE exposing the library factory as `window.Markian`, not a live editor instance. It provides ordinary visual Markdown editing, basic raw-source editing, conversion/rendering, sanitization, and core controls/icons. Optional extensions supply Mermaid and programming-language highlighting/expanded-code features through separately loadable prebuilt files. The paths above illustrate the modular layout; W0/W2 finalize exact optional filenames and language assets. Do not include an entire programming-language parser collection or Mermaid renderer in the core. Reuse the raw editor's CodeMirror foundation rather than shipping a second competing runtime.
 
-Mermaid is the explicit external dependency allowed by the requirements. Accept a host renderer adapter or supplied instance first, and a configurable URL loader second. The standalone library must not import a sibling Core filesystem path. Power UI's adapter will pass its existing Mermaid. State supported versions and make missing/incompatible Mermaid a recoverable diagram error, not an editor startup failure. Do not bundle another Mermaid in the default artifact. An optional self-contained full bundle is a separate distribution decision, not a hidden change to this contract.
+Core and extensions must work through ordinary `<script src>`/`<link>` delivery without consumer compilation, import maps, or an implicit CDN dependency. Hosts load/register extension factories before enabling them per instance. Enabled extensions may load their declared prebuilt dependency assets on demand through documented host-controlled URLs; explicit script/CSS loading is allowed and is not an AJAX data-service feature. No hidden bundler chunk discovery or guessed asset locations. An ESM build may supplement, not replace, this delivery contract.
 
-Make CSS entirely Markian-scoped, with documented custom properties and local theme state. Do not ship the demo's global selectors, remote fonts, image requests, or fixed page dimensions. Embed required selected MDI paths; preserve licenses. Provide stable class/data-attribute hooks for viewer styling and tests without promising editor-engine internals.
+Mermaid is one optional extension, not the sole exception to a single-file rule. Accept a host renderer adapter/supplied instance first and a configured dependency loader second. Do not import a sibling Core filesystem path; Power UI passes its existing Mermaid. Publish supported versions and resolve third-party assets through explicit host configuration or documented prebuilt package paths with notices/version metadata. Treat language packs similarly. Disabled/absent extensions must not request their optional dependencies even if matching fences occur in the document. Preserve fenced source/plain-code fallback; failed requested rendering must not prevent unrelated editing.
 
-`manifest.json` records library version and artifact hashes; it must not embed changing build timestamps, machine paths, or Git commit hashes that make rebuilding the same source produce different bytes. Check Windows/Linux determinism. Decide source-map publication explicitly and exclude local absolute paths.
+Deduplicate compatible script/CSS/dependency loads across editors; validate incompatible versions and retain independent extension instances, sessions, themes, and callbacks. Do not unload shared assets when one instance is destroyed. Document loading order, CSP and asset-base behavior, and provide offline tests serving selected assets locally. The complete modular distribution remains committed and publishable without a consumer build; an all-features aggregate must never be mandatory for comment-editor use.
+
+This distribution covers Markian-owned assets, not every external extension. ExFace/Power UI Core supplies the planned `docsPlaceholders` extension as prebuilt assets in its own package, with supported Markian versions, dependency metadata, and notices. Hosts resolve/load those assets and register the factory before per-instance opt-in, composing the packages' metadata without adding a mandatory Core dependency or sibling filesystem import to Markian. Core packaging/build gates cover its extension artifacts; Markian's manifest need not hash files it does not ship. Neither package may require a consumer build. Exact Core browser paths and factory exports must be finalized during integration, not assumed from the example variable names.
+
+Make CSS entirely Markian-scoped, with documented custom properties and local theme state. Do not ship the demo's global selectors, remote fonts, image requests, or fixed page dimensions. Embed required selected MDI paths; preserve licenses. Provide stable class/data-attribute hooks for editor/Preview styling and tests without promising editor-engine internals.
+
+`manifest.json` records library/extension versions, declared core/extension/dependency assets, their relationships, and artifact hashes; it must not embed changing build timestamps, machine paths, or Git commit hashes that make rebuilding the same source produce different bytes. Check Windows/Linux determinism for all core and optional outputs. Decide source-map publication explicitly and exclude local absolute paths.
 
 ### 4.2 Commit the Ready-to-Use Distribution
 
@@ -251,7 +275,7 @@ Remove `dist/` from the ignore rules and commit the complete required distributi
 
 Every source/dependency/configuration change that affects the build must include its resulting distribution in the same commit. Release tags point to commits already containing the verified build. GitHub release downloads may mirror those files, but must not be their only location. Do not use an npm lifecycle script or a Composer post-install script as the only way consumers obtain compiled assets.
 
-Retain one pinned lockfile and a documented Node/npm toolchain. Use a clean output directory and deterministic library configuration. Start with the existing Vite toolchain's library/Rollup-compatible output if it satisfies the single-file test; change bundlers only for a demonstrated build constraint. Include transitive license notices and an upgrade policy for security-sensitive dependencies.
+Retain one pinned lockfile and a documented Node/npm toolchain. Use a clean output directory and deterministic core/extension build configuration. Start with the existing Vite toolchain's library/Rollup-compatible output if it satisfies modular script-tag delivery and declared-asset tests; change bundlers only for a demonstrated build constraint. Include transitive license notices and an upgrade policy for security-sensitive dependencies.
 
 ### 4.3 Build on Every Commit
 
@@ -277,7 +301,7 @@ Git hooks are not installed by cloning and can be bypassed with `--no-verify`, a
 
 The npm package name is `markian`, with the Asset Packagist mapping `npm-asset/markian`. The direct Composer package name is `axenox/markian`. These names are decided; confirm publishing access and registry availability, and verify the Asset Packagist mapping in an installation test.
 
-Convert the private prototype manifest to publishable library metadata, with SPDX license, repository information, supported engines for contributors, version, browser/type entry points, and a `files` allowlist including `dist`, the license, and required documentation. Keep demo/test tooling in development dependencies; published runtime use must not download or build Milkdown/CodeMirror separately because those are bundled.
+Convert the private prototype manifest to publishable library metadata, with SPDX license, repository information, supported engines for contributors, version, browser/type entry points, and a `files` allowlist including all core/extension assets under `dist`, the license, and required documentation. Keep demo/test tooling in development dependencies; published runtime use must not install/build Milkdown or CodeMirror. Required runtime code is prebuilt into the appropriate core/extension assets; optional language/dependency files remain selectable without npm installation on the runtime host.
 
 Asset Packagist indexes npm/Bower metadata; committing files to an arbitrary GitHub repository does not by itself register an asset package. Publish the corresponding npm version and verify Asset Packagist discovery, version metadata, downloaded archive contents, and installed paths. Use the same semantic version for npm, Git tags, direct Composer, and the artifact manifest. Tag naming must be recognized by both ecosystems.
 
@@ -290,7 +314,7 @@ Add a root `composer.json` to the Markian repository and register it with Packag
 ```json
 {
   "name": "axenox/markian",
-  "description": "Framework-independent Markdown editor and viewer with prebuilt browser assets",
+  "description": "Framework-independent Markdown editor with prebuilt browser assets",
   "type": "library",
   "license": "MIT"
 }
@@ -300,7 +324,7 @@ Use real repository/support metadata when publishing; do not hard-code a Compose
 
 Expected direct installation path is `vendor/axenox/markian/dist/markian.min.js` and its stylesheet. Add version constraints to the packages that actually consume Markian, and ensure the application's resolved graph includes it. Decide which shared facade component owns the common dependency rather than relying accidentally on another facade to install it.
 
-Keep the direct Composer package free of mandatory `npm-asset/*` dependencies: the default bundle already contains its runtime stack, and Mermaid is supplied by the host. This lets Power UI install Markian without adding Asset Packagist solely for this editor. A consuming application's root Composer configuration, not a dependency's `repositories` section, controls any additional repositories it needs.
+Keep the direct Composer package free of mandatory `npm-asset/*` dependencies: it supplies prebuilt core/extension assets, while external optional dependencies such as Mermaid are explicitly supplied/configured by the host. This lets Power UI install Markian without adding Asset Packagist solely for this editor. A consuming application's root Composer configuration, not a dependency's `repositories` section, controls any additional repositories it needs.
 
 Both routes install the same artifact contents:
 
@@ -341,7 +365,7 @@ Deliver a versioned browser/device baseline, initial language/Mermaid version li
 
 Build anonymized fixture documents from current use cases: short comments/errors, rich tickets, documentation with actual placeholder pairs, mentions, HTML stencils, large tables, images/data URIs, alerts, front matter, relative links, and Mermaid. Include malformed/unknown comments, empty links, reference links, Unicode headings, ordered-list starts, nested lists, escaped pipes, code fences longer than their content, hard breaks, and indentation. Keep known defects as explicit fixtures, not behaviors to copy blindly.
 
-Resolve compatibility policy for colors, data-URI publishing, allowed HTML, read-only task toggles, and existing softbreak settings. Security must not be relaxed to emulate an unsafe old renderer. Record any intentional visible differences before migrating a consumer.
+Resolve compatibility policy for colors, data-URI publishing, allowed HTML, host display-widget task interactions, and existing softbreak settings. Markian's own disabled/read-only mode must never toggle tasks. Security must not be relaxed to emulate an unsafe old renderer. Record any intentional visible differences before migrating a consumer.
 
 Acceptance: every requirement and each gap-table row maps to a work package and a test or explicit product decision. No source compatibility claim relies only on a screenshot.
 
@@ -349,9 +373,9 @@ Acceptance: every requirement and each gap-table row maps to a work package and 
 
 Separate the document controller, engines, mode views, command registry, toolbar/dialog components, provider manager, rendering pipeline, themes, and host adapters. Keep related logic together; do not invent a plugin layer for every small helper.
 
-Move the demonstration page onto the new public factory. Support multiple independently themed editors/viewers, textarea mounting/submission/reset, hidden-tab remeasurement, compact containers around 300 by 400 pixels, read-only/disabled transitions, and full disposal. Define a stable readiness/error surface for asynchronous asset or renderer failures.
+Move the demonstration page onto the new public factory. Support multiple independently themed editable/read-only editors, textarea mounting/submission/reset, hidden-tab remeasurement, compact containers around 300 by 400 pixels, read-only/disabled transitions, and full disposal. Define a stable readiness/error surface for asynchronous asset or renderer failures.
 
-Acceptance: classic-script fixture mounts two editors and a viewer without a framework; values, undo, mode changes, focus, overlays, and destruction remain independent. Verify visual startup by default and explicit raw startup for standalone callers. Demo-specific network/assets are absent from library startup.
+Acceptance: classic-script fixture mounts independent editable and read-only editors without a framework; values, histories, mode changes, focus, overlays, and destruction remain independent. Read-only search/copy/navigation work while every user mutation path is blocked, including extension and asynchronous paths; permission changes retain drafts/history. Verify visual startup by default and explicit raw startup for standalone callers. Demo-specific network/assets are absent from library startup.
 
 ### W2. Establish Build, Distribution, and Packages
 
@@ -363,13 +387,13 @@ Acceptance: a clean Git tag checkout, an npm package installation, and direct Co
 
 Define CommonMark plus the required GFM subset: tables, tasks, strikethrough, and extended autolinks. Preserve ordered-list start values, nested structures, hard/soft breaks, code indentation, reference-link meaning, fence contents, inline code boundaries, and extension comments. Make export/import idempotent after normalization. Preserve supported HTML as explicit mapped content; retain unsupported constructs as inert opaque source or refuse visual import without losing the raw buffer.
 
-Automatically detect bare URLs, `www` destinations, and email addresses in eligible text in editors and viewers. Autolinking is always enabled, not a configuration option; adapters must not expose or translate an `extendedAutolinks` toggle. Apply the URL safety policy, handle surrounding punctuation, and exclude code and existing links. Do not rewrite raw Markdown merely to make detected destinations clickable in rendered content.
+Automatically detect bare URLs, `www` destinations, and email addresses in eligible editor text, including disabled/read-only presentation. Autolinking is always enabled, not a configuration option; adapters must not expose or translate an `extendedAutolinks` toggle. Apply the URL safety policy, handle surrounding punctuation, and exclude code and existing links. Do not rewrite raw Markdown merely to make detected destinations clickable in rendered content.
 
-Create shared editor/viewer dialect and sanitization definitions. Add viewer updates without creating an editable engine, matching headings/anchors and extension fallbacks. Support a configurable softbreak rendering policy for Power UI's `enable_newlines`; do not rewrite stored text merely to change presentation. Preserve front matter and define its editor/viewer presentation in the Power UI preset, checking the existing server converter's behavior separately.
+Create consistent editor dialect and sanitization definitions across editable and disabled/read-only presentation, including headings/anchors and extension fallbacks. Do not add a separate viewer factory. Support a configurable softbreak rendering policy for Power UI's `enable_newlines`; do not rewrite stored text merely to change presentation. Preserve front matter and define its editor presentation in the Power UI preset, checking separate host widgets and the existing server converter for compatibility.
 
 Test GitHub and GitLab independently with a conformance corpus. Neither a GFM label nor rendering through the same library twice proves interoperability. Extension metadata must remain invisible and generated content readable in an independent renderer without the extension.
 
-Acceptance: semantic round trips, comments and unsupported-input handling, viewer/editor parity, and independent rendering pass before any production data is saved through Markian.
+Acceptance: semantic round trips, comments and unsupported-input handling, editable/read-only presentation consistency, host-widget compatibility fixtures, and independent rendering pass before any production data is saved through Markian.
 
 ### W4. Complete Editing Controls and Responsive UI
 
@@ -415,11 +439,11 @@ Add explicit diagram edit affordances and pan/zoom/reset controls with mouse, ke
 
 Retain the dedicated code-left/preview-right view with a Back-only default toolbar. Back is the Apply action. Use responsive stacked/switchable panes as appropriate; no document-wide split preview is required. Add Cancel only as a separately approved optional action. Complete target-revision conflict handling and active-draft API/event behavior.
 
-Provide an expanded ordinary code editor with language choice, Tab handling, configurable tab width, line numbers, highlighting, and a way to leave a Tab-trapping editor. Keep ordinary blocks directly editable; expansion is optional. Bundle the agreed baseline languages so offline classic-script use does not trigger hidden imports.
+Provide an optional code extension with an expanded ordinary code editor, language choice, Tab handling, configurable tab width, line numbers, highlighting, and a way to leave a Tab-trapping editor. Keep ordinary blocks directly editable without it. Supply programming-language support as declared prebuilt extension assets loaded only when enabled/needed or preloaded by the host; offline use serves selected files locally without hidden imports. Missing highlighting must not remove code or prevent basic editing.
 
 Finish the view-owned outline: parsed ATX/Setext headings, exclude the title heading starting on line 1, shared slug rules, current-section indication, collapse on desktop and a usable mobile drawer. Visual navigation targets rendered content; raw navigation targets the actual code scroller and line, not the page. Specialized code/Mermaid views have their own relevant sidebar contract; they do not inherit a stale document outline.
 
-Acceptance: multiple diagrams, theme changes, rapid edits, no-op Back, conflicting host updates, destroyed targets, large-diagram controls, expanded code history, and desktop/mobile outline navigation pass browser tests.
+Acceptance: multiple diagrams, theme changes, rapid edits, no-op Back, conflicting host updates, destroyed targets, large-diagram controls, expanded code history, and desktop/mobile outline navigation pass browser tests. Core-only comment fixtures request no Mermaid or programming-language highlighting assets; enabled extension fixtures verify local/offline dependencies, deduplicated loading, failures/retry, and independent state across instances.
 
 ### W8. Templates, Mentions, and Placeholders
 
@@ -429,7 +453,7 @@ Implement mention rules with prefix priority, bounded matching, distinct styles,
 
 Keep each mention type's `onSuggest`, `onHover`, and `onClick` handlers directly on its configuration object in `tags[]`. Dispatch to the matched rule directly, without a nested callback object or a required global mention-type switch. Use `onHover` for accessible focus/touch details as well as pointer hover. Scope pending suggestions/details to that rule and query; test distinct ticket/user handlers and stale results when the active mention type changes.
 
-Implement the actual DocsFacade placeholder grammar as an IDE-owned extension, not hard-coded ExFace behavior in Markian. Preserve paired `<!-- BEGIN ... -->` / `<!-- END ... -->` delimiters and their exact payloads, plus unrelated/unknown comments and print/image metadata. The prototype's `markian:placeholder` example is not a migration grammar.
+Implement the actual DocsFacade placeholder grammar as a Core-owned, Core-supplied optional `docsPlaceholders` extension, not hard-coded ExFace behavior in Markian or a duplicate IDE-owned grammar. Core ships prebuilt assets; the host loads/registers its factory and opts in per instance. Preserve paired `<!-- BEGIN ... -->` / `<!-- END ... -->` delimiters and their exact payloads, plus unrelated/unknown comments and print/image metadata. The prototype's `markian:placeholder` example is not a migration grammar.
 
 Show generated bodies in bordered regions with an Edit Tags action and a configurable insertion menu. Define protected-body editing and raw-mode override policies. Detect malformed/nested/unknown pairs without dropping their bodies. Authorized host regeneration is separate from viewing/editing markers; do not execute a provider just because a document was opened. After regeneration, the saved body must render independently without the provider.
 
@@ -459,15 +483,15 @@ Acceptance: M2's real tab/load/save/failure/rename/navigation scenarios pass in 
 
 Implement the facade-owned migration described in M4, using the additive Core `MarkianTrait` and shared widget translation contract from M3. Depend on M0/M1 and the required W1-W9 parity subset, not on completion of the UI5 migration. Deliver the shared trait before either facade opts in; do not rename, redirect, or change `ToastUIEditorTrait`.
 
-Migrate asset injection, editor/value/change wiring, validation, prefill/live references, visual startup, and resizing/disposal in a facade-local opt-in release. Implement runtime read-only/disabled behavior explicitly. Review display-Markdown rendering separately, including server-rendered paths and M4's separate server security gate, rather than assuming UI5's viewer implementation applies.
+Migrate asset injection, editor/value/change wiring, validation, prefill/live references, visual startup, and resizing/disposal in a facade-local opt-in release. Implement runtime read-only/disabled behavior explicitly. Review host-owned display-Markdown rendering separately, including server-rendered paths and M4's separate server security gate, rather than assuming UI5's display-widget implementation applies.
 
-Acceptance: real jEasyUI forms cover get/set, explicit clearing, validation, live references, permission changes, hidden-container sizing, and teardown. Verify supported widget configuration and editor/viewer semantics, independent asset loading, and fallback to Toast UI. Test jEasyUI/Markian alongside UI5/Toast UI, and the reverse combination during rollout. Update facade documentation and add focused PHP coverage where feasible plus owning-app browser/BDT scenarios.
+Acceptance: real jEasyUI forms cover get/set, explicit clearing, validation, live references, permission changes, hidden-container sizing, and teardown. Verify supported widget configuration, editable/read-only editor semantics, independent asset loading, and fallback to Toast UI; check separate display widgets for compatibility. Test jEasyUI/Markian alongside UI5/Toast UI, and the reverse combination during rollout. Update facade documentation and add focused PHP coverage where feasible plus owning-app browser/BDT scenarios.
 
 ### W12. Integrate Markian in UI5Facade
 
 Implement the UI5-owned migration described in M3 after additive delivery of Core's separate `MarkianTrait`, M0/M1 preparation, and the required W1-W9 parity subset. UI5 opts in independently of JEasyUIFacade; shared configuration translation belongs in the trait while UI5 retains model bindings, asset registration, validation, and overlay lifecycle ownership.
 
-Migrate input and display elements, preserving widget configuration, visual startup, value/change semantics, prefill/live references, and permission behavior. Use real viewer instances for display-only controls. Handle rerenders, preserve-area stale DOM, reused dialog IDs, explicit empty values, model echoes, pending drafts, fullscreen restoration, and listener disposal as specified in M3. Update BDT selectors to support documented roots for both backends during rollout.
+Migrate editor input elements, preserving widget configuration, visual startup, value/change semantics, prefill/live references, and permission behavior. Disabled inputs remain Markian editors with search/copy/navigation available. Separate display-only controls retain a host-owned rendering implementation; do not require Markian viewer instances. Handle rerenders, preserve-area stale DOM, reused dialog IDs, explicit empty values, model echoes, pending drafts, fullscreen restoration, and listener disposal as specified in M3. Update BDT selectors to support documented roots for both backends during rollout.
 
 Acceptance: real UI5 form/dialog/prefill/validation workflows pass, including repeated rerenders, record switches, empty-value restoration, independent instances, and permission changes. Verify UI5/Markian with jEasyUI/Toast UI and unchanged legacy consumers after the additive Core release. Demonstrate facade-local rollback without losing drafts; update UI5 documentation and add focused PHP coverage where feasible plus browser/BDT lifecycle scenarios.
 
@@ -479,8 +503,8 @@ The following are features/behaviors found in the current integrations that were
 | --- | --- | --- | --- |
 | Horizontal-rule toolbar action | Present in both configured Toast UI toolbars. | Sample Markdown supports rules, but the prototype toolbar has no dedicated action. | Add a mode-aware command/control and history tests: W4. |
 | List indent/outdent controls | Exposed by shared and Codiware toolbar definitions. | Basic list conversion is not parity with nesting/unnesting. | Implement buttons/shortcuts and nested-list round trips: W3-W4. |
-| Automatic URL detection | Both integrations enable Toast UI's extended autolinks. | Markian automatically detects URLs without an autolink configuration option. | Always detect/test bare URLs, `www`, email, punctuation, code/link exclusions, and safe schemes in editors/viewers; no adapter toggle: W3/W9. |
-| Configurable softbreak rendering | Trait maps `MarkdownDataType.enable_newlines`; preview/viewer differ from TUI WYSIWYG. | A single default CommonMark policy would change existing display. | Carry the host setting into editor/viewer rendering; preserve hard breaks and document intentional consistency changes: W3/M3. |
+| Automatic URL detection | Both integrations enable Toast UI's extended autolinks. | Markian automatically detects URLs without an autolink configuration option. | Always detect/test bare URLs, `www`, email, punctuation, code/link exclusions, and safe schemes in editable/read-only editor presentation; no adapter toggle: W3/W9. |
+| Configurable softbreak rendering | Trait maps `MarkdownDataType.enable_newlines`; preview/viewer differ from TUI WYSIWYG. | A single default CommonMark policy would change existing display. | Carry the host setting into editor/Preview rendering and verify separate host display widgets; preserve hard breaks and document intentional consistency changes: W3/M3. |
 | Character counter based on max length | Shared trait adds a live `length/max` item from the data type. | Prototype only has a word count. | Add a configurable status/counter contract; reconcile Unicode counting with server validation: W4/M3. |
 | Required/max-length validation UI | UI5 bridges value state, tooltip text, and `aria-invalid`. | Styling and validation cannot depend on TUI DOM. | Bind supported Markian root/input accessibility states to existing validators: W1/W9/M3. |
 | Existing mode defaults | `InputMarkdown` defaults to `markdown`; Codiware starts in raw/split mode. | Intentional change: all migrated integrations start in the regular WYSIWYG-like visual mode. Raw startup remains an optional library setting only, unused by current integrations. | Configure visual startup in Power UI/Codiware adapters; do not carry legacy raw/split startup settings forward. Test visual opening and user-initiated raw switching: W1/M2-M4. |
@@ -493,7 +517,7 @@ The following are features/behaviors found in the current integrations that were
 | Dirty tracking and normalized-load baseline | Codiware suppresses load changes, baselines serialized content, exposes `markClean`. | Normalization can falsely dirty tabs or save without deliberate edits. | Keep a canonical baseline and explicit origin semantics; clean only after successful write: W1/M2. |
 | UI5 model/live-reference integration | Trait/facades implement get/set, binding changes, prefill, and change scripts. | A new factory alone is not a drop-in widget implementation. | Translate values/events with echo protection, reset semantics, and readiness: M3-M4. |
 | UI5 rerenders and reused dialog IDs | Viewer/editor code explicitly repairs wiped or preserved stale DOM. | Global IDs or DOM-presence-only checks can show stale records. | Tie instance ownership to control/controller lifecycle and restore the correct current value, including empty values: W1/M3. |
-| Viewer/disabled-input behavior | Separate viewer factory; jEasyUI chooses viewer initially for disabled input. | Prototype has no reusable viewer or complete dynamic permission API. | Implement viewer and explicit read-only/disabled semantics, including task toggles: W1/W3/M3-M4. |
+| Viewer/disabled-input behavior | Legacy integrations have a separate viewer factory; jEasyUI chooses it initially for disabled input. | Intentional change: Markian is an editor only, including when disabled/read-only. Separate display widgets remain host-owned. | Retain disabled-editor search/copy/navigation; block all user document changes, including task toggles. Verify host display-widget compatibility separately: W1/W3/M3-M4. |
 | Image permission flag | `allow_images` defaults false; current trait only partly strips/disables image paths. | Copying the old regex would both miss paths and silently alter content. | Enforce insertion permissions across paste/drop/URL/source; preserve or explicitly reject existing content per policy, never silently strip it: W6/W9/M3. |
 | Mention presentation and existing link/empty-link storage | Trait decorates `[@label](url)` and `[@label]()`; getter switches mode to avoid `$$widget` wrappers. | Plain-text-only mentions do not cover existing saved values. | Import old ordinary mention forms; no hidden mode switching/new wrappers; add narrowly recognized legacy repair tooling: W8/M1. |
 | Mention suggestion request semantics | Trait sends action/object/resource/element metadata, filters, display attribute, page size, and AJAX headers. | A generic autocomplete without adapter translation would break existing models. | Preserve request semantics inside host callbacks; Markian receives only structured results and ignores stale results: W8/M3. |
@@ -552,7 +576,7 @@ Update Codiware's architecture, editor documentation, style patterns if needed, 
 
 Add `MarkianTrait` in Core at `Facades/AbstractAjaxFacade/Elements/MarkianTrait.php`, in the namespace `exface\Core\Facades\AbstractAjaxFacade\Elements`. Keep it separate from the existing `ToastUIEditorTrait`: do not rename, replace, alias, or redirect the old trait to Markian, and do not make the new trait depend on Toast UI internals. Facades still using the old trait continue to compile and behave as before.
 
-`MarkianTrait` owns shared Markian editor/viewer construction, configuration translation, current-value access, change/callback wiring, and disposal snippets. Facade-specific elements retain their framework binding, asset registration, validation, and overlay lifecycle responsibilities. Translate UXON to declarative settings, then attach trusted function callbacks to the JavaScript configuration passed to Markian. These callbacks use Power UI's request/action infrastructure if needed; the library knows neither the AJAX endpoints nor their payload format.
+`MarkianTrait` owns shared Markian editor construction (including disabled/read-only editors), configuration translation, current-value access, change/callback wiring, and disposal snippets. Separate display-only widgets remain host-owned. Facade-specific elements retain their framework binding, asset registration, validation, and overlay lifecycle responsibilities. Translate UXON to declarative settings, then attach trusted function callbacks to the JavaScript configuration passed to Markian. These callbacks use Power UI's request/action infrastructure if needed; the library knows neither the AJAX endpoints nor their payload format.
 
 Deliver the trait additively before migrating its first facade. UI5 and jEasyUI adopt it in separate changes/releases; either can remain on Toast UI while the other uses Markian. Backend selection belongs to each facade's element implementation/registration, not a global switch in Core's old trait. Prefer separate backend-specific element implementations where coexistence is needed rather than importing both traits into one class with colliding method names. Preserve the existing widget-level value/validation contracts without requiring identical private trait helpers.
 
@@ -568,15 +592,15 @@ UI5 implementation must:
 - Prevent change/model echo loops and retain active draft/history during host echoes. On real record replacement, use the explicit pending-edit policy and reset the correct history.
 - Map validation text, error styling, and `aria-invalid` through stable Markian APIs/root attributes. Match the server's length semantics; a cosmetic counter is not validation.
 - Replace resize/reparent/set-value workarounds with measurement and `onFullscreenEnter` where UI5 needs a custom overlay lifecycle. Return a restore function for host layout changes; preserve dialogs' z-index, focus, and scrolling without recreating the editor. Deregister resize/model listeners on destruction.
-- Migrate `UI5Markdown` and `UI5DisplayMarkdown` to the real viewer, not an editor with a hidden toolbar. Confirm task toggling is permission-controlled and cannot unexpectedly mutate a display-only value.
+- Keep `UI5Markdown` and `UI5DisplayMarkdown` as separate host-owned display widgets; choose their rendering implementation within UI5 rather than adding a Markian viewer API. Verify content compatibility and their own permission policies separately. Disabled Markian inputs retain nonmutating editor controls and cannot toggle tasks or change the value.
 
-Gate the change on real form/dialog/prefill/validation workflows, not only isolated JS tests. Verify that each migrated integration starts visually, including models/settings that previously requested raw mode, while users can still switch to raw mode. Add a compatibility scenario with UI5 using `MarkianTrait` and jEasyUI still using `ToastUIEditorTrait`, plus an unchanged legacy consumer after the additive Core release. Verify engine assets, get/set, events, viewer behavior, and disposal remain independent. Update the BDT Markdown node to identify documented Markian roots/content rather than `.toastui-editor-contents`, while supporting both backends during rollout. PHP adapter logic needs focused PHPUnit coverage where feasible under the Core testing rules; UI lifecycles belong in browser/BDT scenarios.
+Gate the change on real form/dialog/prefill/validation workflows, not only isolated JS tests. Verify that each migrated integration starts visually, including models/settings that previously requested raw mode, while users can still switch to raw mode. Add a compatibility scenario with UI5 using `MarkianTrait` and jEasyUI still using `ToastUIEditorTrait`, plus an unchanged legacy consumer after the additive Core release. Verify engine assets, get/set, events, read-only editor behavior, and disposal remain independent; separate host display widgets must continue to work. Update the BDT Markdown node to identify documented Markian roots/content rather than `.toastui-editor-contents`, while supporting both backends during rollout. PHP adapter logic needs focused PHPUnit coverage where feasible under the Core testing rules; UI lifecycles belong in browser/BDT scenarios.
 
 ### M4. jEasyUI, IDE-Specific Extensions, and Other Consumers
 
-Migrate jEasyUI asset injection and shared editor/value/validation/live-reference behavior to `MarkianTrait` in its own opt-in change, independently of the UI5 migration. Implement correct runtime read-only/disabled handling instead of retaining its TODO. Review jEasyUI's display-Markdown path separately; do not assume it shares UI5's browser viewer, because Markdown may also be rendered on the server.
+Migrate jEasyUI asset injection and shared editor/value/validation/live-reference behavior to `MarkianTrait` in its own opt-in change, independently of the UI5 migration. Implement correct runtime read-only/disabled handling instead of retaining its TODO. Review jEasyUI's host-owned display-Markdown path separately; do not assume it shares UI5's display renderer, because Markdown may also be rendered on the server.
 
-Update `axenox.IDE` configuration so Codiware receives Markian asset URLs rather than the jEasyUI Toast UI bundle path. Preserve Core Mermaid reuse and documentation preview presentation, but replace renderer-specific CSS where necessary. Register Power UI DocsFacade placeholder grammars, insertion presets, custom documentation links, and authorized generation in the IDE layer. Keep generic repository suggestions in Codiware.
+Update `axenox.IDE` configuration so Codiware receives Markian asset URLs rather than the jEasyUI Toast UI bundle path. Preserve Core Mermaid reuse and documentation preview presentation, but replace renderer-specific CSS where necessary. Load/register Core's prebuilt `docsPlaceholders` factory and enable it only for selected editors; configure insertion presets, custom documentation links, and authorized host generation in the IDE layer without taking ownership of the DocsFacade grammar. Keep generic repository suggestions in Codiware.
 
 Validate the exact DocsFacade delimiter/options/print metadata and generated body behavior with its server renderer. Add the required jQuery-comments integration through a small lifecycle/value adapter if that host is selected for rich comment editing; the inspected comments feed is not itself evidence of a current Toast UI dependency. Avoid rewriting an unrelated comments backend as part of this migration.
 
@@ -586,7 +610,7 @@ Compare browser output with server-rendered `MarkdownDataType`/DocsFacade output
 
 ### M5. Rollout, Rollback, and Retirement
 
-Roll out in this order: internal Codiware pilot, representative UI5 editors/viewers, jEasyUI, IDE documentation extensions, then remaining applications. Advance per consumer only after its parity and security gates pass; advanced requirements W4-W9 must be complete before declaring the full v1 scope delivered.
+Roll out in this order: internal Codiware pilot, representative editable/read-only UI5 editors with host display-widget compatibility checks, jEasyUI, IDE documentation extensions, then remaining applications. Advance per consumer only after its parity and security gates pass; advanced requirements W4-W9 must be complete before declaring the full v1 scope delivered.
 
 Keep independent facade/consumer configuration selecting Markian or Toast UI during the migration window, not one mandatory platform-wide switch. Both operate on Markdown, but test that each consumer's newly saved documents remain readable by the fallback. Keep new optional formatting within the agreed fallback subset until retirement. Switching backends is a controlled reopen/remount using the current value, not two engines editing one DOM simultaneously.
 
@@ -613,7 +637,7 @@ Retiring the bundled integrations does not automatically authorize removing Core
 | Pasted images and image-URL autocomplete | W6/M2 | Standalone bounded raster data URIs; Codiware paste-to-file callback with regular Markdown URLs and no pasted binary, pending/failure tests, alt text, and repository suggestions. |
 | Relative/absolute links, heading targets, URL validation | W3/W6 | Slugs/base preservation, inspector cancellation, Ctrl/Cmd/mobile opening, safe schemes. |
 | Mermaid render/edit/pan/zoom; configurable renderer | W7 | Host-injected renderer, no global scans, SVG policy, Back commit, touch controls. |
-| Code language, Tab width, line numbers, expanded editing | W7 | Offline language bundle, local history, Tab escape, source-preserving expansion. |
+| Code language, Tab width, line numbers, expanded editing | W7 | Optional prebuilt language assets, offline selected-feature loading, local history, Tab escape, source-preserving expansion. |
 | HTML templates, `<kbd>`, configurable stencils/custom links | W3-W4/W8 | Portable HTML exports, parameter validation, host label/icon translation. |
 | Mentions, multiple prefixes, suggestions/click/hover | W8-W9 | Plain/link export, existing empty-link mentions, accessible providers and context exclusions. |
 | Generated placeholders, marker editor, insertion menu | W8/M4 | Real DocsFacade grammar, body policy, no automatic provider execution, re-import. |
@@ -632,7 +656,9 @@ Use existing Playwright tests as regression coverage, but split pure transformat
 | --- | --- |
 | Every implementation change | Relevant unit/browser slice first; no unrelated refactor until the slice passes. |
 | Library build/PR | Type/API checks, unit suite, source browser suite, packaged classic-script smoke suite, deterministic artifact parity including new files, licenses and package metadata. |
-| Packaging | `npm pack` archive install, Composer validation/install, no consumer build scripts, no Node on runtime host, correct stable URLs; published Asset Packagist install verification. |
+| Packaging | `npm pack` archive install, Composer validation/install, all declared core/extension assets included, no consumer build scripts, no Node on runtime host, correct stable URLs; published Asset Packagist install verification. |
+| Modular loading | Core-only comment fixture loads no Mermaid/programming-language highlighting assets, including with matching fences present. Enabled extensions use declared local/configured assets; test offline operation, CSP, loading failures/retry, supplied dependencies, version conflicts, deduplication, and instance-local state/cleanup. |
+| External Core extension | A Core-free Markian installation remains usable. Core supplies prebuilt `docsPlaceholders` assets; routed/local URLs, registration order, supported versions, independent enabled/disabled instances, and missing-asset errors are verified. Preserve exact comments/bodies without the extension; no document-driven Core loading or provider execution. |
 | Content compatibility | Import/edit/export/re-import and independent rendering for the fixture corpus, malformed and unknown metadata, intentional portability limits. |
 | Callback boundary | Local/synchronous and asynchronous fake callbacks for suggestions, inspection, images, mention details, and regeneration; exceptions, rejection, abort, and late results. With supplied assets and local data, fail unexpected data requests and verify no built-in endpoint/transport dependency. |
 | Security | HTML/URL/SVG/clipboard/provider fixtures, PHP inline-script escaping, limits, CSP, lifecycle cancellation, server-output boundary tests. |
@@ -649,7 +675,7 @@ Do not treat a successful build or 36 prototype tests as completion of these gat
 Recommended dependency order:
 
 1. W0 contracts/corpus, then W1 extraction and W2 distribution together.
-2. W3 shared content/viewer/security foundations, then core W4 controls.
+2. W3 content/rendering/security foundations, then core W4 controls.
 3. W5-W8 advanced features in small tested increments; start M0/M1 and the opt-in W10/M2 Codiware pilot once its required subset is ready.
 4. W9 hardening runs throughout, with its final gate before stable release.
 5. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Work-package numbering does not impose a dependency between the facades. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
@@ -658,7 +684,7 @@ Confirm these before finalizing v1 estimates:
 
 - Publishing access for npm `markian` and Composer `axenox/markian`, repository publication permissions, and branch-protection ownership.
 - Browser/device minimums, supported Mermaid versions, baseline code languages, locale scope, and document/image/diagram limits.
-- Softbreak defaults per host, color/alert portability presets, allowed HTML, task toggling in viewers, and server sanitization ownership.
+- Softbreak defaults per host, color/alert portability presets, allowed HTML, host display-widget task policies, and server sanitization ownership; Markian's disabled/read-only mode always blocks task toggles.
 - Exact placeholder grammar/options in current documentation, generated-region editing policy, and legacy TUI-wrapper incidence.
 - Accepted Codiware change from document-wide split preview to visual/raw mode switching, with Monaco as the source-editing alternative.
 - Expected fullscreen boundary inside iframes and whether a parent bridge is required.

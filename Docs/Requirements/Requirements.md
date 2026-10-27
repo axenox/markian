@@ -6,7 +6,7 @@ Until now we have used the open source UI library Toast UI Editor ([https://ui.t
 
 ## Basic requirements 
 
-- single-file vanilla js include (plus a CSS file of course) - compatible with script html tags. 
+- prebuilt modular vanilla JS delivery: a core script/CSS plus optional extension and dependency assets, compatible with ordinary script/link tags. No consumer build step. Mermaid, programming-language syntax highlighting, and other optional features must not be loaded for an editor that does not enable them.
 	- easy to integrate with frameworks and other libs: jeasyui, Openui5,  codiware, jQuery comments. 
 - turns an HTML element (text or div) into an interactive editor
 - editor looks like an editor (not regular content becoming editable on hover or so)

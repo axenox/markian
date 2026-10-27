@@ -2,7 +2,7 @@
 
 ## Purpose and Status
 
-Markian is a framework-independent Markdown editor and viewer intended for standalone use and embedding in host applications. Markdown is its public value and persistence format; rendered HTML and engine documents are internal representations.
+Markian is a framework-independent Markdown editor intended for standalone use and embedding in host applications. It has no separate lightweight viewer API. Disabled/read-only mode prevents document edits while retaining search, selection, Markdown copying, and other nonmutating interactions. Display-only Power UI widgets are owned separately by the host. Markdown is the editor's public value and persistence format; rendered HTML and engine documents are internal representations.
 
 This is a living document about internal structure, ownership, and engineering principles. Update it in the same change as any architectural change. Appearance and interaction patterns belong in the [style guide](Styleguide.md). Scope, acceptance criteria, packaging work, and migration sequencing belong in the [implementation plan](Requirements/Plan.md).
 
@@ -29,28 +29,35 @@ Extract responsibilities from the prototype without treating its current file bo
 | --- | --- | --- |
 | Public instance/controller | Lifecycle, configuration, document revisions, active view, events, and host-facing commands. | Host routing, storage, authentication, or global page state. |
 | Markdown pipeline | Dialect, import/export, comment mappings, normalization, heading rules, and unsupported-input policy. | DOM scraping as a persistence mechanism. |
-| Editing views | Engine state, local selection/history, view-specific commands, measurement, and disposal. | Competing authoritative copies of the active value. |
-| Shared rendering | Viewer output, block rendering, sanitization, URL policy, and extension interpretation. | An editable engine instance merely to display a document. |
+| Editor document and editing sessions | Complete document value, whole-document or targeted drafts, engine state, selections, and local history. | Replacing the document with whatever a view displays. |
+| Views | Main-work-area presentation, toolbar/sidebar descriptions, available actions, focus, and measurement. | Independent document values or implicit draft commits on presentation changes. |
+| Editor rendering | Visual/Preview output, block rendering, sanitization, URL policy, and extension interpretation. | A separate standalone viewer or host display-widget implementation. |
 | UI and command registry | Toolbar/menu configuration, command availability, dialogs, focus, and accessible states. | Direct host framework dependencies. |
 | Host adapters | Framework lifecycle/bindings, file I/O, provider transport, document URL base, and host layout integration. | Editor engine internals as their integration API. |
 
-The target exposes `Markian.create(element, options)` and `Markian.createViewer(element, options)`. Each handle owns its documents, histories, selection, callbacks, URL base, theme, and pending work. Queries must be scoped to its root; IDs must not collide across instances. Shared immutable dependencies or safe loader promises are acceptable; singleton document state is not.
+The target exposes `Markian.create(element, options)` for editor instances, including disabled/read-only instances. Each handle owns its documents, histories, selection, callbacks, URL base, theme, and pending work. Queries must be scoped to its root; IDs must not collide across instances. Shared immutable dependencies or safe loader promises are acceptable; singleton document state is not.
 
 ## Markdown Contract
 
 - Persist ordinary interoperable Markdown, not editor JSON or rendered HTML. Normalization is allowed, but meaningful whitespace, code, comments, and generated bodies must survive.
-- Use the agreed CommonMark/GFM subset and one documented import/export policy. Editor and viewer must share semantics and conformance fixtures, even when their DOM differs.
+- Use the agreed CommonMark/GFM subset and one documented import/export policy. Editable and read-only editor presentation must share semantics and conformance fixtures. Compare separate host display widgets through compatibility fixtures, not a Markian viewer API.
 - Store extension delimiters and metadata as invisible HTML comments. Generated bodies remain independently readable Markdown. Unregistered extensions must not erase their markers or execute providers.
 - Store Mermaid as ordinary fenced `mermaid` code, mentions as ordinary text, and images as normal Markdown image syntax.
 - Templates use a `markdown` string with optional `{{selection}}` substitution, including HTML stencils such as `<kbd>{{selection}}</kbd>`. Substitute selected text literally with context-safe escaping, never expression evaluation or recursive expansion; reject unsupported substitution contexts. Empty selections leave the caret at the placeholder, and insertion is one active-view undo step.
 - Preserve unsupported content where possible or report it before replacing the loaded value. Never silently delete it to satisfy an engine schema.
 - Treat Markdown and provider output as untrusted input. Capture comment data before display sanitization; disposable sanitized HTML must not determine the saved representation.
 
-## Active Views and History
+## Document, Editing Sessions, and Views
 
-Only the active view is authoritative. Visual mode owns a ProseMirror document; raw mode owns a CodeMirror buffer; specialized Mermaid/code sessions own a draft with target identity and source revision. Do not continuously synchronize two authoritative editor models.
+**A view owns the visible main work area and its toolbar actions, not the editor's Markdown value.** The editor always exposes one complete document value. An editing session edits either that whole document or a specific target; a view presents a task using a session or modifies nothing at all. Do not create separate architectural categories of views merely because some edit content and others do not.
 
-The controller must obtain the current value, command availability, selection, focus, measurement, and disposal behavior from the active view. `get()` includes visible raw and specialized drafts without hidden mode switches.
+Visual editing uses a ProseMirror document; raw editing uses a CodeMirror buffer. Mermaid/expanded-code sessions own a draft for one code block, with stable target identity, source revision, selection, and local history. These sessions are independent of which view is currently visible. Do not continuously synchronize competing authoritative editor models.
+
+The document controller projects the complete current Markdown from the document and its editing sessions. `get()` includes pending raw and specialized drafts even while Help or Preview is visible, without hidden mode switches or requiring a block session to commit first. Help text, preview HTML, and a standalone code-block draft must never replace the whole document value.
+
+Views expose their available actions, toolbar/sidebar layout, focus, and measurement through the same public API used by applications and extensions. Commands route only to a supported session for the visible task; Help must not accidentally undo or replace text in a suspended editing session. The shell maintains common navigation, overflow, and fullscreen controls.
+
+Opening Help from an unfinished Mermaid session suspends its presentation, not its draft or history. Back from Help restores the Mermaid view and selection without committing, discarding, or dirtying content. Back from Mermaid itself applies the block update under the existing session commit policy. Substantial tasks replace the main work area within the same editor shell rather than opening large dialogs; small menus and simple prompts may remain transient popups.
 
 - Raw editing has local history. Returning changed source to visual mode is one undoable replacement; an unchanged round trip adds no edit. Validation failure retains the source buffer.
 - Mermaid Back applies one changed parent-document update. An unchanged Back adds no history step. Invalid diagram syntax remains editable and serializes as a normal fence.
@@ -63,6 +70,10 @@ Visual startup is the default. Standalone callers may opt into raw startup; curr
 ## Configuration and Host Services
 
 Keep declarative configuration JSON-serializable. Hosts combine it with trusted JavaScript functions when creating an instance; never evaluate function strings from documents or UXON.
+
+Register trusted extension factories once with `Markian.registerExtension(id, factory)` before creating editors. Each instance activates registered IDs through `extensions: { id: { enabled: true, config: {} } }`; enabled factories create independent instance state. Registration alone creates no editor state or optional dependency loading. Omitted/disabled entries contribute nothing and load no optional dependencies for that instance; enabled unknown IDs are configuration errors. Load extension code explicitly outside instance configuration, without a `source` property. Mermaid renderer injection uses `extensions.mermaid.config.renderer`; any optional dependency loader belongs to that extension's documented configuration. These are proposed library contracts, not current prototype exports.
+
+Applications, built-in extensions, and third-party extensions share one public instance API. Extensions package calls such as `markian.getToolbar().insert(...)`; they do not get a separate privileged customization API or access to private engine state. These calls change live instance state without overwriting user configuration or callbacks. Public methods define stable IDs, positioning, collision errors, explicit replacement rules, and removable owned additions. Notification subscriptions compose without replacing host handlers; exclusive overrides require an explicit operation and host authorization. Enforce permissions and lifecycle rules equally for all callers. Extension initialization returns cleanup; destruction and failed initialization release owned additions without undoing unrelated or newer host changes. See the [extension guide](Extensibility.md#one-public-api-for-applications-and-extensions) for the proposed example and detailed rules.
 
 General callbacks are flat `on<Subject><Action>` options, alphabetically grouped by subject: `onFullscreenEnter`, `onImageInsert`, `onImageSuggest`, `onLinkInspect`, `onLinkOpen`, `onLinkSuggest`, and `onPlaceholderRegenerate`. Mention-specific `onClick`, `onHover`, and `onSuggest` handlers belong directly on their `tags[]` entry. Do not introduce a nested `callbacks` object. The plan contains proposed configuration examples and result contracts.
 
@@ -78,13 +89,20 @@ The library supplies built-in fullscreen behavior. `onFullscreenEnter` can repla
 - Apply explicit HTML, SVG, URL, and image policies to imported, pasted, rendered, and provider-supplied content. Loading a document must not execute placeholders or arbitrary code.
 - Recheck revision, permissions, and instance lifetime after asynchronous work. Errors must be actionable without destroying the last valid document.
 - Destruction cancels pending work and releases listeners, observers, engine views, overlays, and owned resources. It is idempotent and restores the original host.
-- Textarea integration preserves form association, synchronizes the active value, and defines reset behavior. Read-only and disabled states must cover every command and provider entry point.
+- Textarea integration preserves form association, synchronizes the active value, and defines reset behavior. In Markian, disabled means read-only editing, not an inert/unfocusable editor or an automatic change to native form-submission behavior.
+- Both disabled/read-only entry points block user document changes across typing, paste/drop, raw/code drafts, undo/redo, replace, task toggles, insertion callbacks, and regeneration. Preserve search without replacement, selection, copying text or complete Markdown, safe navigation, Help, fullscreen, and diagram preview navigation. Recheck permissions before applying asynchronous results. State changes retain the document, pending drafts, and history without committing them; trusted host `set()` remains available under its explicit replacement policy.
 
 ## Distribution and Integration
 
-The target distribution is committed, deterministic JavaScript/CSS plus declarations, a manifest, and third-party notices. A classic script exposes the `window.Markian` factory; installation must not require Node.js, a consumer build, import maps, or implicit CDN/chunk loading. Package identities are `axenox/markian`, `markian`, and `npm-asset/markian`.
+The target distribution is committed, deterministic, prebuilt core and optional extension JavaScript/CSS plus declarations, a manifest, and third-party notices. The core classic script exposes the `window.Markian` factory; extension files supply factories for explicit registration. Installation must not require Node.js, a consumer build, import maps, or an implicit CDN dependency. Package identities are `axenox/markian`, `markian`, and `npm-asset/markian`. This modular contract replaces the earlier all-features/single-bundle requirement.
 
-Bundle the baseline editing dependencies. Mermaid is an explicitly supplied renderer/adapter or configured loader, not a sibling Core filesystem dependency. Demo fonts, sample assets, masthead, and download controls are not library dependencies.
+Keep ordinary Markdown editing, basic raw-source editing, parsing, sanitization, and core controls usable without optional extensions. A raw-source editing engine may be shared with the code extension, but programming-language packs and enhanced code highlighting/workspaces are optional assets, not mandatory core dependencies. Disabled extensions must not cause their optional dependencies to load, even when matching fences exist in a document; retain source and provide safe plain-code fallback.
+
+Mermaid is an optional extension with a separately supplied renderer/adapter or configured dependency loader, not a sibling Core filesystem dependency or core-bundled library. Code highlighting and language packs follow the same modular policy. Explicitly enabled extensions may load declared prebuilt dependencies on demand through documented host-controlled URLs; forbid hidden bundler chunks or guessed CDN locations. Deduplicate compatible asset loads across instances while keeping extension state, callbacks, sessions, and teardown instance-local. Hosts may preload assets instead, including for offline/CSP-controlled deployments. Demo fonts, sample assets, masthead, and download controls are not library dependencies.
+
+The distribution manifest records core/extension versions, declared assets/dependencies, and hashes. Build, publication, and committed-artifact checks cover the whole modular distribution, not just the core file. Test core-only startup with no Mermaid or programming-language highlighting requests, enabled extension loading/failure handling, and multi-instance deduplication. No size or speed improvement is claimed without measurement.
+
+External extensions follow the same public contract but ship in their owning package, not necessarily Markian's distribution or manifest. ExFace/Power UI Core owns and supplies the planned prebuilt `docsPlaceholders` extension and DocsFacade grammar. The host resolves its browser assets, composes package metadata, and loads/registers its factory before per-instance activation; no Core filesystem import or mandatory Core dependency belongs in Markian. Core's package owns build/version/dependency metadata and notices, while IDE may configure the extension and host callbacks without duplicating its grammar. Core-free/disabled instances preserve unknown comments and generated bodies without loading Core or executing providers.
 
 Host integrations use the public API. Core gains a separate `MarkianTrait`; the existing `ToastUIEditorTrait` remains unchanged and facades migrate independently. Do not bulk-rewrite stored documents or couple release schedules across hosts.
 
