@@ -62,14 +62,66 @@ export async function createVisual(
     });
     return found;
   };
-  const plugins = [history(), inputRules({ rules: [new InputRule(/^~{3,}([a-z0-9_+-]*)\s$/i, (state, match, start, end) => {
+  const plugins = [history(), new Plugin({
+    props: {
+      handleTextInput(view, from, to, text) {
+        if (readOnly() || view.composing || from !== to || text.includes('\n')) return false;
+        const { state } = view;
+        const code = state.schema.marks.inlineCode;
+        const position = state.doc.resolve(from);
+        if (position.parent.type.spec.code) return false;
+        const marks = state.storedMarks ?? position.marks();
+        const atCodeEnd = marks.some(mark => mark.type === code)
+          && !position.nodeAfter?.marks.some(mark => mark.type === code);
+        if (text === '`' && atCodeEnd) {
+          view.dispatch(state.tr.removeStoredMark(code));
+          return true;
+        }
+        if (atCodeEnd && state.storedMarks?.some(mark => mark.type === code)) {
+          view.dispatch(state.tr.insertText(text, from, to).setStoredMarks(marks));
+          return true;
+        }
+        if (text.includes('`') || marks.some(mark => mark.type === code)) return false;
+        const offset = position.parentOffset;
+        const before = position.parent.textBetween(0, offset, '\n', '\ufffc');
+        const after = position.parent.textBetween(offset, position.parent.content.size, '\n', '\ufffc');
+        if (!before.endsWith('`') || before.endsWith('``') || !after.startsWith('`') || after.startsWith('``')) return false;
+        const backslashes = before.slice(0, -1).match(/\\+$/)?.[0].length ?? 0;
+        if (backslashes % 2) return false;
+        const transaction = state.tr.replaceWith(from - 1, to + 1, state.schema.text(text, [code.create()]));
+        transaction.setSelection(TextSelection.create(transaction.doc, from - 1 + text.length));
+        transaction.setStoredMarks([code.create()]);
+        view.dispatch(transaction.scrollIntoView());
+        return true;
+      },
+      handleKeyDown(view, event) {
+        if (view.composing || event.key !== 'ArrowRight' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
+        const { state } = view;
+        if (!state.selection.empty) return false;
+        const position = state.selection.$from;
+        const code = state.schema.marks.inlineCode;
+        if (!(state.storedMarks ?? position.marks()).some(mark => mark.type === code)
+          || position.nodeAfter?.marks.some(mark => mark.type === code)) return false;
+        view.dispatch(state.tr.removeStoredMark(code));
+        return true;
+      },
+    },
+  }), inputRules({ rules: [new InputRule(/^ {0,3}(`{3,}|~{3,})([^\s`~]*)\s$/, (state, match, start, end) => {
     if (state.selection.$from.parent.type.name !== 'paragraph') return null;
-    return state.tr.delete(start, end).setBlockType(start, start, state.schema.nodes.code_block, { language: match[1] });
+    return state.tr.delete(start, end).setBlockType(start, start, state.schema.nodes.code_block, { language: match[2] });
   }), new InputRule(/(?<![\w:/~])~~([^~]+)~~$/, (state, match, start, end) => {
     const mark = state.schema.marks.strike_through;
     return state.tr.insertText(match[1], start, end).addMark(start, start + match[1].length, mark.create()).removeStoredMark(mark);
   })] }), keymap({ ...baseKeymap, Enter: (state, dispatch, view) => {
     if (state.selection.$from.parent.type.spec.code) return baseKeymap.Enter(state, dispatch, view);
+    const position = state.selection.$from;
+    const fence = state.selection.empty && position.parent.type.name === 'paragraph'
+      && position.parentOffset === position.parent.content.size
+      ? position.parent.textContent.match(/^ {0,3}(`{3,}|~{3,})([^\s`~]*)$/) : null;
+    if (fence) {
+      dispatch?.(state.tr.delete(position.start(), position.end()).setBlockType(position.start(), position.start(), state.schema.nodes.code_block, { language: fence[2] }).scrollIntoView());
+      return true;
+    }
     const item = state.schema.nodes.list_item;
     return splitListItem(item)(state, dispatch, view) || liftListItem(item)(state, dispatch, view) || baseKeymap.Enter(state, dispatch, view);
   }, Tab: goToNextCell(1), 'Shift-Tab': goToNextCell(-1), 'Mod-z': undo, 'Mod-Shift-z': redo, 'Mod-y': redo }), new Plugin({

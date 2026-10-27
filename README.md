@@ -121,6 +121,8 @@ Diagram labels are centered. A floating toolbar overlays the diagram on hover or
 
 Controls include H1-H6, word-at-caret inline formatting, lists/tasks, indentation, rules, quotes/GitHub alerts, clear formatting, links/images, and GFM tables. Table controls cover insertion, row/column deletion, header promotion, column alignment, and Tab navigation; merged cells and external spreadsheet paste are not supported. Source controls operate on literal Markdown; rich cell operations and visual clear-formatting are not raw-source commands.
 
+Visual typing recognizes backtick-delimited inline code. You can also type two backticks, move Left between them, and type the content; Right Arrow or a closing backtick returns to ordinary text without invisible characters. Start a paragraph with three or more backticks or tildes, optionally followed by a language such as `javascript` or `c++`, and press Space or Enter to create a code block. Fences remain literal until submitted, and backticks inside existing code blocks remain literal.
+
 `toolbar` is an ordered layout of registered toolbar IDs, command IDs, or inline `ToolbarItem` objects. Existing string arrays remain supported, now in the supplied order. `menu` accepts the same entries recursively, so any available command can be placed in any group. Objects have a unique `id`, optional `label`/`icon`, and either a `command`, a `menu`, `separator: true`, or `overflow: true`. An overflow boundary keeps every following item pinned; `fixed: true` also pins an individual item. Without a boundary, More is inserted before Maximize/Search, which remain fixed. Unknown commands, recursive menus, and malformed layouts are rejected.
 
 ```javascript

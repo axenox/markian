@@ -1248,6 +1248,50 @@ test('opt-in text colors preserve nested Markdown and portable instances have no
   expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
 });
 
+test('typed backticks create inline code and leave following text unformatted', async ({ page }) => {
+  await page.evaluate(() => editor.set(''));
+  await page.locator('.ProseMirror').first().click();
+  await page.keyboard.type('`code` normal');
+  await expect(page.locator('.ProseMirror p code').first()).toHaveText('code');
+  expect((await page.evaluate(() => editor.get())).trim()).toBe('`code` normal');
+});
+
+for (const exit of ['ArrowRight', 'backtick']) test(`paired backticks create inline code with ${exit} exit and undo`, async ({ page }) => {
+  await page.evaluate(() => editor.set(''));
+  await page.locator('.ProseMirror').first().click();
+  await page.keyboard.type('``');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('code');
+  await expect(page.locator('.ProseMirror p code').first()).toHaveText('code');
+  if (exit === 'backtick') await page.keyboard.type('`');
+  else await page.keyboard.press(exit);
+  await page.keyboard.type(' normal');
+  const value = await page.evaluate(() => editor.get());
+  expect(value.trim()).toBe('`code` normal');
+  expect(value).not.toMatch(/[\u200b\u2060\ufeff]/u);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).not.toBe(value);
+  await page.evaluate(() => editor.execute('redo'));
+  expect(await page.evaluate(() => editor.get())).toBe(value);
+});
+
+for (const fence of ['```', '````', '```javascript', '````c++', '~~~', '~~~~c++']) {
+  for (const submit of ['Enter', 'Space']) test(`typed fence ${fence} converts on ${submit}`, async ({ page }) => {
+    await page.evaluate(() => editor.set(''));
+    await page.locator('.ProseMirror').first().click();
+    await page.keyboard.type(fence);
+    await expect(page.locator('.ProseMirror pre').first()).toHaveCount(0);
+    await page.keyboard.press(submit);
+    const code = page.locator('.ProseMirror pre code').first();
+    await expect(code).toHaveCount(1);
+    await page.keyboard.type('literal `code` *text*');
+    await expect(code).toHaveText('literal `code` *text*');
+    await expect(code).toHaveClass(`language-${fence.replace(/^[`~]+/, '')}`);
+    await expect(code.locator('code')).toHaveCount(0);
+    expect(await page.evaluate(() => editor.get())).toContain('literal `code` *text*');
+  });
+}
+
 for (const marker of ['```', '~~~']) test(`typing ${marker} creates a code fence without source damage`, async ({ page }) => {
   await page.evaluate(() => editor.set(''));
   await page.locator('.ProseMirror').first().click();
