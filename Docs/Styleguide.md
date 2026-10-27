@@ -97,7 +97,7 @@ Share scoped document typography, safe rendered-content styling, theme tokens, a
 
 | Pattern | Presentation and behavior |
 | --- | --- |
-| Command button | Use selected MDI icons, accessible names, and tooltips. The prototype uses 20px icons. Use text for explicit actions such as Back, not labels in place of familiar formatting icons. |
+| Command button | Use selected MDI icons, accessible names, and tooltips. Replace and Replace All use the official VS Code Codicon SVG outlines with their native 16px viewBox, matching familiar editor search controls without loading an icon font. The prototype uses 20px icons. Use text for explicit actions such as Back, not labels in place of familiar formatting icons. |
 | Pinned toolbar | Group document commands predictably. Route every action to the active view and reflect its availability. |
 | Selection toolbar | Stay near the selection without obscuring it; share command identities and state styling with the pinned toolbar. Preserve selection when interacting. |
 | Option set | Use a menu for headings, lists, templates, or language choices; use recognizable selection state. |

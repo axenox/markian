@@ -638,12 +638,18 @@ test('search stays in code draft, never replaces suspended sessions, and respect
   expect(result.readonly).toBe(result.draft);
 });
 
-test('focus-bound search panel navigates and hides replace when locked', async ({ page }) => {
+test('focus-bound search panel navigates and hides replace when locked', async ({ page }, testInfo) => {
   await page.evaluate(() => editor.set('Alpha alpha alphabet'));
   await page.locator('.ProseMirror').first().click();
   await page.keyboard.press('Control+f');
   const panel = page.locator('.markian-search');
   await expect(panel.getByLabel('Find', { exact: true })).toBeFocused();
+  for (const name of ['Replace match', 'Replace all']) {
+    await expect(panel.getByRole('button', { name, exact: true }).locator('svg')).toHaveAttribute('viewBox', '0 0 16 16');
+  }
+  const paths = await panel.locator('button[aria-label^="Replace"] svg path').evaluateAll(elements => elements.map(element => element.getAttribute('d')));
+  expect(new Set(paths).size).toBe(2);
+  await panel.screenshot({ path: testInfo.outputPath('replace-codicons.png') });
   await panel.getByLabel('Find', { exact: true }).fill('alpha');
   await panel.getByLabel('Whole word').check();
   await expect(panel.locator('output')).toHaveText('1 / 2');
