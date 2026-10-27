@@ -4,7 +4,7 @@
 
 Turn the approved look-and-feel prototype into a reusable, framework-independent Markdown editor, implementing the [requirements](Requirements.md) using the architecture in [Approach.md](Approach.md). Then replace Toast UI Editor in Power UI and Codiware without changing Markdown into a proprietary storage format or requiring front-end builds on consumer installations. Plan a separate lightweight viewer in W16 after the Codiware integration; establish its shared rendering boundaries from the beginning. Power UI retains ownership of display-widget adapters.
 
-This is an implementation plan, not a statement that the described library, packages, hooks, or adapters already exist. The inventory below was checked against the workspace on 2026-10-26. No consumer code or package configuration is changed by this document.
+This is an implementation plan, not a blanket completion claim. The starting inventory below was checked on 2026-10-26. A fresh testable W0-W3 slice was implemented on 2026-10-27; current APIs and limitations are documented in the [README](../../README.md), and partial work-package progress is recorded below. No consumer integration was changed.
 
 Decisions for implementation:
 
@@ -27,9 +27,9 @@ The scope is the complete required library and migration, not only packaging the
 
 ## 2. Starting Point
 
-### 2.1 What the Prototype Already Proves
+### 2.1 Archived Prototype Evidence
 
-The [prototype guide](../../README.md) describes the implemented behavior. The current browser suite has 36 passing tests, including standard formatting, typing shortcuts, task controls, basic table edits, raw-mode toolbar commands and history, comment preservation, mode-specific outlines, Mermaid editing, safe URL rejection, and desktop/mobile layouts.
+The [archived prototype guide](../../Prototype/README.md) describes its historical behavior. Its 36-test suite and source were moved to `Prototype/` when the fresh implementation began; they are not current library conformance evidence. The new suite exercises the implemented instance, preservation, and distribution slice against built assets.
 
 Useful implementation foundations:
 
@@ -43,7 +43,7 @@ These tests prove a prototype slice, not full library conformance, production sa
 
 ### 2.2 What Must Change Before Library Use
 
-The current [entry point](../../src/main.js) uses page-global state, fixed IDs, demonstration controls, and a single `window.Markian` instance. Its CSS affects the entire page. The [package manifest](../../package.json) is private and builds an application rather than the promised library distribution. The [ignore rules](../../.gitignore) currently exclude `dist/`. Mermaid's [prototype adapter](../../src/mermaid-view.js) imports a sibling Core asset and initializes a shared global renderer.
+The archived [entry point](../../Prototype/src/main.js) used page-global state, fixed IDs, demonstration controls, and a single `window.Markian` instance. Its CSS affected the entire page and its [Mermaid adapter](../../Prototype/src/mermaid-view.js) imported a sibling Core asset. Those files are now outside the library. The package now builds classic-script assets, declarations, notices and a manifest; `dist/` is no longer ignored. Full distribution/publication acceptance is still pending below.
 
 Replace these assumptions with instance ownership, scoped styles, a stable public API, explicit renderer injection, deterministic library builds, and distribution tests. Keep the existing example as a demo consuming the public API; do not turn its masthead, download button, sample photo, or Google Fonts requests into library dependencies.
 
@@ -352,10 +352,10 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 
 | # | WP | Description | Done | ToDo |
 | --- | --- | --- | --- | --- |
-| 1 | W0 | Freeze Contracts and Compatibility Fixtures | | |
-| 2 | W1 | Extract the Instance-Based Library and Demo | | |
-| 3 | W2 | Establish Build, Distribution, and Packages | | |
-| 4 | W3 | Complete Markdown Import, Export, and Viewing | | |
+| 1 | W0 | Freeze Contracts and Compatibility Fixtures | Initial typed API, bounded preservation corpus, conservative raw fallback and URL policy. | Final browser/device and normalization policies, full fixture inventory, publication access and compatibility decisions. |
+| 2 | W1 | Extract the Instance-Based Library and Demo | Fresh strict-TS core; independent div/textarea instances, forms, histories, lifecycle/events, public registries, atomic schema fixture and optional Code proof; prototype archived. | Full structural grammars/nested mappings, command/view hardening, complete read-only search/navigation and remaining acceptance matrix. |
+| 3 | W2 | Establish Build, Distribution, and Packages | Prebuilt IIFEs/CSS/types/notices/hash manifest; npm/Composer metadata, index-aware opt-in hook, Windows/Linux CI definition, real npm archive install/browser check with scripts disabled. | Run CI/cross-OS parity, configure required branch checks, verify tagged Composer install, npm/Packagist access/publication and Asset Packagist mapping. |
+| 4 | W3 | Complete Markdown Import, Export, and Viewing | Shared engine-free GFM parsing/sanitization/anchors/softbreak policy; semantic import guard, comment preservation, safe Preview, source-preserving fixture checks. | Rich allowed-HTML/front-matter visual mappings, reference-link normalization policy, full interoperability corpus and independent GitHub/GitLab/host-renderer comparison. |
 | 5 | W4 | Complete Editing Controls and Responsive UI | | |
 | 6 | W5 | Finish Tables | | |
 | 7 | W6 | Links, Images, and Repository Providers | | |

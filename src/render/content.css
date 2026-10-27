@@ -1,0 +1,16 @@
+.markian-document { padding: 28px 36px; font-family: var(--markian-font, 'Segoe UI', sans-serif); font-size: 15px; line-height: 1.7; color: var(--markian-text, #262c2b); overflow-wrap: anywhere; letter-spacing: 0; }
+.markian-document > :first-child { margin-top: 0; }
+.markian-document h1 { font-size: 28px; line-height: 1.25; }
+.markian-document h2 { font-size: 22px; line-height: 1.3; }
+.markian-document h3 { font-size: 18px; }
+.markian-document h4, .markian-document h5, .markian-document h6 { font-size: 16px; }
+.markian-document p { margin: 0 0 1em; }
+.markian-document a { color: var(--markian-accent, #227761); text-decoration: underline; }
+.markian-document pre { padding: 14px; background: var(--markian-code, #f1f3f4); border-radius: 4px; overflow: auto; white-space: pre; }
+.markian-document code { font-family: var(--markian-mono, Consolas, monospace); background: var(--markian-code, #f1f3f4); font-size: 13px; }
+.markian-document blockquote { margin-left: 0; padding-left: 18px; border-left: 3px solid var(--markian-line, #dce3df); color: var(--markian-muted, #59645f); }
+.markian-document img { max-width: 100%; height: auto; }
+.markian-document table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
+.markian-document th, .markian-document td { min-width: 90px; padding: 8px 12px; border: 1px solid var(--markian-line, #dce3df); }
+.markian-document th { background: var(--markian-code, #f1f3f4); }
+.markian-document hr { border: 0; border-top: 1px solid var(--markian-line, #dce3df); }

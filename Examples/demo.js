@@ -1,0 +1,11 @@
+Markian.registerExtension('code', MarkianCode.codeExtension);
+const initial = '# Field notes\n\nDraft for the **spring field survey**.\n\n## Release checklist\n\n- Review the draft\n- Confirm the next steps\n\n> Record observations before drawing conclusions.\n\n## A code block\n\n```text\nhello, world\n```\n\n<!-- BEGIN sample -->\n\nGenerated content stays readable.\n\n<!-- END sample -->\n';
+window.editor = Markian.create(document.querySelector('#editor'), { markdown: initial, extensions: { code: { enabled: true } } });
+window.secondary = Markian.create(document.querySelector('#secondary'), { markdown: '## Review note\n\nArchive the site photographs after review.', theme: 'dark', disabled: true });
+const value = document.querySelector('#value');
+const showValue = () => { value.textContent = editor.get(); };
+editor.on('change', showValue);
+editor.ready.then(showValue).catch(error => { value.textContent = error.message; });
+document.querySelector('#snapshot').addEventListener('click', showValue);
+document.querySelector('#theme').addEventListener('change', event => editor.setTheme(event.target.checked ? 'dark' : 'light'));
+document.querySelector('#readonly').addEventListener('change', event => editor.setReadOnly(event.target.checked));

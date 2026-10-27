@@ -6,20 +6,23 @@ Markian is a framework-independent Markdown editor intended for standalone use a
 
 This is a living document about internal structure, ownership, and engineering principles. Update it in the same change as any architectural change. Appearance and interaction patterns belong in the [style guide](Styleguide.md). Scope, acceptance criteria, packaging work, and migration sequencing belong in the [implementation plan](Requirements/Plan.md).
 
-The repository currently contains an approved interaction prototype, not the completed reusable library. The plan defines the approved destination. Proposed API names below are contracts to implement, not a claim that they are exported today. Earlier alternatives in the [approach](Requirements/Approach.md) must be read in light of the later decisions in the plan.
+The repository now contains a fresh strict-TypeScript, instance-based W0-W3 implementation slice. The former interaction prototype and its tests are archived under `Prototype/` and are not build inputs. The [README](../README.md) defines the implemented API subset and limitations; the plan remains the full approved destination, not a completion claim. Earlier alternatives in the [approach](Requirements/Approach.md) must be read in light of the later decisions in the plan.
 
 ## Current Implementation
 
 | File | Responsibility |
 | --- | --- |
-| [main.js](../src/main.js) | Demonstration orchestration, visual/raw switching, active document value, toolbar dispatch, outlines, and specialized editing sessions. |
-| [extensions.js](../src/extensions.js) | Markdown/editor extensions, hidden comment mappings, typing rules, and URL restrictions. |
-| [source-commands.js](../src/source-commands.js) | CodeMirror source transformations and raw-mode command behavior. |
-| [mermaid-view.js](../src/mermaid-view.js) | Diagram node presentation, asynchronous Mermaid rendering, and code/preview workspace support. |
-| [style.css](../src/style.css) | Prototype shell, document typography, controls, themes, and responsive layouts. |
-| [prototype.spec.js](../Tests/prototype.spec.js) | Browser-level interaction and regression coverage. |
+| [index.ts](../src/index.ts) | Public factory, per-host mount ownership, extension factory registration, and public exports. |
+| [editor.ts](../src/editor.ts) | Instance document projection, events, commands, view stack, host/form lifecycle, and disposal. |
+| [visual.ts](../src/engines/visual.ts) | Only Milkdown importer; construction, structural translation, parse/serialize fidelity checks, and ProseMirror transactions. |
+| [prose.ts](../src/engines/prose.ts) | Internal ProseMirror re-exports using one pinned/deduplicated direct dependency graph, not Milkdown imports outside the adapter. |
+| [source.ts](../src/engines/source.ts) | CodeMirror buffers/history and editing permissions, shared through the public source handle. |
+| [markdown.ts](../src/render/markdown.ts) | Engine-independent GFM parsing, semantic comparison, safe rendering, headings, and URL policy. |
+| [code.ts](../src/extensions/code.ts) | Optional W1 proof slice using public registries, block targets, renderer, and source-view handle; no engine imports. |
+| [style.css](../src/style.css) | Scoped editor shell, themes, and controls; shared content typography lives in `src/render/content.css`. |
+| [library.spec.js](../Tests/library.spec.js) | Browser checks against classic-script `dist`, including lifecycle, draft projection, schema registration, and preservation fixtures. |
 
-The prototype uses Milkdown/ProseMirror for visual editing, CodeMirror for source editing, and selected Material Design Icons paths for controls. It still has page-global state, fixed demo elements, page-wide styles, and a single `window.Markian` handle. Its Mermaid loader imports a sibling Core asset. These are prototype constraints to remove, not library conventions to reproduce.
+The new library uses Milkdown/ProseMirror for visual editing, CodeMirror for source editing, and selected Material Design Icons paths. `window.Markian` is a factory, never an editor singleton. Demo globals and page styling are outside the library; startup has no Core, Mermaid, remote-font, or data-service dependency. Extensions use the same public APIs as hosts. Declaration generation, import-boundary checks, manifest hashes, notices, archive-install smoke checks, and Windows/Linux CI are implemented; publication and CI execution outside this machine remain external gates.
 
 ## Responsibility Boundaries
 
@@ -34,9 +37,11 @@ Extract responsibilities from the prototype without treating its current file bo
 | Shared rendering and policy | Markdown-to-output pipeline, sanitization, URL/heading rules, block fallback, and content styles shared by editor Preview and W16 viewer. | Editor-engine imports, sessions/history, toolbar UI, host I/O, or widget bindings. |
 | UI and command registry | Toolbar/menu configuration, command availability, dialogs, focus, and accessible states. | Direct host framework dependencies. |
 | Host adapters | Framework lifecycle/bindings, file I/O, provider transport, document URL base, and host layout integration. | Editor engine internals as their integration API. |
-| Visual engine adapter (planned, W1) | Milkdown editor creation, context/plugin registration, mdast-to-ProseMirror parsing and serialization, and teardown. The only module importing `@milkdown/*`. | Commands, node views, sessions, extensions, or public API, which use Markian-owned node definitions and plain ProseMirror APIs. |
+| Visual engine adapter | Milkdown editor creation, context/plugin registration, mdast-to-ProseMirror parsing and serialization, and teardown. The only module importing `@milkdown/*`. | Commands, sessions, extensions, or public API, which use Markian-owned definitions and plain ProseMirror APIs. |
 
-Milkdown is a replaceable wiring layer; ProseMirror, remark/mdast, and CodeMirror are the long-term foundations. The target confines Milkdown to the visual engine adapter, imports ProseMirror through one internal re-export module, and enforces this with an import-graph check. Do not add an abstraction over ProseMirror itself. The current prototype still calls Milkdown directly from several modules.
+Milkdown is a replaceable wiring layer; ProseMirror, remark/mdast, and CodeMirror are the long-term foundations. The implemented boundary confines Milkdown to the visual adapter and ordinary engine operations to one internal ProseMirror re-export module. Build checks enforce Milkdown, rendering, and no-transport boundaries. Do not add an abstraction over ProseMirror itself.
+
+The initial structural bridge supports atomic node mappings over existing mdast types, registered before preset mappings. It does not yet expose arbitrary remark grammars, nested-node serialization, input rules, or node-view registration. The Code proof and thematic-break schema fixture do not establish support for DocsFacade generated-region grammar. Failed visual fidelity checks retain exact source and fall back to raw mode at initialization; later failed imports leave the active value intact. HTML is inert in visual mode and omitted from sanitized Preview; front matter and resolved-reference differences may require source fallback. These are explicit remaining W0/W1/W3 gates.
 
 The target exposes `Markian.create(element, options)` for editor instances, including disabled/read-only instances. Each handle owns its documents, histories, selection, callbacks, URL base, theme, and pending work. Queries must be scoped to its root; IDs must not collide across instances. Shared immutable dependencies or safe loader promises are acceptable; singleton document state is not.
 
@@ -125,8 +130,8 @@ Host integrations use the public API. Core gains a separate `MarkianTrait`; the 
 
 ## Verification and Maintenance
 
-Use the existing [package scripts](../package.json): `npm run dev`, `npm run build`, and `npm test`. Reuse focused cases in the browser suite for changed behavior. Add conformance, isolation, lifecycle, and distribution checks as those library responsibilities are implemented; do not report prototype checks as proof of unimplemented contracts.
+Use the [package scripts](../package.json): `npm run dev`, `npm run build`, `npm test`, and `npm run verify`. The new browser suite loads only built classic scripts. Unit tests cover shared Markdown policy; the archive check installs and starts the packed example with scripts disabled. The archived prototype suite is historical, not evidence for the fresh library. Independent GitHub/GitLab rendering, real-device tests, CSP hardening, full publication/Composer installation, and remaining work-package gates are not established by these checks.
 
-The library source is planned to move to strict TypeScript during W1, with a separate type check and generated declarations; the prototype is still JavaScript. Two development/test approaches are planned: the Vite dev server for VS Code work, and an Apache-served test bench that loads the built `dist` for DevMan agent handoffs (plan W18 and Chapter 12).
+Library source is strict TypeScript with separate type checking and generated declarations. The Vite-served workspace and minimal static example load `dist`; they do not depend on source-module resolution. The DevMan-specific Apache bench/maintenance workflow remains W18 work.
 
 Keep this document aligned with actual module ownership and approved boundaries. Mark planned versus implemented behavior explicitly as extraction proceeds. Update the plan when scope or sequencing changes, and the style guide when visual or interaction conventions change. Do not create a second competing architecture description.

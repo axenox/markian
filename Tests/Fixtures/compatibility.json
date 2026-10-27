@@ -1,0 +1,11 @@
+[
+  { "name": "ordered starts and nesting", "markdown": "# Notes\n\n3. Three\n4. Four\n   - Nested\n" },
+  { "name": "hard and soft breaks", "markdown": "first  \nsecond\nthird\n" },
+  { "name": "comments and generated body", "markdown": "<!-- BEGIN sample -->\n\nA **readable** generated body.\n\n<!-- END sample -->\n" },
+  { "name": "GFM tasks and table", "markdown": "- [x] Reviewed\n- [ ] Pending\n\n| Name | State |\n| :--- | ---: |\n| Sample | Ready |\n" },
+  { "name": "long fences and literal code", "markdown": "`````text\n```\n  indented code\n`````\n" },
+  { "name": "reference meaning and empty mentions", "markdown": "[Guide][ref] and [@sample]()\n\n[ref]: ../guide.md?q=1#heading\n" },
+  { "name": "Unicode and Setext", "markdown": "Überblick\n=========\n\n## 次の段階\n\nhttps://example.org and user@example.org\n" },
+  { "name": "front matter and inert HTML", "markdown": "---\ncategory: sample\n---\n\n<kbd>Enter</kbd>\n\n<!-- unknown metadata -->\n" },
+  { "name": "unsafe presentation", "markdown": "[Unsafe](javascript:alert%281%29)\n\n<script>window.compromised = true</script>\n" }
+]

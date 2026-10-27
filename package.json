@@ -1,24 +1,62 @@
 {
-  "name": "markian-prototype",
+  "name": "markian",
   "version": "0.1.0",
-  "private": true,
+  "description": "Framework-independent Markdown editor with prebuilt browser assets",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axenox/markian.git"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "main": "dist/markian.min.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "Examples",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "test": "playwright test"
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && node Scripts/boundaries.mjs && node Scripts/build.mjs && tsc --emitDeclarationOnly && node Scripts/artifacts.mjs",
+    "test": "playwright test",
+    "test:unit": "tsx --test Tests/*.test.ts",
+    "verify": "npm run test:unit && npm run build && npm test && node Scripts/package.mjs",
+    "artifacts:check": "node Scripts/parity.mjs",
+    "hooks:install": "node Scripts/install-hooks.mjs"
   },
   "dependencies": {
+    "@types/mdast": "4.0.4",
+    "prosemirror-model": "1.25.12"
+  },
+  "devDependencies": {
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-markdown": "6.5.2",
     "@codemirror/language": "6.13.1",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.15",
     "@mdi/js": "7.4.47",
-    "@milkdown/kit": "7.22.3"
-  },
-  "devDependencies": {
+    "@milkdown/kit": "7.22.3",
     "@playwright/test": "1.64.1",
+    "prosemirror-commands": "1.7.1",
+    "prosemirror-history": "1.5.0",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-schema-list": "1.5.1",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.42.8",
+    "rehype-sanitize": "6.0.0",
+    "rehype-stringify": "10.0.1",
+    "remark-frontmatter": "5.0.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-rehype": "11.1.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "unified": "11.0.5",
     "vite": "8.3.5"
   }
 }

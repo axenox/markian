@@ -1,0 +1,9 @@
+{
+  "name": "axenox/markian",
+  "description": "Prebuilt framework-independent Markdown editor",
+  "type": "library",
+  "license": "MIT",
+  "archive": {
+    "exclude": ["/node_modules", "/Prototype", "/.prototype-tests", "/.test-results", "/src", "/Tests", "/Scripts", "/.github", "/.githooks"]
+  }
+}

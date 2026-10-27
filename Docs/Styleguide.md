@@ -4,9 +4,11 @@
 
 Markian should feel like a focused writing tool: a readable document, compact recognizable controls, and enough structure to navigate without turning the page into a dashboard. The approved prototype is the visual baseline, not a license to copy its demonstration shell into every integration.
 
-This is the living reference for look-and-feel, shared UI patterns, and interaction presentation. Update it in the same change whenever a reusable visual or interaction pattern changes. Internal ownership belongs in the [architecture](Architectur.md); feature scope and implementation status belong in the [plan](Requirements/Plan.md).
+This is the living reference for look-and-feel, shared UI patterns, and interaction presentation. Update it in the same change whenever a reusable visual or interaction pattern changes. Internal ownership belongs in the [architecture](Architecture.md); feature scope and implementation status belong in the [plan](Requirements/Plan.md).
 
-The current implementation is in [style.css](../src/style.css) and the [prototype](../README.md). Rules for the extracted library below are design requirements, not claims that scoped themes, configurable toolbars, or every accessibility state already exist.
+The new implementation is in [style.css](../src/style.css), with engine-independent typography in [content.css](../src/render/content.css). The original prototype is archived. The current slice implements scoped light/dark surfaces, MDI icon controls with native name tooltips, stable 32px toolbar buttons, a horizontally scrolling strip, view-local editing surfaces, status, and an inline diagnostic. Below 480px of editor container width, controls become 40px, the toolbar moves below the work area, and status is hidden. Fullscreen uses the same root within the current document viewport. Advanced overflow menus, floating controls, search, outlines, host-owned fullscreen callbacks, and complete accessibility verification remain planned.
+
+The public root is `[data-markian]` with `data-theme`, `data-view`, and (after a permission change) `data-readonly`. `.markian-document` is the content styling hook; do not depend on Milkdown DOM. All library selectors are scoped under `.markian` or the explicit content hook; demo page styles are separate and no fonts are requested remotely. Current variables use the `--markian-` prefix: `surface`, `text`, `muted`, `line`, `accent`, `soft`, `code`, `font`, and `mono`. The unprefixed prototype tokens below are historical reference, not the current customization API.
 
 ### Global layout
 
@@ -30,6 +32,8 @@ Toolbar buttons depend on the view. The mermaid toolbar shows different buttons 
 
 Toolbar items are buttons. They can either execute a command or show a dropdown with more buttons. 
 
+The current H2 button toggles the selected textblock between Heading 2 and a regular paragraph; other heading levels become Heading 2. Its accessible name and tooltip are "Heading 2".
+
 Toolbar items have a toggled-state. E.g. the `bold` item should appear toggled when the cursor is placed on a bold word. 
 
 Toolbar items can be arranged in groups for better visualization. 
@@ -40,7 +44,7 @@ When the screen is to narrow to house all items, the toolbar must overflow into 
 The status bar is small. Its contents depends on the current view. It is hidden on smartphones to save some space. It must not contain critical information. 
 
 Typical contents:
-- current view name
+- current view name: Visual, Source, or Code (Help and Preview for nonediting views); display labels are distinct from internal API identifiers
 - character count 
 - max length if set
 
@@ -65,7 +69,7 @@ Views expose only applicable actions: Mermaid uses session-local undo and diagra
 By default Markian includes the following built-in views:
 
 - Markdown view (rendered, editable)
-- Source view (raw markdown) - toggle by a button at the end of the main toolbar
+- Source view (raw markdown) - open from the Markdown button in the visual toolbar. Source shows Back instead of that button; Back validates and returns to visual editing without duplicating content events. Failed imports retain the source draft and show a diagnostic. Back from Help or Preview opened over source restores source first.
 - Preview view (rendered, not editable) - used for the editor's disabled/read-only presentation. Retain search, selection, safe navigation, and a Copy Markdown action; do not make the entire toolbar inert. This is a view within the editor, not a standalone lightweight viewer.
 - Help view (rendered, not editable) - very short manual for the editor. It shall have a chapter describing hotkeys and a separate chapter for each extension. Extensions shall contribute help as markdown via `getHelp()` and `getHelpForHotkeys()`
 
@@ -140,6 +144,8 @@ Scope extracted-library selectors and theme variables to its root. Reuse the sam
 
 The prototype uses Public Sans for ordinary UI/body text, Space Grotesk for display/brand headings, and IBM Plex Mono for code. These establish the baseline character; they are not mandatory remote font dependencies. Library typography must support host overrides and usable local fallbacks.
 
+The current demo and packaged example reuse the prototype's masthead: a green "m." symbol, a thin divider, the lowercase Space Grotesk wordmark, and a small uppercase workspace label. The demo stylesheet serves Space Grotesk locally alongside its OFL license; neither the font nor the masthead belongs to the library assets. Keep the existing demo controls usable when the header stacks on small screens.
+
 - Separate document hierarchy from tool hierarchy. Toolbar labels, outline headings, dialogs, and status text stay compact; demo branding does not set tool heading sizes.
 - Use consistent document spacing for headings, paragraphs, lists, quotes, code, and tables in editable and disabled/read-only editor output.
 - Keep code monospaced, preserve meaningful whitespace, and provide scrolling for long lines where appropriate.
@@ -154,6 +160,7 @@ The desktop prototype uses a document area with a 212px outline, reduced to 180p
 - Give toolbars, icons, pane tracks, and status areas stable dimensions so hover, selection, and loading do not shift the layout.
 - Overflow tools through a deliberate horizontal strip or menu. Do not let controls overlap content or become unreachable on narrow screens.
 - Fullscreen remains the same editing experience with more space. Restore the prior host layout, focus, and scrolling on exit.
+- The fullscreen button shows outward arrows with the name and tooltip "Maximize" normally, and inward arrows with "Restore original size" while expanded. Its pressed state follows fullscreen, including when Escape restores the original size or views change.
 
 ## Accessibility and Motion
 

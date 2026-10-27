@@ -1,0 +1,15 @@
+@font-face { font-family: 'Space Grotesk'; src: url('./SpaceGrotesk.ttf') format('truetype'); font-weight: 300 700; font-style: normal; font-display: swap; }
+body { margin: 0; background: #f3f5f4; color: #262c2b; font-family: 'Public Sans', 'Segoe UI', sans-serif; }
+header { box-sizing: border-box; min-height: 82px; padding: 16px 4%; border-bottom: 1px solid #e3e8e5; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fff; }
+.brand { display: flex; min-width: 0; gap: 11px; align-items: center; color: #262c2b; font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 600; text-decoration: none; }
+.brand-symbol { flex-shrink: 0; color: #227761; font-size: 30px; font-weight: 700; border-right: 1px solid #e3e8e5; padding-right: 15px; margin-right: 2px; }
+.workspace-label { margin: 3px 0 0 11px; padding-left: 20px; border-left: 1px solid #e3e8e5; font: 10px/1.2 Consolas, monospace; color: #757e7a; text-transform: uppercase; }
+.demo-actions { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+.demo-actions button { padding: 8px 12px; color: #fff; background: #227761; border: 0; border-radius: 4px; cursor: pointer; }
+main { max-width: 1540px; margin: auto; padding: 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; }
+.demo-main { height: calc(100dvh - 130px); min-height: 400px; }
+aside { min-width: 0; }
+aside > h2 { font-size: 12px; text-transform: uppercase; margin: 0 0 12px; color: #59645f; }
+aside pre { height: 220px; overflow: auto; padding: 14px; background: #e7ece9; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 24px; border-radius: 4px; }
+.demo-secondary { height: 340px; }
+@media (max-width: 800px) { header { padding: 14px 20px; align-items: flex-start; flex-direction: column; } .brand { font-size: 23px; gap: 8px; } .brand-symbol { font-size: 27px; padding-right: 11px; } .workspace-label { font-size: 8px; margin-left: 3px; padding-left: 12px; } main { padding: 16px; grid-template-columns: minmax(0, 1fr); } .demo-main { height: 65dvh; } .demo-actions { flex-wrap: wrap; } }
