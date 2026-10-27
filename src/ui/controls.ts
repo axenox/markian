@@ -1,5 +1,6 @@
 import { mdiFormatBold, mdiFormatItalic, mdiCodeTags, mdiUndo, mdiRedo, mdiLanguageMarkdownOutline, mdiEyeOutline, mdiHelpCircleOutline, mdiArrowLeft, mdiContentCopy, mdiFullscreen, mdiFullscreenExit, mdiCodeBraces, mdiFormatHeader1, mdiFormatHeader2, mdiFormatHeader3, mdiFormatHeader4, mdiFormatHeader5, mdiFormatHeader6, mdiFormatListBulleted, mdiFormatQuoteClose, mdiFormatStrikethrough, mdiFormatListNumbered, mdiFormatIndentIncrease, mdiFormatIndentDecrease, mdiCheckboxMarkedOutline, mdiMinus, mdiFormatClear, mdiLinkVariant, mdiLinkVariantOff, mdiImageOutline, mdiTable, mdiMagnify, mdiClose, mdiChevronUp, mdiChevronDown, mdiDotsHorizontal, mdiFormatListText } from '@mdi/js';
 import { mdiFormatColorFill } from '@mdi/js';
+import { mdiSitemapOutline, mdiMagnifyPlusOutline, mdiMagnifyMinusOutline, mdiRestore, mdiRefresh } from '@mdi/js';
 import { mdiFileEditOutline, mdiInformationOutline, mdiLightbulbOutline, mdiMessageAlertOutline, mdiAlertOutline, mdiAlertOctagonOutline } from '@mdi/js';
 import { mdiTableRowPlusBefore, mdiTableRowPlusAfter, mdiTableColumnPlusBefore, mdiTableColumnPlusAfter, mdiTableRowRemove, mdiTableColumnRemove, mdiTableRemove, mdiTablePlus, mdiTableRow, mdiFormatAlignLeft, mdiFormatAlignCenter, mdiFormatAlignRight, mdiPageLayoutSidebarRight, mdiChevronRight } from '@mdi/js';
 
@@ -24,6 +25,7 @@ const icons: Record<string, string> = {
   'table:delete-row': mdiTableRowRemove, 'table:delete-column': mdiTableColumnRemove, 'table:delete': mdiTableRemove,
   'table:header': mdiTableRow, 'table:left': mdiFormatAlignLeft, 'table:center': mdiFormatAlignCenter, 'table:right': mdiFormatAlignRight,
   color: mdiFormatColorFill,
+  diagram: mdiSitemapOutline, zoomIn: mdiMagnifyPlusOutline, zoomOut: mdiMagnifyMinusOutline, reset: mdiRestore, retry: mdiRefresh,
 };
 
 export function commandButton(document: Document, label: string, icon: string | undefined, action: () => void): HTMLButtonElement {

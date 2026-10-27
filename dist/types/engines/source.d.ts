@@ -11,6 +11,7 @@ export declare class SourceEditor {
     replaceSearch(replacement: string, all?: boolean): void;
     undo(): void;
     redo(): void;
+    indent(outdent?: boolean): void;
     setReadOnly(value: boolean): void;
     focus(): void;
     destroy(): void;

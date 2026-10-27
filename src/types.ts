@@ -78,7 +78,8 @@ export interface ViewDefinition {
 export interface RendererDefinition {
   id: string;
   language: string;
-  render(code: string, element: HTMLElement): Disposer;
+  visual?: boolean;
+  render(code: string, element: HTMLElement, context?: { open(view: string): void }): Disposer;
 }
 export interface SourceHandle {
   get(): string;
@@ -87,6 +88,7 @@ export interface SourceHandle {
   replaceSearch(replacement: string, all?: boolean): void;
   undo(): void;
   redo(): void;
+  indent(outdent?: boolean): void;
   focus(): void;
   resize(): void;
   setReadOnly(value: boolean): void;
@@ -147,6 +149,8 @@ export interface MarkianInstance {
   getViews(): Registry<ViewDefinition>;
   getRenderers(): Registry<RendererDefinition>;
   getSchema(): Registry<StructuralNode>;
+  getHelp(): Registry<{ id: string; markdown: string }>;
+  insertCodeBlock(value: string, language: string): void;
   createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void): SourceHandle;
   getCodeTarget(): BlockTarget | null;
   getActiveSession(): BlockSession | null;

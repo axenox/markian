@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Minimal editor</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <style>
+      .editor-host {
+        height: 440px;
+      }
+    </style>
+  </head>
+  <body class="demo-minimal">
+    <header>
+      <a href="index.html">Markian examples</a>
+    </header>
+    <main>
+      <h1>Minimal editor</h1>
+      <form id="notes">
+        <div class="editor-host">
+          <textarea id="example" name="notes" aria-label="Notes"># A note
+
+Plain Markdown, ready to edit.</textarea>
+        </div>
+        <p class="form-actions">
+          <button type="reset">Reset</button>
+          <button type="button" id="destroy">Destroy</button>
+        </p>
+      </form>
+      <pre id="submitted"></pre>
+    </main>
+
+    <script src="../dist/markian.min.js"></script>
+    <script>
+      const host = document.querySelector('#example');
+      const form = document.querySelector('#notes');
+      const submitted = document.querySelector('#submitted');
+
+      window.example = Markian.create(host, {
+        markdown: host.value,
+      });
+
+      const showValue = () => {
+        submitted.textContent = new FormData(form).get('notes');
+      };
+
+      example.on('change', showValue);
+      example.ready.then(showValue);
+
+      document.querySelector('#destroy').addEventListener('click', () => {
+        example.destroy();
+      });
+    </script>
+  </body>
+</html>

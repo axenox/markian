@@ -1,6 +1,6 @@
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, drawSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo, indentMore, indentLess, indentWithTab } from '@codemirror/commands';
 import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { findMatches } from '../search';
 import type { SearchMatch, SearchOptions } from '../types';
@@ -14,7 +14,7 @@ export class SourceEditor {
     this.view = new EditorView({
       parent: element,
       state: EditorState.create({ doc: value, extensions: [
-        history(), lineNumbers(), drawSelection(), search(), keymap.of([...defaultKeymap, ...historyKeymap]),
+        history(), lineNumbers(), drawSelection(), search(), keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
         this.permissions.of(EditorState.readOnly.of(readOnly)),
         EditorView.contentAttributes.of({ 'aria-label': 'Markdown source' }),
         EditorView.updateListener.of(update => { if (update.docChanged) changed(update.state.doc.toString()); if (update.selectionSet) selected(); }),
@@ -41,6 +41,7 @@ export class SourceEditor {
   }
   undo(): void { undo(this.view); }
   redo(): void { redo(this.view); }
+  indent(outdent = false): void { if (!this.view.state.readOnly) (outdent ? indentLess : indentMore)(this.view); }
   setReadOnly(value: boolean): void { this.view.dispatch({ effects: this.permissions.reconfigure(EditorState.readOnly.of(value)) }); }
   focus(): void { this.view.focus(); }
   destroy(): void { this.view.destroy(); }

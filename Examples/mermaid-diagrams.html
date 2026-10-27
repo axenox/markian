@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Mermaid diagrams</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/extensions/mermaid.css">
+    <style>
+      .editor-host {
+        height: 640px;
+        min-width: 0;
+      }
+    </style>
+  </head>
+  <body class="demo-diagrams">
+    <header>
+      <a class="brand" href="index.html" aria-label="Markian examples">
+        <span class="brand-symbol" aria-hidden="true">m.</span>
+        markian
+        <span class="workspace-label">Mermaid diagrams</span>
+      </a>
+      <div class="demo-actions">
+        <label>
+          Theme
+          <select id="theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <label>
+          <input id="readonly" type="checkbox">
+          Read-only
+        </label>
+      </div>
+    </header>
+    <main>
+      <section class="editor-host" aria-label="Diagram editor">
+        <div id="diagram-editor"></div>
+      </section>
+    </main>
+
+    <script src="../dist/markian.min.js"></script>
+    <script src="../dist/extensions/mermaid.min.js"></script>
+    <script>
+      const markdown = [
+        '# Release workflow',
+        '',
+        '```mermaid',
+        'flowchart LR',
+        '  A[Draft] --> B[Review]',
+        '  B --> C[Publish]',
+        '```',
+        '',
+        '## Approval',
+        '',
+        '```mermaid',
+        'sequenceDiagram',
+        '  Author->>Reviewer: Ready for review',
+        '  Reviewer-->>Author: Approved',
+        '```',
+        '',
+      ].join('\n');
+
+      Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+
+      window.diagramEditor = Markian.create(document.querySelector('#diagram-editor'), {
+        markdown,
+        extensions: {
+          mermaid: {
+            enabled: true,
+            config: {
+                asset: {
+                    url: '../host-assets/mermaid.min.js',
+                    version: '12.2.0',
+                },
+            },
+          },
+        },
+      });
+
+      document.querySelector('#theme').addEventListener('change', event => {
+        diagramEditor.setTheme(event.target.value);
+      });
+
+      document.querySelector('#readonly').addEventListener('change', event => {
+        diagramEditor.setReadOnly(event.target.checked);
+      });
+    </script>
+  </body>
+</html>

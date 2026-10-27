@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { mdiSitemapOutline } from '@mdi/js';
 import { equivalentMarkdown } from '../src/render/markdown';
 
 const browserErrors = new WeakMap();
@@ -24,7 +25,274 @@ test.beforeEach(async ({ page }) => {
   browserErrors.set(page, errors);
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
+  await page.waitForURL('**/Examples/editor-workspace.html');
   await page.evaluate(async () => { await Promise.all([window.editor.ready, window.secondary.ready]); });
+});
+
+async function mermaidFixture(page, kind = 'supplied') {
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.evaluate(async kind => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const host = document.createElement('div');
+    host.style.height = '560px';
+    document.querySelector('main').prepend(host);
+    window.diagramCalls = [];
+    const renderer = { version: '12.2.0', render: async ({ source, theme, signal }) => {
+      diagramCalls.push({ source, theme, signal });
+      if (kind === 'delayed') await new Promise(resolve => { (window.diagramResolves ??= []).push(resolve); });
+      if (source.includes('invalid')) throw new Error('Invalid diagram syntax');
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160"><defs><marker id="arrow"><path d="M0 0L5 5"/></marker></defs><g class="node"><rect id="node" width="180" height="80"/><text x="10" y="40">${theme}</text></g><path marker-end="url(#arrow)" d="M0 90L100 90"/><script>alert(1)</script><foreignObject><p>Unsafe</p></foreignObject><a href="javascript:alert(1)"><text>Link</text></a></svg>`;
+    } };
+    window.diagramEditor = Markian.create(host, {
+      markdown: '# Diagrams\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n```mermaid\nflowchart TD\n  C --> D\n```\n',
+      extensions: { mermaid: { enabled: true, config: kind === 'missing' ? {} : { renderer } } },
+    });
+    await diagramEditor.ready;
+  }, kind);
+  const root = page.locator('[data-markian]').filter({ has: page.locator('.markian-diagram') }).first();
+  await root.locator('.markian-diagram').first().hover();
+  return root;
+}
+
+test('Mermaid optional core and disabled instances request no renderer assets', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (/mermaid/i.test(request.url())) requests.push(request.url()); });
+  await page.evaluate(async () => {
+    editor.set('```mermaid\nflowchart LR\n A-->B\n```');
+    const host = document.createElement('div');
+    document.body.append(host);
+    window.disabledDiagram = Markian.create(host, { markdown: editor.get(), extensions: { mermaid: { enabled: false, config: { asset: { url: '/must-not-load.js', version: '12.2.0' } } } } });
+    await disabledDiagram.ready;
+    await editor.execute('preview');
+  });
+  await expect(page.locator('.markian-view code.language-mermaid')).toHaveCount(1);
+  expect(requests).toEqual([]);
+});
+
+test('Mermaid supplied renderer scopes IDs, sanitizes SVG and keeps instance themes independent', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(2);
+  await expect(root.locator('.markian-diagram script, .markian-diagram foreignObject, .markian-diagram a')).toHaveCount(0);
+  const ids = await root.locator('.markian-diagram [id]').evaluateAll(elements => elements.map(element => element.id));
+  expect(new Set(ids).size).toBe(ids.length);
+  await page.evaluate(() => diagramEditor.setTheme('dark'));
+  await expect(root.locator('.markian-diagram text').first()).toHaveText('dark');
+  expect(await page.evaluate(() => editor.element.dataset.theme)).toBe('light');
+  const value = await page.evaluate(() => diagramEditor.get());
+  await page.evaluate(() => diagramEditor.execute('preview'));
+  await expect(root.locator('.markian-view .markian-diagram[data-state="ready"]')).toHaveCount(2);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(value);
+});
+
+test('Mermaid drafts save before Back, suspend for Help, and commit once with local history', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  const initial = await page.evaluate(() => diagramEditor.get());
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  await expect(root).toHaveAttribute('data-view', 'mermaid');
+  await page.evaluate(() => { window.diagramChanges = 0; diagramEditor.on('change', () => diagramChanges++); });
+  const input = root.locator('.markian-mermaid .cm-content');
+  await input.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n  B --> C');
+  const draft = await page.evaluate(() => diagramEditor.get());
+  expect(draft).toContain('B --> C');
+  expect(draft).toContain('# Diagrams');
+  await page.evaluate(() => diagramEditor.on('save-request', () => { window.savedDiagramDraft = diagramEditor.get(); }));
+  await page.keyboard.press('Control+s');
+  expect(await page.evaluate(() => savedDiagramDraft)).toBe(draft);
+  await page.evaluate(() => diagramEditor.execute('help'));
+  await expect(root.locator('.markian-view:not([hidden])')).toContainText('Mermaid diagrams');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await page.evaluate(() => diagramEditor.execute('mermaid:redo'));
+  const before = await page.evaluate(() => diagramChanges);
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  expect(await page.evaluate(() => diagramChanges)).toBe(before);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+});
+
+test('Mermaid no-op Back, conflicts, deleted targets and permission transitions retain drafts', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  const initial = await page.evaluate(() => diagramEditor.get());
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  await page.evaluate(() => { window.oldDiagramTarget = diagramEditor.getActiveSession().target; });
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  await page.evaluate(() => diagramEditor.getActiveSession().set('flowchart LR\n A --> Changed'));
+  const draft = await page.evaluate(() => diagramEditor.get());
+  expect(await page.evaluate(() => { try { diagramEditor.set('New document'); return false; } catch { return true; } })).toBe(true);
+  await page.evaluate(() => diagramEditor.setReadOnly(true));
+  expect(await page.evaluate(() => diagramEditor.execute('mermaid:undo'))).toBe(false);
+  expect(await page.evaluate(() => { try { diagramEditor.back(); return false; } catch { return true; } })).toBe(true);
+  await root.locator('.markian-mermaid .cm-content').click();
+  await page.keyboard.type('must not change');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
+  await root.locator('.markian-mermaid .markian-diagram').hover();
+  await root.locator('.markian-mermaid').getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await page.evaluate(() => { diagramEditor.setReadOnly(false); diagramEditor.back(); diagramEditor.set('Replacement', { pending: 'discard' }); });
+  expect(await page.evaluate(() => { try { diagramEditor.openView('mermaid', oldDiagramTarget); return false; } catch { return true; } })).toBe(true);
+});
+
+test('Mermaid invalid syntax, directives and complexity limits preserve ordinary fences', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  for (const [source, message] of [['invalid diagram', 'Invalid diagram syntax'], ['%%{init: {}}%%\nflowchart LR', 'configuration directives'], ['x'.repeat(20001), 'complexity limit']]) {
+    await page.evaluate(source => diagramEditor.getActiveSession().set(source), source);
+    await expect(root.locator('.markian-mermaid .markian-diagram-status')).toContainText(message);
+    expect(await page.evaluate(() => diagramEditor.get())).toContain(source);
+  }
+  await page.evaluate(() => diagramEditor.getActiveSession().set('invalid diagram'));
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('```mermaid\ninvalid diagram');
+});
+
+test('Mermaid late results are ignored after rapid drafts and teardown', async ({ page }) => {
+  const root = await mermaidFixture(page, 'delayed');
+  await expect.poll(() => page.evaluate(() => diagramCalls.length)).toBe(2);
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  await expect.poll(() => page.evaluate(() => diagramCalls.length)).toBe(3);
+  await page.evaluate(() => diagramEditor.getActiveSession().set('flowchart LR\n New --> Draft'));
+  await expect.poll(() => page.evaluate(() => diagramCalls.length)).toBe(4);
+  expect(await page.evaluate(() => diagramCalls[2].signal.aborted)).toBe(true);
+  await page.evaluate(() => { diagramResolves[3](); diagramResolves[2](); });
+  await expect(root.locator('.markian-mermaid .markian-diagram')).toHaveAttribute('data-state', 'ready');
+  await page.evaluate(() => { diagramEditor.destroy(); diagramResolves.forEach(resolve => resolve()); });
+  await expect(root).toHaveCount(0);
+  expect(await page.evaluate(() => diagramCalls.every(call => call.signal.aborted))).toBe(true);
+});
+
+test('Mermaid missing host URL shows an error instead of a diagram and retains editable source', async ({ page }) => {
+  const root = await mermaidFixture(page, 'missing');
+  expect(await page.evaluate(async () => {
+    try { await MarkianMermaid.loadMermaid(document, { url: ' ', version: '12.2.0' }); return ''; }
+    catch (error) { return error.message; }
+  })).toContain('Mermaid URL is not configured');
+  await expect(root.locator('.markian-diagram[data-state="error"]')).toHaveCount(2);
+  await expect(root.locator('.markian-diagram-status').first()).toContainText('Mermaid URL is not configured');
+  await expect(root.locator('.markian-diagram-canvas svg, .markian-diagram-canvas code')).toHaveCount(0);
+  await expect(root.locator('.markian-diagram-viewport').first()).toBeHidden();
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('flowchart LR');
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  await page.evaluate(() => diagramEditor.getActiveSession().set('flowchart LR\n Saved --> Source'));
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('Saved --> Source');
+});
+
+test('Mermaid nested fences render without offering unsupported block-session editing', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await page.evaluate(() => diagramEditor.set('> ```mermaid\n> flowchart LR\n> A --> B\n> ```'));
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
+  await expect(root.getByRole('button', { name: 'Edit diagram', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('> A --> B');
+});
+
+test('Mermaid insertion, indentation and pointer pan use the active session only', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await expect((await revealCommand(root, 'mermaid:insert')).locator('svg path')).toHaveAttribute('d', mdiSitemapOutline);
+  await page.evaluate(async () => { diagramEditor.set(''); await diagramEditor.execute('mermaid:insert'); });
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('A[Start] --> B[Finish]');
+  await root.locator('.markian-diagram').hover();
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).click();
+  const input = root.locator('.markian-mermaid .cm-content');
+  await input.click();
+  await page.keyboard.press('Control+Home');
+  const original = await page.evaluate(() => diagramEditor.get());
+  await page.evaluate(() => diagramEditor.execute('mermaid:indent'));
+  expect(await page.evaluate(() => diagramEditor.get())).not.toBe(original);
+  await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(original);
+  const viewport = root.locator('.markian-mermaid .markian-diagram-viewport');
+  const bounds = await viewport.boundingBox();
+  await page.mouse.move(bounds.x + 30, bounds.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 90, bounds.y + 60);
+  await page.mouse.up();
+  await expect(root.locator('.markian-mermaid .markian-diagram-canvas')).toHaveAttribute('style', /translate\(60px, 30px\)/);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(original);
+});
+
+for (const width of [1440, 390]) test(`Mermaid host-configured example renders, centers labels and floats controls at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const assets = [];
+  page.on('request', request => { if (request.url().includes('/host-assets/mermaid.min.js')) assets.push(request.url()); });
+  await page.goto('/Examples/mermaid-diagrams.html');
+  await page.evaluate(() => diagramEditor.ready);
+  const root = page.locator('[data-markian]');
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(2);
+  expect(assets).toHaveLength(1);
+  await expect(root.locator('.markian-diagram').first()).toContainText('Draft');
+  await expect(root.locator('.markian-diagram').first()).toContainText('Publish');
+  const firstDiagram = root.locator('.markian-diagram').first();
+  await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('position', 'absolute');
+  await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('opacity', '0');
+  await firstDiagram.locator('.markian-diagram-viewport').focus();
+  await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('opacity', '1');
+  await firstDiagram.locator('.markian-diagram-viewport').blur();
+  const centers = await firstDiagram.locator('svg .node').evaluateAll(nodes => nodes.map(node => {
+    const shape = node.querySelector('rect');
+    const label = node.querySelector('text');
+    const box = shape.getBoundingClientRect();
+    const text = label.getBoundingClientRect();
+    return Math.abs(box.x + box.width / 2 - text.x - text.width / 2);
+  }));
+  expect(centers.every(offset => offset < 2)).toBe(true);
+  await firstDiagram.hover();
+  await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('opacity', '1');
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  const split = root.locator('.markian-mermaid');
+  await expect(split.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+  const code = await split.locator('.markian-mermaid-source').boundingBox();
+  const preview = await split.locator('.markian-diagram').boundingBox();
+  expect(width === 390 ? preview.y >= code.y + code.height - 1 : preview.x >= code.x + code.width - 1).toBe(true);
+  expect(await root.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  const canvas = split.locator('.markian-diagram-canvas');
+  await split.locator('.markian-diagram').hover();
+  await split.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect(canvas).toHaveAttribute('style', /scale\(1.25\)/);
+  const viewport = split.locator('.markian-diagram-viewport');
+  await viewport.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(canvas).toHaveAttribute('style', /translate\(30px/);
+  await page.keyboard.press('Home');
+  await expect(canvas).toHaveAttribute('style', /scale\(1\)/);
+  await page.selectOption('#theme', 'dark');
+  await expect(split.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+  await page.screenshot({ path: `.test-results/mermaid-${width}-dark.png` });
+});
+
+test('Mermaid host URL loading retries failures, deduplicates instances and rejects conflicting versions', async ({ page }) => {
+  let failures = 0;
+  await page.route('**/host-assets/mermaid.min.js', async route => {
+    if (++failures !== 1) { await route.continue(); return; }
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await route.abort();
+  });
+  await page.goto('/Examples/mermaid-diagrams.html');
+  await page.evaluate(() => diagramEditor.ready);
+  const root = page.locator('[data-markian]');
+  await expect(root.locator('.markian-diagram[data-state="error"]')).toHaveCount(2);
+  await root.getByRole('button', { name: 'Retry diagram', exact: true }).first().click();
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    window.otherDiagram = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n Other-->Instance\n```', extensions: { mermaid: { enabled: true, config: { asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' } } } } });
+    await otherDiagram.ready;
+  });
+  await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(2);
+  expect(failures).toBe(2);
+  expect(await page.evaluate(async () => {
+    try { await MarkianMermaid.loadMermaid(document, { url: '/host-assets/mermaid.min.js', version: '12.2.1' }); return false; } catch (error) { return error.message.includes('Incompatible'); }
+  })).toBe(true);
+  await page.evaluate(() => diagramEditor.destroy());
+  await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(1);
 });
 
 for (const command of ['bullet', 'ordered', 'task']) test(`toolbar ${command} list continues on Enter and exits an empty item`, async ({ page }) => {
@@ -311,7 +579,7 @@ test('overflow destination panels point to More after the command menu closes', 
 
 test('classic-script startup is visual, independent, and free of optional dependencies', async ({ page }) => {
   await expect(page.locator('header .brand-symbol')).toHaveText('m.');
-  await expect(page.locator('header .workspace-label')).toHaveText('Library workspace');
+  await expect(page.locator('header .workspace-label')).toHaveText('Editor workspace');
   expect(await page.evaluate(async () => (await document.fonts.load('600 25px "Space Grotesk"')).length)).toBe(1);
   await expect(page.locator('[data-markian]').first()).toHaveAttribute('data-view', 'visual');
   await expect(page.locator('.ProseMirror').first()).toContainText('Field notes');
@@ -514,7 +782,7 @@ test('block drafts preserve trailing newlines and reject forged targets', async 
 });
 
 test('textarea submission, reset and idempotent destruction restore the host', async ({ page }) => {
-  await page.goto('/Examples/index.html');
+  await page.goto('/Examples/minimal-editor.html');
   await page.evaluate(() => window.example.ready);
   const initial = await page.evaluate(() => example.get());
   await page.evaluate(() => { example.set('Updated'); example.setMode('raw'); });

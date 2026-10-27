@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Editor workspace</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <style>
+      .demo-main {
+        height: calc(100dvh - 130px);
+        min-height: 400px;
+      }
+
+      .demo-secondary {
+        height: 340px;
+      }
+
+      @media (max-width: 800px) {
+        .demo-main {
+          height: 65dvh;
+        }
+      }
+    </style>
+  </head>
+  <body class="demo-workspace">
+    <header>
+      <a class="brand" href="index.html" aria-label="Markian examples">
+        <span class="brand-symbol" aria-hidden="true">m.</span>
+        markian
+        <span class="workspace-label">Editor workspace</span>
+      </a>
+      <div class="demo-actions">
+        <label>
+          <input id="readonly" type="checkbox">
+          Read only
+        </label>
+        <label>
+          <input id="theme" type="checkbox">
+          Dark
+        </label>
+        <button id="snapshot" type="button">Get Markdown</button>
+      </div>
+    </header>
+    <main>
+      <div class="demo-main">
+        <div id="editor"></div>
+      </div>
+      <aside>
+        <h2>Markdown</h2>
+        <pre id="value"></pre>
+        <h2>Disabled instance</h2>
+        <div class="demo-secondary">
+          <div id="secondary"></div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="../dist/markian.min.js"></script>
+    <script src="../dist/extensions/code.min.js"></script>
+    <script>
+      const initialMarkdown = [
+        '# Field notes',
+        '',
+        'Draft for the **spring field survey**.',
+        '',
+        '## Release checklist',
+        '',
+        '- Review the draft',
+        '- Confirm the next steps',
+        '',
+        '> Record observations before drawing conclusions.',
+        '',
+        '## A code block',
+        '',
+        '```text',
+        'hello, world',
+        '```',
+        '',
+        '<!-- BEGIN sample -->',
+        '',
+        'Generated content stays readable.',
+        '',
+        '<!-- END sample -->',
+        '',
+      ].join('\n');
+
+      Markian.registerExtension('code', MarkianCode.codeExtension);
+
+      window.editor = Markian.create(document.querySelector('#editor'), {
+        markdown: initialMarkdown,
+        extensions: {
+          code: {
+            enabled: true,
+          },
+        },
+      });
+
+      window.secondary = Markian.create(document.querySelector('#secondary'), {
+        markdown: '## Review note\n\nArchive the site photographs after review.',
+        theme: 'dark',
+        disabled: true,
+      });
+
+      const value = document.querySelector('#value');
+      const showValue = () => {
+        value.textContent = editor.get();
+      };
+
+      editor.on('change', showValue);
+      editor.ready.then(showValue).catch(error => {
+        value.textContent = error.message;
+      });
+
+      document.querySelector('#snapshot').addEventListener('click', showValue);
+
+      document.querySelector('#theme').addEventListener('change', event => {
+        editor.setTheme(event.target.checked ? 'dark' : 'light');
+      });
+
+      document.querySelector('#readonly').addEventListener('change', event => {
+        editor.setReadOnly(event.target.checked);
+      });
+    </script>
+  </body>
+</html>

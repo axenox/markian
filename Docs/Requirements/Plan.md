@@ -362,7 +362,7 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 | 8 | W7 | Shared View Navigation and Outlines | Public view/session fixtures, suspended draft projection/events, hidden-session mutation guards, explicit raw/block replacement policy and baseline conflicts, parsed visual/raw outlines with current section and compact drawer. | Nested structural block targets beyond current top-level code fences; broader destroyed-target and real-device navigation acceptance. |
 | 9 | W8 | Templates and Mentions | | |
 | 10 | W9 | Security, Accessibility, and Release Hardening | | |
-| 11 | W13 | Deliver the Mermaid Extension | | |
+| 11 | W13 | Deliver the Mermaid Extension | Separate optional IIFE/CSS/types and external Mermaid 12.2.x metadata/notices; host-configured URL or versioned supplied adapters, deduplicated isolated loader, sanitized/scoped SVG, centered labels, floating controls, insertion/editing sessions, history/indent/help/draft saving, pan/zoom, retry/error and separate packaged example; focused Chromium/distribution fixtures. | Real-device touch, screen-reader, cross-browser and restrictive-CSP acceptance remain applicable W9 gates; block-session targeting retains W7's top-level-fence limitation. |
 | 12 | W14 | Deliver the Code Extension | | |
 | 13 | W10 | Integrate Markian in Codiware | | |
 | 14 | W16 | Deliver the Lightweight Viewer | | |
@@ -527,6 +527,8 @@ Extract the prototype renderer dependency into a versioned adapter contract. Reu
 Add the insert-diagram toolbar command with a simple flowchart, diagram edit affordances, and mouse/keyboard/touch pan/zoom/reset. Retain the dedicated code-left/preview-right view with Back, undo/redo, and indent controls. Back applies the block session; use responsive stacked/switchable panes without restoring document-wide split preview. Cancel and extra snippet controls require separate approval.
 
 Acceptance: browser/distribution fixtures cover multiple diagrams, themes, rapid edits, invalid syntax, no-op Back, Help suspension, conflicts/deleted targets, active-draft saving, permissions, pan/zoom, and teardown. Verify supplied renderers and explicit local/offline loading, failure/retry, version conflicts, and multi-instance deduplication without shared state. Core-only/disabled fixtures, including Mermaid fences, request no Mermaid assets. Ordinary editing remains usable on renderer failure.
+
+Implemented independently of the other pending WPs. The [separate example](../../Examples/mermaid-diagrams.html) opts in through the [documented adapter/asset contract](../../README.md#optional-mermaid-extension), with the renderer URL/version in an inline host configuration block; the main demo and minimal example remain Mermaid-free. Mermaid itself is host-provided, never bundled in the distribution; missing configuration displays an error while preserving editable source. Focused built-distribution Chromium fixtures cover the acceptance behaviors above, including centered Mermaid output labels, floating hover/focus controls and desktop/mobile pane geometry. npm archive verification includes the optional extension artifacts and runs the example with an independently supplied host asset after installation with lifecycle scripts disabled. These checks do not certify real devices, other browsers, screen readers, or restrictive host CSP, and do not complete W9 or any integration WP.
 
 ### W14. Deliver the Code Extension
 
@@ -831,7 +833,7 @@ Create a top-level `Examples/` folder so a new user can discover important featu
 
 ### Structure and Delivery
 
-Provide `Examples/index.html` as a browsable feature index and `Examples/README.md` with prerequisites, local serving instructions, and links to each example and its source. Use focused, clearly named subfolders with a runnable HTML page, small JavaScript file, and only the local sample assets needed for that feature. Start with a minimal editor rather than an all-features showcase; link related examples instead of duplicating a complete application in each folder.
+Provide `Examples/index.html` as a browsable feature index and `Examples/README.md` with prerequisites, local serving instructions, and links to each example and its source. Use a focused, clearly named HTML file per example with its editor-specific CSS, JavaScript, configuration, and sample Markdown embedded and readably indented. Extract reusable header, branding, page-layout, control, and output styles into `Examples/demo.css`; leave editor mount sizing and editor-specific overrides inline. Import the built library/extension assets and declared host dependencies rather than embedding their implementation; include only the local sample assets needed for that feature. Start with a minimal editor rather than an all-features showcase; link related examples instead of duplicating a complete application in each file.
 
 Examples load the committed prebuilt core/CSS and explicitly selected extension assets through ordinary script/link tags. No consumer bundler, npm install, compilation, CDN, sibling workspace, or backend service is required for standalone examples. A basic static HTTP server is acceptable; explain it in the README rather than promising every browser supports `file:` loading. Use generic sample documents and local images, never real client data, credentials, or installation-specific paths.
 

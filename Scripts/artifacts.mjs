@@ -29,7 +29,11 @@ await collect('dist');
 await writeFile('dist/manifest.json', JSON.stringify({
   name: pkg.name, version: pkg.version, format: 'classic-script', sourceMaps: false,
   core: { script: 'markian.min.js', stylesheet: 'markian.css', types: 'types/index.d.ts' },
-  extensions: { code: { script: 'extensions/code.min.js', global: 'MarkianCode.codeExtension', requires: pkg.version, dependencies: [] } },
+  extensions: {
+    code: { script: 'extensions/code.min.js', global: 'MarkianCode.codeExtension', requires: pkg.version, dependencies: [] },
+    mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,
+      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, supported: '12.2.x', external: true, loading: 'host-configured asset.url or supplied renderer adapter' }] },
+  },
   assets,
 }, null, 2) + '\n');
 console.log(`Manifest and notices generated for ${Object.keys(assets).length} artifacts.`);

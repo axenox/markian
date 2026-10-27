@@ -1,6 +1,6 @@
 # Markian
 
-A framework-independent Markdown editor. This checkout implements W0-W3 foundations and W4-W7 editing, table, provider, and navigation features described below. It is not a stable release: remaining parity, device, and integration gates are tracked in the plan. The former demonstration and its tests are archived under [Prototype](Prototype/README.md); no library build imports them.
+A framework-independent Markdown editor. This checkout implements W0-W3 foundations, W4-W7 editing, table, provider, and navigation features, and the optional W13 Mermaid extension described below. It is not a stable release: remaining parity, device, and integration gates are tracked in the plan. The former demonstration and its tests are archived under [Prototype](Prototype/README.md); no library build imports them.
 
 ## Try It
 
@@ -12,7 +12,7 @@ npm run build
 npm run dev -- --port 5177 --strictPort
 ```
 
-Open <http://127.0.0.1:5177/> for the library workspace, or the [minimal form example](Examples/index.html). Both use ordinary script/link tags loading the built distribution, not source-module imports. Documents live in memory; no storage or data requests are implemented.
+Open <http://127.0.0.1:5177/> for the [editor workspace](Examples/editor-workspace.html), or browse the [example index](Examples/index.html) and [minimal form example](Examples/minimal-editor.html). Each named HTML file keeps its editor-specific CSS, configuration, and JavaScript inline; the shared [demo stylesheet](Examples/demo.css) handles the page shell. Ordinary script/link tags load the built library distribution rather than source-module imports. Documents live in memory; no storage or data requests are implemented.
 
 Consumers need only a static HTTP server and the prebuilt assets. No npm, Node.js, compiler, import map, remote fonts, or sibling Core package is required at runtime.
 
@@ -51,7 +51,7 @@ Await `ready` before commands, replacement, or view navigation. Initialization r
 
 Textarea hosts retain their name/form association. Values track active drafts synchronously; native form reset loads `defaultValue` and resets history. Pending/failed image insertion prevents native form submission until resolved or explicitly removed; submission is not automatically retried. Disabled editing does not change native textarea disabled/submission semantics.
 
-`getCommands()`, `getToolbar()`, `getViews()`, `getRenderers()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. Applications and extensions use the same methods. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
+`getCommands()`, `getToolbar()`, `getViews()`, `getRenderers()`, `getHelp()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. Applications and extensions use the same methods. Help entries contain `{ id, markdown }`. `insertCodeBlock(value, language)` inserts one undoable fenced block at the visual selection and enforces permissions. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
 
 ## Optional Code Slice
 
@@ -68,6 +68,41 @@ const editor = Markian.create(host, {
 Place the caret inside a code block and use Expand in the floating toolbar. It is not a pinned or overflow toolbar item. The draft has local undo/redo; Back commits once. Help suspends the task without losing draft/history. The public `createSourceEditor` handle reuses core CodeMirror; the extension ships no duplicate engine or language parsers. This is W1's proof slice, not the complete W14 extension.
 
 Different host replacements during a block session or dirty raw draft require `pending: 'commit'`, `'discard'`, or `'reject'`. Identical host echoes do not need a policy. Unlock a modified read-only block session before applying it with Back, or explicitly discard it through host replacement. Hidden source handles and suspended block sessions cannot mutate through public editing operations. Block targets currently support top-level code fences only.
+
+## Optional Mermaid Extension
+
+The [separate Mermaid example](Examples/mermaid-diagrams.html) enables diagrams explicitly. The default workspace and minimal example do not load this extension or its renderer, even for Mermaid fences. No W8-W12 or W14 integration is required.
+
+Load the core first, then the optional factory and stylesheet. Register the factory once; enable it independently for each editor:
+
+```html
+<link rel="stylesheet" href="dist/markian.css">
+<link rel="stylesheet" href="dist/extensions/mermaid.css">
+<div id="diagrams" style="height:600px"></div>
+<script src="dist/markian.min.js"></script>
+<script src="dist/extensions/mermaid.min.js"></script>
+<script>
+  Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+  const editor = Markian.create(document.querySelector('#diagrams'), {
+    markdown: '```mermaid\nflowchart LR\n  A[Start] --> B[Finish]\n```',
+    extensions: { mermaid: { enabled: true, config: {
+      asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' },
+    } } },
+  });
+</script>
+```
+
+The host provides Mermaid and its URL/version through `extensions.mermaid.config.asset`; Markian does not bundle the renderer or guess a vendor/CDN path. URLs resolve against the mounting document and may point to a trusted local asset for offline use. The manifest declares the external dependency and supported versions. The [single-file Mermaid example](Examples/mermaid-diagrams.html) keeps host settings in its inline `mermaidConfig` object; the development server supplies its `/host-assets/mermaid.min.js` route from a development-only dependency. A deployed host must provide that asset route or change the configured URL. Absent/disabled extensions request no Mermaid assets. Enabled instances load the configured asset only when rendering a diagram. A missing, empty, unavailable, or invalid URL shows an error instead of the diagram; the ordinary fenced source remains editable and Retry diagram remains available.
+
+Alternatively supply `config.renderer: { version: '12.2.0', render(context) }`. The versioned adapter supports Mermaid **12.2.x**; older versions are not certified. `render({ source, id, theme, signal })` returns an SVG string or a promise of one. A host adapter may reuse a supported host renderer, but must isolate security/theme configuration and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound its renderer's edge/layout work, and never bind Mermaid's source-defined callbacks. Markian never calls `initialize()` on a supplied host instance. A raw Mermaid object is not this adapter contract. The adapter may ignore cancellation, but obsolete results are never displayed.
+
+`MarkianMermaid.loadMermaid(document, { url, version })` returns the same adapter contract. It deduplicates compatible URLs/versions per document, rejects conflicting declarations for a URL, and permits retries after failed loads. It runs the trusted local Mermaid script in an offscreen iframe, with strict security, SVG text labels, a 500-edge bound, serialized rendering and per-render themes. This separate runtime never reconfigures a host's Mermaid global. The shared runtime remains loaded when an editor is destroyed, like a shared script; individual previews, sources, timers and observers are disposed. The iframe is configuration isolation, not a sandbox for untrusted asset code. Load only trusted assets. Restrictive CSP deployments can supply their own compliant renderer adapter; full CSP/browser-matrix acceptance remains W9 work.
+
+Insert diagram adds a simple flowchart in visual mode. Each rendered block has an accessible Edit diagram control opening source-left/preview-right panes, stacked in narrow containers. Back applies the block draft as one parent undo step; unchanged Back adds none. Undo/redo, indent/outdent, source search and save shortcuts use the active session. Press Escape then Tab to leave source Tab handling. Help suspends the session, and `get()` includes drafts before Back. Invalid syntax remains saveable as an ordinary Mermaid fence. Modified read-only drafts remain intact until unlocked or explicitly discarded by the host. Editing sessions currently target top-level fences; nested fences retain source-mode editing.
+
+Diagram labels are centered. A floating toolbar overlays the diagram on hover or keyboard focus, without reserving a fixed strip above it; touch devices and error states keep controls visible. Pan by dragging with a pointer/touch, or focus the preview and use arrow keys. Plus/minus zoom, Home resets, and labeled icon controls provide the same actions. Ctrl/Cmd-wheel also zooms. These presentation controls remain available read-only and never change Markdown. Mermaid help is contributed through the ordinary public help registry.
+
+`maxCharacters` and `maxLines` can lower the defaults of 20,000 characters and 500 lines, but cannot increase them. Configuration directives, front matter and executable-link declarations are refused for rendering without changing saved source. Generated SVG is bounded, sanitized with DOMPurify, stripped of HTML, scripts, links, images, animation, styles and external references, and assigned unique IDs. Markian's scoped stylesheet supplies diagram colors; arbitrary Mermaid CSS/theme overrides are deliberately not preserved. Real-device touch, screen-reader and cross-browser acceptance remain unverified.
 
 ## Editing And Host Callbacks
 
@@ -130,7 +165,7 @@ Colors are opt-in through `allowTextColors: true` and an optional `textColors` p
 - Document import is bounded to 1,000,000 characters; raster data-URI URL validation is bounded to 2,000,000 characters. These are initial safeguards, not measured performance budgets or the full W9 limits.
 - Output targets modern ES2022 browsers. Automated checks currently exercise Chromium on Windows, not Safari/Firefox, real mobile devices, or complete accessibility/CSP conformance.
 
-No Mermaid renderer, programming-language pack, repository service, upload transport, or host integration is included. Templates/mentions, general allowed HTML, rich external paste, and the standalone viewer remain later work. Real-device/IME and screen-reader acceptance, full raw command parity, and Codiware's actual image-file/reopen workflow remain unverified. Do not use this slice to migrate production documents yet.
+No Mermaid renderer or programming-language pack is included in the core. Mermaid is separately opt-in as described above; repository services, upload transport, and host integrations are not included. Templates/mentions, general allowed HTML, rich external paste, and the standalone viewer remain later work. Real-device/IME and screen-reader acceptance, full raw command parity, and Codiware's actual image-file/reopen workflow remain unverified. Do not use this slice to migrate production documents yet.
 
 ## Build And Package Checks
 

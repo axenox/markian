@@ -272,6 +272,17 @@ export class EditorInstance implements MarkianInstance {
   getViews() { return this.views; }
   getRenderers() { return this.renderers; }
   getSchema() { return this.structures; }
+  private help = new Items<{ id: string; markdown: string }>(() => {}, () => this.alive());
+  getHelp() { return this.help; }
+
+  insertCodeBlock(value: string, language: string): void {
+    this.usable();
+    validateMarkdown(value);
+    if (!/^[\w+-]{1,40}$/.test(language)) throw new TypeError('Invalid code-block language.');
+    if (this.readOnly || this.activeView !== 'visual') throw new Error('Code insertion requires an editable visual view.');
+    const view = this.visual!.view;
+    view.dispatch(closeHistory(view.state.tr.replaceSelectionWith(view.state.schema.nodes.code_block.create({ language }, value ? view.state.schema.text(value) : undefined)).scrollIntoView()));
+  }
 
   private alive(): void { if (this.destroyed) throw new Error('Markian instance has been destroyed.'); }
   private usable(): void { this.alive(); if (!this.initialized) throw new Error('Await editor.ready before using this operation.'); }
@@ -301,7 +312,19 @@ export class EditorInstance implements MarkianInstance {
     const visual = await createVisual(this.visualElement, this.structures.items(), () => this.readOnly, value => {
       this.source = value;
       this.changed('user');
-    }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } }, this.options.documentBase, this.options.allowTextColors);
+    }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } }, this.options.documentBase, this.options.allowTextColors,
+    (code, language, element, position, topLevel) => {
+      const renderer = this.renderers.items().find(item => item.visual === true && item.language === language);
+      if (!renderer) return undefined;
+      return renderer.render(code, element, topLevel ? { open: id => {
+        const offset = position();
+        if (offset === undefined) throw new Error('The diagram target was deleted.');
+        this.visual!.select(offset + 1);
+        const target = this.getCodeTarget();
+        if (!target) throw new Error('Only top-level code blocks support editing sessions.');
+        this.openView(id, target);
+      } } : undefined);
+    });
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
     this.initialized = true;
@@ -469,6 +492,7 @@ export class EditorInstance implements MarkianInstance {
       replaceSearch: (replacement, all) => { if (editable()) source.replaceSearch(replacement, all); },
       undo: () => { if (editable()) source.undo(); },
       redo: () => { if (editable()) source.redo(); },
+      indent: outdent => { if (editable()) source.indent(outdent); },
       focus: () => { if (!disposed) source.focus(); },
       resize: () => { if (!disposed) source.view.requestMeasure(); },
       setReadOnly: value => { if (!disposed) source.setReadOnly(this.readOnly || value); },
@@ -695,7 +719,7 @@ export class EditorInstance implements MarkianInstance {
   }
 
   private updateStatus(): void {
-    const labels: Record<string, string> = { visual: 'Visual', raw: 'Source', code: 'Code', help: 'Help', preview: 'Preview' };
+    const labels: Record<string, string> = { visual: 'Visual', raw: 'Source', code: 'Code', mermaid: 'Mermaid', help: 'Help', preview: 'Preview' };
     this.status.textContent = `${labels[this.activeView] ?? this.activeView} · ${this.get().length} characters`;
   }
 
@@ -1159,7 +1183,7 @@ export class EditorInstance implements MarkianInstance {
       id,
       mount: ({ element }) => {
         element.classList.add('markian-document');
-        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' : this.get(), this.options.softbreaks, this.options.allowTextColors);
+        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors);
         if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';
           if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);

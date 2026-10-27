@@ -40,6 +40,7 @@ export async function createVisual(
   selectionChanged: () => void,
   documentBase?: string,
   allowTextColors = false,
+  renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
 ): Promise<VisualEngine> {
   let editor: Editor;
   let replacing = false;
@@ -107,6 +108,17 @@ export async function createVisual(
       ...options,
       attributes: { class: 'markian-document', 'aria-label': 'Markdown document', role: 'textbox', 'aria-multiline': 'true' },
       editable: () => !readOnly(),
+      nodeViews: { ...options.nodeViews, code_block: (node, _view, getPos) => {
+        const dom = element.ownerDocument.createElement('pre');
+        const content = element.ownerDocument.createElement('code');
+        content.className = `language-${String(node.attrs.language ?? '')}`;
+        dom.append(content);
+        const position = getPos();
+        const topLevel = position !== undefined && _view.state.doc.resolve(position).depth === 0;
+        const dispose = renderCode?.(node.textContent, String(node.attrs.language ?? ''), dom, getPos, topLevel);
+        return dispose ? { dom, destroy: dispose, stopEvent: () => true, ignoreMutation: () => true }
+          : { dom, contentDOM: content };
+      } },
       dispatchTransaction(transaction) {
         const view = ctx.get(editorViewCtx);
         const result = view.state.applyTransaction(transaction);

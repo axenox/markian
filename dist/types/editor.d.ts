@@ -62,6 +62,12 @@ export declare class EditorInstance implements MarkianInstance {
     getViews(): Items<ViewDefinition>;
     getRenderers(): Items<RendererDefinition>;
     getSchema(): Items<StructuralNode>;
+    private help;
+    getHelp(): Items<{
+        id: string;
+        markdown: string;
+    }>;
+    insertCodeBlock(value: string, language: string): void;
     private alive;
     private usable;
     private initialize;

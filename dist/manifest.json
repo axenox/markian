@@ -14,6 +14,22 @@
       "global": "MarkianCode.codeExtension",
       "requires": "0.1.0",
       "dependencies": []
+    },
+    "mermaid": {
+      "script": "extensions/mermaid.min.js",
+      "stylesheet": "extensions/mermaid.css",
+      "types": "types/extensions/mermaid.d.ts",
+      "global": "MarkianMermaid.mermaidExtension",
+      "requires": "0.1.0",
+      "dependencies": [
+        {
+          "name": "mermaid",
+          "testedVersion": "12.2.0",
+          "supported": "12.2.x",
+          "external": true,
+          "loading": "host-configured asset.url or supplied renderer adapter"
+        }
+      ]
     }
   },
   "assets": {
@@ -21,17 +37,25 @@
       "sha256": "6887df2d5e947499103fa81301471c3561d3fd065574fc01fb92d4546c25eabe",
       "bytes": 1206
     },
+    "extensions/mermaid.css": {
+      "sha256": "e9c00992e24af57b7bda1c70078266e6daef6ed183d6c65903c0b2a859a8d768",
+      "bytes": 3142
+    },
+    "extensions/mermaid.min.js": {
+      "sha256": "5824f783b383ed69c5133059b3d28504446a7d91f77c422fa852947623359afa",
+      "bytes": 55837
+    },
     "markian.css": {
       "sha256": "90d520d2d4d49c629962c2148d23d8701deb6b511008f89f53f39a2b6a6ff51d",
       "bytes": 13169
     },
     "markian.min.js": {
-      "sha256": "53a074f787e008847db0c6e955ef88c85b45a9ff7dc019e67fe520268d9b9abd",
-      "bytes": 904188
+      "sha256": "434a022b31b822ee3f2a1415652bcf94a4ea461c8ee434eaa0d1fdd26c4c2732",
+      "bytes": 906816
     },
     "THIRD_PARTY_NOTICES.txt": {
-      "sha256": "10e9080d92ef3619c9c1b33b933c471e2c7e0162021be3effb4e71bbccb58233",
-      "bytes": 423034
+      "sha256": "faeea697f6486c46a940ed44b6eedd93cdd5c0c8c3aff9ee4639eae09f1aa6b5",
+      "bytes": 623999
     },
     "types/browser.d.ts": {
       "sha256": "a040e92792456cb85f78e4b05309a27a8d3cd487b22e302792af9faf0e22cc30",
@@ -42,24 +66,28 @@
       "bytes": 355
     },
     "types/editor.d.ts": {
-      "sha256": "ec5a9f934ca172021cf9336bbb040a91822819711f499acff6322d370318d6d8",
-      "bytes": 3840
+      "sha256": "52a9a7f2deb00d8dc104064ee9e262cb8d35426defc2ba51ad9ea5b81d26d769",
+      "bytes": 3995
     },
     "types/engines/prose.d.ts": {
       "sha256": "ad2ef054a44f2c0a301dc8dbfbd50ee8f03f5ce21d55d568a59204419a496da9",
       "bytes": 883
     },
     "types/engines/source.d.ts": {
-      "sha256": "b30918dad06325e19fa5c378fd488122cd90e4905a69a81b7f8e4fc959787a30",
-      "bytes": 641
+      "sha256": "a766d28e09297c030cae11f1f830420f75bf04de9f4f3410f03e87a8f5b4150c",
+      "bytes": 678
     },
     "types/engines/visual.d.ts": {
-      "sha256": "f91e8adcccc464edfa36d1a1cb5da88f9e165a4a3645272df523a1468320c2cf",
-      "bytes": 814
+      "sha256": "bf981c96cea317ddf5141a423f22505fa8a93cc9394db6f0f6d9aa30b94ed6a9",
+      "bytes": 966
     },
     "types/extensions/code.d.ts": {
       "sha256": "d63456d2f10a25cfc77059acd40246e8e62df17ded0a4ea51f324e385916e218",
       "bytes": 104
+    },
+    "types/extensions/mermaid.d.ts": {
+      "sha256": "86b097086570a8462c12bcfbf381f60e1d70f889dc1fc990d1dc6d397fc340e7",
+      "bytes": 704
     },
     "types/index.d.ts": {
       "sha256": "adc9932d399dec423bd1ac1d8aff63ad453304023f2a118670c4b17b6326872d",
@@ -82,8 +110,8 @@
       "bytes": 166
     },
     "types/types.d.ts": {
-      "sha256": "e0b802cec4d571f9aa52d47f2d3de168d7669b60097cfc79c607333cdb55da9d",
-      "bytes": 5998
+      "sha256": "94de6553a3c77271bce9d67d920a76b3bcad83e5bf6e5cdca5832f31b03d6db0",
+      "bytes": 6250
     },
     "types/ui/controls.d.ts": {
       "sha256": "2237e2eab3d1de379a71d19cd7c06417e335a1beaa52b4a085622563e8b0e66a",
