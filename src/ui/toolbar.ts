@@ -6,11 +6,11 @@ export const defaultToolbar: readonly ToolbarEntry[] = [
   { id: 'formatting', label: 'Formatting', icon: 'bold', menu: ['bold', 'italic', 'strike'] },
   { id: 'lists', label: 'Lists', icon: 'lists', menu: ['ordered', 'bullet', 'task'] },
   'indent', 'outdent', { id: 'format-divider', separator: true },
-  'code', 'codeblock', 'quotes', 'link', 'image', 'table',
+  'code', 'codeblock', 'quotes', 'link', 'image', 'table', 'rule', 
   { id: 'insert-divider', separator: true },
   { id: 'modes', label: 'View mode', icon: 'preview', menu: ['visual', 'source', 'preview'] },
-  'outline', 'clear', 'rule', 'copy', 'help',
-  { id: 'more', overflow: true }, 'fullscreen', 'search',
+  'outline', 'clear', 'copy', 'help',
+  { id: 'more', overflow: true }, 'search', 'fullscreen',
 ];
 
 export function validateToolbar(entries: readonly ToolbarEntry[], depth = 0, ids = new Set<string>()): void {

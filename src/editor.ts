@@ -1,7 +1,7 @@
 import { Items } from './registry';
 import { createVisual, type VisualEngine } from './engines/visual';
 import { SourceEditor } from './engines/source';
-import { redo, undo, closeHistory, toggleMark, setBlockType, wrapIn, lift, TextSelection } from './engines/prose';
+import { redo, undo, closeHistory, toggleMark, setBlockType, TextSelection } from './engines/prose';
 import { parseMarkdown, renderMarkdown, validateMarkdown, safeUrl, headings } from './render/markdown';
 import { findMatches } from './search';
 import { commandButton } from './ui/controls';
@@ -433,7 +433,13 @@ export class EditorInstance implements MarkianInstance {
     if (this.raw && this.rawBaseline === this.source) return;
     this.dropRaw();
     this.rawBaseline = this.source;
-    this.raw = new SourceEditor(this.rawElement, this.source, this.readOnly, () => this.changed('user'), () => this.refreshFloating());
+    this.raw = new SourceEditor(this.rawElement, this.source, this.readOnly, () => {
+      this.changed('user');
+      this.refreshToolbar();
+    }, () => {
+      this.refreshToolbar();
+      this.refreshFloating();
+    });
   }
 
   private dropRaw(): void { this.raw?.destroy(); this.raw = undefined; this.rawBaseline = undefined; }
@@ -696,20 +702,31 @@ export class EditorInstance implements MarkianInstance {
   private refreshToolbar(): void {
     this.toolbarWidth = this.element.clientWidth;
     this.toolbar.replaceChildren();
-    if (this.frames.length || this.mode === 'raw') {
+    const hasBack = this.frames.length > 0 || this.mode === 'raw';
+    if (hasBack) {
       const back = commandButton(this.host.ownerDocument, 'Back', 'back', () => { try { this.back(); } catch (error) { this.report(error); } });
       back.dataset.fixed = 'true';
-      this.toolbar.append(back);
+      const divider = this.host.ownerDocument.createElement('span');
+      divider.className = 'markian-separator';
+      divider.dataset.fixed = 'true';
+      divider.setAttribute('role', 'separator');
+      divider.setAttribute('aria-orientation', 'vertical');
+      this.toolbar.append(back, divider);
     }
     const registered = this.toolbarItems.items();
     const entries = [...(this.options.toolbar ?? defaultToolbar)];
     if (!this.options.toolbar) {
       const extras = registered.filter(item => !this.builtinToolbarIds.has(item.id) || item.id === 'colors');
-      const boundary = entries.findIndex(entry => typeof entry !== 'string' && entry.overflow);
-      entries.splice(boundary < 0 ? entries.length : boundary, 0, ...extras);
+      for (const extra of extras) {
+        const command = this.commands.items().find(candidate => candidate.id === extra.command);
+        const history = command?.icon === 'undo' || command?.icon === 'redo' ? entries.indexOf(command.icon) : -1;
+        const boundary = entries.findIndex(entry => typeof entry !== 'string' && entry.overflow);
+        entries.splice(history >= 0 ? history : boundary < 0 ? entries.length : boundary, 0, extra);
+      }
     }
     const render = (entry: ToolbarEntry): HTMLElement | null => {
       const item = typeof entry === 'string' ? registered.find(candidate => candidate.id === entry) ?? { id: entry, command: entry } : entry;
+      if (hasBack && item.id === 'modes') return null;
       if (item.separator) {
         const divider = this.host.ownerDocument.createElement('span');
         divider.className = 'markian-separator';
@@ -782,6 +799,10 @@ export class EditorInstance implements MarkianInstance {
       if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
       this.toolbar.append(control);
     }
+    for (const id of ['search', 'fullscreen']) {
+      const control = this.toolbar.querySelector<HTMLElement>(`:scope > [data-command="${id}"]`);
+      if (control) this.toolbar.append(control);
+    }
     this.layoutToolbar();
     this.positionPanels();
   }
@@ -818,6 +839,7 @@ export class EditorInstance implements MarkianInstance {
   private installMenu(menu: HTMLDetailsElement): void {
     const choices = menu.querySelector<HTMLElement>(':scope > .markian-menu-items')!;
     choices.popover = 'manual';
+    menu.querySelector<HTMLElement>(':scope > summary')!.addEventListener('pointerdown', event => event.preventDefault());
     menu.querySelector<HTMLElement>(':scope > summary')!.addEventListener('click', event => {
       event.preventDefault();
       this.setMenuOpen(menu, !menu.open);
@@ -852,7 +874,8 @@ export class EditorInstance implements MarkianInstance {
     const boundary = this.toolbar.querySelector<HTMLElement>('[data-overflow-boundary]');
     const width = (control: HTMLElement) => {
       const style = this.host.ownerDocument.defaultView!.getComputedStyle(control);
-      return control.getBoundingClientRect().width + parseFloat(style.marginLeft) + parseFloat(style.marginRight) + 2;
+      const endControl = ['search', 'fullscreen'].includes(control.dataset.command ?? '');
+      return control.getBoundingClientRect().width + (endControl ? 0 : parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0) + 2;
     };
     const budget = available - 16;
     if (controls.reduce((total, control) => total + width(control), 0) <= budget) { this.trimSeparators(this.toolbar); return; }
@@ -1108,24 +1131,9 @@ export class EditorInstance implements MarkianInstance {
       view.focus();
     });
     add('bullet', 'Bullet list', 'bullet', true, ['visual', 'raw'], async () => { await this.execute('list:bullet'); });
-    add('quote', 'Quote', 'quote', true, ['visual', 'raw'], () => {
-      if (this.mode === 'raw') {
-        const view = this.raw!.view;
-        const selection = view.state.selection.main;
-        const first = view.state.doc.lineAt(selection.from);
-        const last = view.state.doc.lineAt(selection.to);
-        view.dispatch({ changes: { from: first.from, to: last.to, insert: view.state.sliceDoc(first.from, last.to).split('\n').map(line => line.startsWith('> ') ? line.slice(2) : '> ' + line).join('\n') } });
-      } else {
-        const view = this.visual!.view;
-        let depth = view.state.selection.$from.depth;
-        while (depth > 0 && view.state.selection.$from.node(depth).type.name !== 'blockquote') depth--;
-        (depth ? lift : wrapIn(view.state.schema.nodes.blockquote))(view.state, transaction => view.dispatch(closeHistory(transaction)));
-        view.focus();
-      }
-    });
     add('raw', 'Switch visual / source', 'raw', false, ['visual'], () => this.setMode('raw'));
     for (const [id, label, mode] of [['visual', 'Visual', 'visual'], ['source', 'Source', 'raw']] as const) {
-      this.commands.insert({ id, label, icon: id === 'source' ? 'raw' : 'preview', views: ['visual', 'raw', 'preview'], active: () => this.activeView === mode,
+      this.commands.insert({ id, label, icon: id === 'source' ? 'raw' : 'visual', views: ['visual', 'raw', 'preview'], active: () => this.activeView === mode,
         run: () => { if (this.activeView === 'preview') this.back(); this.setMode(mode); },
       });
     }

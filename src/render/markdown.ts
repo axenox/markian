@@ -12,6 +12,11 @@ import { colorSyntax, type TextColor } from './colors';
 
 export const documentLimit = 1_000_000;
 
+export function quoteMarker(text: string): { kind: string; length: number } | null {
+  const marker = text.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\r?\n|$)/);
+  return marker ? { kind: marker[1], length: marker[0].length } : null;
+}
+
 export function validateMarkdown(markdown: string): void {
   if (typeof markdown !== 'string') throw new TypeError('Markdown must be a string.');
   if (markdown.length > documentLimit) throw new RangeError(`Markdown exceeds ${documentLimit} characters.`);
@@ -90,6 +95,20 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
     .use(() => (tree: Root) => {
       const walk = (node: Root | RootContent): void => {
         if (node.type === 'heading') node.data = { hProperties: { id: anchors[headingIndex++].id } };
+        if (node.type === 'blockquote') {
+          const paragraph = node.children[0];
+          const text = paragraph?.type === 'paragraph' ? paragraph.children[0] : undefined;
+          const marker = text?.type === 'text' ? quoteMarker(text.value) : null;
+          if (marker && text?.type === 'text' && paragraph?.type === 'paragraph') {
+            text.value = text.value.slice(marker.length);
+            if (!text.value) {
+              paragraph.children.shift();
+              if (paragraph.children[0]?.type === 'break') paragraph.children.shift();
+            }
+            if (!paragraph.children.length) node.children.shift();
+            node.data = { hProperties: { dataAlertKind: marker.kind.toLowerCase(), dataAlertTitle: marker.kind[0] + marker.kind.slice(1).toLowerCase() } };
+          }
+        }
         if ((node.type === 'link' || node.type === 'image') && !safeUrl(node.url, node.type === 'image')) node.url = '';
         if ('children' in node) node.children.forEach(child => walk(child as RootContent));
       };
@@ -111,7 +130,7 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
       };
       walk(tree);
     })
-    .use(rehypeSanitize, { ...defaultSchema, clobberPrefix: '', attributes: { ...defaultSchema.attributes, span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
+    .use(rehypeSanitize, { ...defaultSchema, clobberPrefix: '', attributes: { ...defaultSchema.attributes, blockquote: ['dataAlertKind', 'dataAlertTitle'], span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
     .use(rehypeStringify)
     .processSync(markdown));
 }

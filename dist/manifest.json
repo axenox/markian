@@ -22,12 +22,12 @@
       "bytes": 1206
     },
     "markian.css": {
-      "sha256": "a697609055d2b45c97ebeccc84b3210508e357b7862904f87c059f14a3a5c992",
-      "bytes": 10942
+      "sha256": "90d520d2d4d49c629962c2148d23d8701deb6b511008f89f53f39a2b6a6ff51d",
+      "bytes": 13169
     },
     "markian.min.js": {
-      "sha256": "ecedcfff23e511edf1c04b246c5fe1563cf615f55d8401fdfeda036632ea1a41",
-      "bytes": 896433
+      "sha256": "58f9543255ba9a72c16b6ecc0869634ac97d4ef6d7fd95c118a069178069c7ce",
+      "bytes": 900536
     },
     "THIRD_PARTY_NOTICES.txt": {
       "sha256": "40a7a4d4e32d80bffbf9b1ea94b515dcd59368e24d30ebd14935b447f0cf1ea3",
@@ -74,8 +74,8 @@
       "bytes": 453
     },
     "types/render/markdown.d.ts": {
-      "sha256": "933312822b7c04cb7e288568189364efc214e197f5d4733641995e0781dc21d0",
-      "bytes": 653
+      "sha256": "81776271f6f23140cffe1525e1b5d57a7fa46117e0ca0c87b2cfbb939ff03d39",
+      "bytes": 754
     },
     "types/search.d.ts": {
       "sha256": "bcf1ddd07090e3b8d7bced045b2e62d573c65d9e2c534c29f2bba82508a1cf96",

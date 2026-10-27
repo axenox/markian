@@ -147,13 +147,65 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
   for (const name of ['Formatting', 'Lists', 'View mode']) await expect(root.locator(`summary[aria-label="${name}"]`)).toHaveCount(1);
   await (await revealCommand(root, 'source')).click();
   await expect(root).toHaveAttribute('data-view', 'raw');
-  await (await revealCommand(root, 'visual')).click();
+  await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(0);
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(root).toHaveAttribute('data-view', 'visual');
   await page.setViewportSize({ width: 390, height: 900 });
   await expect(root.locator('.markian-overflow')).toBeVisible();
   for (const id of ['fullscreen', 'search']) {
     await expect(root.locator(`.markian-toolbar > [data-command="${id}"]`)).toBeVisible();
     await expect(root.locator(`.markian-overflow [data-command="${id}"]`)).toHaveCount(0);
+  }
+});
+
+test('secondary toolbars share main control order and keep Back separate', async ({ page }) => {
+  const root = page.locator('[data-markian]').first();
+  const toolbar = root.locator('.markian-toolbar');
+  for (const view of ['source', 'help', 'preview', 'code:expand']) {
+    if (view === 'code:expand') {
+      await root.locator('.ProseMirror pre code').first().click();
+      await expect.poll(() => page.evaluate(() => editor.getCodeTarget() !== null)).toBe(true);
+    }
+    await page.evaluate(view => editor.execute(view), view);
+    await expect(toolbar.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Back');
+    await expect(toolbar.locator(':scope > :nth-child(2)')).toHaveAttribute('role', 'separator');
+    await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(0);
+    const commands = await toolbar.locator(':scope > [data-command]').evaluateAll(buttons => buttons.map(button => button.dataset.command));
+    expect(commands.slice(-2)).toEqual(['search', 'fullscreen']);
+    if (view === 'code:expand') expect(commands.slice(0, 2)).toEqual(['code:undo', 'code:redo']);
+    const search = await toolbar.locator('[data-command="search"]').boundingBox();
+    const maximize = await toolbar.locator('[data-command="fullscreen"]').boundingBox();
+    const bounds = await toolbar.boundingBox();
+    expect(maximize.x).toBeGreaterThan(search.x);
+    expect(bounds.x + bounds.width - maximize.x - maximize.width).toBeLessThan(16);
+    await root.getByRole('button', { name: 'Back', exact: true }).click();
+  }
+});
+
+test('selected list items change type together and task controls have readable spacing', async ({ page }, testInfo) => {
+  await page.evaluate(() => editor.set('- Review the draft\n- Confirm the next steps\n- Publish the result'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror li p').first().click();
+  await expect(root.locator('.ProseMirror li p').first()).toHaveCSS('margin-bottom', '0px');
+  await expect(root.locator('.ProseMirror li').first()).toHaveCSS('margin-bottom', '2px');
+  await page.keyboard.press('Control+a');
+  await (await revealCommand(root, 'task')).click();
+  await expect(root.locator('.ProseMirror input[type="checkbox"]')).toHaveCount(3);
+  await (await revealCommand(root, 'ordered')).click();
+  await expect(root.locator('.ProseMirror ol > li')).toHaveCount(3);
+  await expect(root.locator('.ProseMirror input[type="checkbox"]')).toHaveCount(0);
+  await (await revealCommand(root, 'bullet')).click();
+  await expect(root.locator('.ProseMirror ul > li')).toHaveCount(3);
+  await (await revealCommand(root, 'task')).click();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(width => editor.setTheme(width === 390 ? 'dark' : 'light'), width);
+    const item = root.locator('.ProseMirror li[data-item-type="task"]').first();
+    const checkbox = await item.locator('input').boundingBox();
+    const text = await item.locator('p').boundingBox();
+    expect(text.x - checkbox.x - checkbox.width).toBeGreaterThanOrEqual(8);
+    expect(Math.abs(checkbox.y + checkbox.height / 2 - text.y - text.height / 2)).toBeLessThan(5);
+    await root.screenshot({ path: testInfo.outputPath(`task-list-${width}.png`) });
   }
 });
 
@@ -608,6 +660,9 @@ test('table row and column commands preserve GFM and undo', async ({ page }) => 
   await page.evaluate(async () => { editor.set('Start'); await editor.execute('table:insert', { rows: 3, columns: 2 }); });
   const table = page.locator('.ProseMirror table').first();
   await expect(table.locator('tr')).toHaveCount(3);
+  await expect(table.locator('td').first()).toHaveCSS('padding-top', '4px');
+  await expect(table.locator('td').first()).toHaveCSS('padding-left', '8px');
+  await expect(table.locator('td p').first()).toHaveCSS('margin-bottom', '0px');
   await table.locator('td').first().click();
   await page.evaluate(() => editor.execute('table:row-after'));
   await expect(table.locator('tr')).toHaveCount(4);
@@ -646,6 +701,117 @@ test('grouped menu pointer commands preserve the word-at-caret selection', async
   await expect(root.locator('.ProseMirror h6')).toHaveText('alpha beta');
   await page.keyboard.type('X');
   expect(await page.evaluate(() => editor.get())).toContain('aXlpha');
+});
+
+test('quote toggles and variants preserve toolbar text selections without nesting', async ({ page }) => {
+  await page.evaluate(() => editor.set('alpha beta gamma'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror p').click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Control+Shift+ArrowRight');
+  const selected = await page.evaluate(() => window.getSelection().toString());
+  expect(selected.trim()).toBe('alpha');
+  await revealCommand(root, 'quote');
+  expect(await page.evaluate(() => window.getSelection().toString())).toBe(selected);
+  await root.locator('[data-command="quote"]').click();
+  await expect(root.locator('.ProseMirror blockquote')).toHaveCount(1);
+  const quote = await revealCommand(root, 'quote');
+  await expect(quote).toHaveAttribute('aria-pressed', 'true');
+  await quote.click();
+  await expect(root.locator('.ProseMirror blockquote')).toHaveCount(0);
+  expect((await page.evaluate(() => editor.get())).trim()).toBe('alpha beta gamma');
+  await (await revealCommand(root, 'quote:note')).click();
+  await expect(root.locator('.ProseMirror blockquote')).toHaveCount(1);
+  await (await revealCommand(root, 'quote:tip')).click();
+  await expect(root.locator('.ProseMirror blockquote')).toHaveCount(1);
+  expect(await page.evaluate(() => editor.get())).toContain('[!TIP]');
+  expect(await page.evaluate(() => editor.get())).not.toContain('[!NOTE]');
+  const icons = await root.locator('[data-command^="quote:"] svg path').evaluateAll(paths => paths.map(path => path.getAttribute('d')));
+  expect(new Set(icons).size).toBe(5);
+  await expect(root.locator('[data-command="quote:remove"]')).toHaveCount(0);
+  await revealCommand(root, 'visual');
+  await expect(root.locator('[data-command="visual"] svg path')).toHaveAttribute('d', /^M10 20H6V4H13V9H18V12/);
+});
+
+test('loaded alert quotes render their type and select only the matching menu choice', async ({ page }, testInfo) => {
+  const root = page.locator('[data-markian]').first();
+  for (const kind of ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']) {
+    await page.evaluate(kind => editor.set(`> [!${kind}]\n> Read **carefully**`), kind);
+    const alert = root.locator('.ProseMirror blockquote');
+    await expect(alert).toHaveAttribute('data-alert-kind', kind.toLowerCase());
+    expect(await alert.innerText()).not.toContain(`[!${kind}]`);
+    await alert.locator('strong').click();
+    const active = await revealCommand(root, `quote:${kind.toLowerCase()}`);
+    await expect(active).toHaveAttribute('aria-pressed', 'true');
+    await expect(root.locator('[data-command="quote"]')).toHaveAttribute('aria-pressed', 'false');
+    await page.evaluate(() => editor.execute('preview'));
+    const preview = root.locator('blockquote:visible');
+    await expect(preview).toHaveAttribute('data-alert-kind', kind.toLowerCase());
+    await expect(preview).toContainText('Read carefully');
+    expect(await preview.innerText()).not.toContain(`[!${kind}]`);
+    await root.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.evaluate(() => editor.setMode('raw'));
+    expect(await page.evaluate(() => editor.get())).toContain(`[!${kind}]`);
+    await root.getByRole('button', { name: 'Back', exact: true }).click();
+  }
+  await root.screenshot({ path: testInfo.outputPath('alert-quote.png') });
+});
+
+test('toolbar alert quotes enforce a line break and survive a source round trip', async ({ page }) => {
+  await page.evaluate(() => editor.set('Read **carefully**'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror p').click();
+  await (await revealCommand(root, 'quote:note')).click();
+  const alert = root.locator('.ProseMirror blockquote');
+  await expect(alert).toHaveAttribute('data-alert-kind', 'note');
+  const markdown = await page.evaluate(() => editor.get());
+  expect(markdown).toMatch(/\[!NOTE\](?:\\| {2})?\n> Read \*\*carefully\*\*/);
+  await page.evaluate(() => { editor.setMode('raw'); editor.setMode('visual'); });
+  await expect(alert).toHaveAttribute('data-alert-kind', 'note');
+  expect(await alert.innerText()).not.toContain('[!NOTE]');
+  await alert.locator('strong').click();
+  const note = await revealCommand(root, 'quote:note');
+  await expect(note).toHaveAttribute('aria-pressed', 'true');
+  await expect(root.locator('[data-command="quote"]')).toHaveAttribute('aria-pressed', 'false');
+  await (await revealCommand(root, 'quote:tip')).click();
+  await expect(alert).toHaveAttribute('data-alert-kind', 'tip');
+  await (await revealCommand(root, 'quote:tip')).click();
+  await expect(alert).toHaveCount(0);
+  expect((await page.evaluate(() => editor.get())).trim()).toBe('Read **carefully**');
+});
+
+test('all quote choices toggle off and switch types in visual and source views', async ({ page }) => {
+  await page.evaluate(() => editor.set('Readable **content**'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror p').click();
+  const choices = ['quote', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'];
+  for (const id of choices) {
+    await (await revealCommand(root, id)).click();
+    await expect(root.locator('.ProseMirror blockquote')).toHaveCount(1);
+    const active = await revealCommand(root, id);
+    await expect(active).toHaveAttribute('aria-pressed', 'true');
+    await active.click();
+    await expect(root.locator('.ProseMirror blockquote')).toHaveCount(0);
+    expect((await page.evaluate(() => editor.get())).trim()).toBe('Readable **content**');
+  }
+  await page.evaluate(async () => { await editor.execute('quote:warning'); await editor.execute('quote'); });
+  await expect(root.locator('.ProseMirror blockquote')).toHaveCount(1);
+  expect(await page.evaluate(() => editor.get())).not.toContain('[!WARNING]');
+  await page.evaluate(() => editor.execute('quote'));
+  await page.evaluate(() => editor.setMode('raw'));
+  await root.locator('.cm-content').click();
+  await page.keyboard.press('Control+Home');
+  for (const id of choices) {
+    await page.evaluate(id => editor.execute(id), id);
+    const active = await revealCommand(root, id);
+    await expect(active).toHaveAttribute('aria-pressed', 'true');
+    await active.click();
+    expect((await page.evaluate(() => editor.get())).trim()).toBe('Readable **content**');
+  }
+  await page.evaluate(async () => { await editor.execute('quote:note'); await editor.execute('quote:tip'); });
+  expect((await page.evaluate(() => editor.get())).trim()).toBe('> [!TIP]\n> Readable **content**');
+  await page.evaluate(() => editor.execute('quote:tip'));
+  expect((await page.evaluate(() => editor.get())).trim()).toBe('Readable **content**');
 });
 
 test('custom fullscreen is paired and late cancelled entry restores once', async ({ page }) => {

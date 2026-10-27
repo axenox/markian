@@ -5,12 +5,34 @@
 .markian-document h3 { font-size: 18px; }
 .markian-document h4, .markian-document h5, .markian-document h6 { font-size: 16px; }
 .markian-document p { margin: 0 0 1em; }
+.markian-document ul, .markian-document ol { margin: 8px 0; padding-left: 24px; }
+.markian-document li { margin: 2px 0; }
+.markian-document li > p { margin: 0; }
+.markian-document li > p + p { margin-top: 4px; }
+.markian-document li > ul, .markian-document li > ol { margin: 2px 0; }
 .markian-document a { color: var(--markian-accent, #227761); text-decoration: underline; }
 .markian-document pre { padding: 14px; background: var(--markian-code, #f1f3f4); border-radius: 4px; overflow: auto; white-space: pre; }
 .markian-document code { font-family: var(--markian-mono, Consolas, monospace); background: var(--markian-code, #f1f3f4); font-size: 13px; }
 .markian-document blockquote { margin-left: 0; padding-left: 18px; border-left: 3px solid var(--markian-line, #dce3df); color: var(--markian-muted, #59645f); }
+.markian-document blockquote[data-alert-kind] { --markian-alert: #2672bd; border-color: var(--markian-alert); color: var(--markian-text, #262c2b); }
+.markian-document blockquote[data-alert-kind]::before { content: attr(data-alert-title); display: block; margin-bottom: 6px; color: var(--markian-alert); font-weight: 600; }
+.markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #22834f; }
+.markian-document blockquote[data-alert-kind='important'] { --markian-alert: #a64a94; }
+.markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #996c00; }
+.markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #c33f45; }
+.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='note'] { --markian-alert: #7cb8f5; }
+.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #75d6a0; }
+.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #e49dd6; }
+.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #e8c15a; }
+.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #ff9a9f; }
+.markian-document .markian-alert-marker { display: none; }
 .markian-document img { max-width: 100%; height: auto; }
 .markian-document table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
-.markian-document th, .markian-document td { min-width: 90px; padding: 8px 12px; border: 1px solid var(--markian-line, #dce3df); }
+.markian-document th, .markian-document td { min-width: 72px; padding: 4px 8px; line-height: 1.5; border: 1px solid var(--markian-line, #dce3df); }
+.markian-document th > p, .markian-document td > p { margin: 0; }
+.markian-document th > p + p, .markian-document td > p + p { margin-top: 4px; }
 .markian-document th { background: var(--markian-code, #f1f3f4); }
 .markian-document hr { border: 0; border-top: 1px solid var(--markian-line, #dce3df); }
+.markian-document .contains-task-list { padding-left: 24px; }
+.markian-document .task-list-item { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
+.markian-document .task-list-item > input[type='checkbox'], .markian-document .task-list-item > p > input[type='checkbox'] { width: 16px; height: 16px; margin: 0 8px 0 -24px; vertical-align: -3px; accent-color: var(--markian-accent, #227761); }

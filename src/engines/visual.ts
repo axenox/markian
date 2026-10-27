@@ -5,7 +5,7 @@ import { $node, $mark, $remark } from '@milkdown/kit/utils';
 import type { RootContent } from 'mdast';
 import type { State as MarkdownState, Info } from 'mdast-util-to-markdown';
 import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
-import { equivalentMarkdown, parseMarkdown, safeUrl } from '../render/markdown';
+import { equivalentMarkdown, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
 import type { StructuralNode, SearchOptions, SearchMatch } from '../types';
 import { findMatches } from '../search';
 import { colorSyntax, type TextColor } from '../render/colors';
@@ -80,6 +80,21 @@ export async function createVisual(
     props: { decorations: state => searchKey.getState(state) },
   }), new Plugin({
     filterTransaction: transaction => !transaction.docChanged || (safeDocument(transaction.doc) && (replacing || !readOnly())),
+  }), new Plugin({
+    props: { decorations: state => {
+      const decorations: Decoration[] = [];
+      state.doc.descendants((node, position) => {
+        if (node.type.name !== 'blockquote' || !node.firstChild?.isTextblock) return;
+        const paragraph = node.firstChild;
+        const marker = quoteMarker(paragraph.textBetween(0, paragraph.content.size, '\n', '\n'));
+        if (!marker) return;
+        decorations.push(Decoration.node(position, position + node.nodeSize, {
+          'data-alert-kind': marker.kind.toLowerCase(), 'data-alert-title': marker.kind[0] + marker.kind.slice(1).toLowerCase(),
+        }));
+        decorations.push(Decoration.inline(position + 2, position + 2 + marker.length, { class: 'markian-alert-marker' }));
+      });
+      return DecorationSet.create(state.doc, decorations);
+    } },
   })];
   editor = Editor.make().config(ctx => {
     ctx.set(rootCtx, element);

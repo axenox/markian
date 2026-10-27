@@ -1,13 +1,16 @@
 import { mdiFormatBold, mdiFormatItalic, mdiCodeTags, mdiUndo, mdiRedo, mdiLanguageMarkdownOutline, mdiEyeOutline, mdiHelpCircleOutline, mdiArrowLeft, mdiContentCopy, mdiFullscreen, mdiFullscreenExit, mdiCodeBraces, mdiFormatHeader1, mdiFormatHeader2, mdiFormatHeader3, mdiFormatHeader4, mdiFormatHeader5, mdiFormatHeader6, mdiFormatListBulleted, mdiFormatQuoteClose, mdiFormatStrikethrough, mdiFormatListNumbered, mdiFormatIndentIncrease, mdiFormatIndentDecrease, mdiCheckboxMarkedOutline, mdiMinus, mdiFormatClear, mdiLinkVariant, mdiLinkVariantOff, mdiImageOutline, mdiTable, mdiMagnify, mdiClose, mdiChevronUp, mdiChevronDown, mdiFindReplace, mdiTextBoxMultipleOutline, mdiDotsHorizontal, mdiFormatListText } from '@mdi/js';
 import { mdiFormatColorFill } from '@mdi/js';
+import { mdiFileEditOutline, mdiInformationOutline, mdiLightbulbOutline, mdiMessageAlertOutline, mdiAlertOutline, mdiAlertOctagonOutline } from '@mdi/js';
 import { mdiTableRowPlusBefore, mdiTableRowPlusAfter, mdiTableColumnPlusBefore, mdiTableColumnPlusAfter, mdiTableRowRemove, mdiTableColumnRemove, mdiTableRemove, mdiTablePlus, mdiTableRow, mdiFormatAlignLeft, mdiFormatAlignCenter, mdiFormatAlignRight, mdiPageLayoutSidebarRight, mdiChevronRight } from '@mdi/js';
 
 const icons: Record<string, string> = {
   bold: mdiFormatBold, italic: mdiFormatItalic, code: mdiCodeTags,
-  undo: mdiUndo, redo: mdiRedo, raw: mdiLanguageMarkdownOutline, preview: mdiEyeOutline,
+  undo: mdiUndo, redo: mdiRedo, raw: mdiLanguageMarkdownOutline, visual: mdiFileEditOutline, preview: mdiEyeOutline,
   help: mdiHelpCircleOutline, back: mdiArrowLeft, copy: mdiContentCopy,
   fullscreen: mdiFullscreen, fullscreenExit: mdiFullscreenExit, expand: mdiCodeBraces, heading: mdiFormatHeader2,
   bullet: mdiFormatListBulleted, quote: mdiFormatQuoteClose,
+  'quote:note': mdiInformationOutline, 'quote:tip': mdiLightbulbOutline, 'quote:important': mdiMessageAlertOutline,
+  'quote:warning': mdiAlertOutline, 'quote:caution': mdiAlertOctagonOutline,
   heading1: mdiFormatHeader1, heading2: mdiFormatHeader2, heading3: mdiFormatHeader3, heading4: mdiFormatHeader4, heading5: mdiFormatHeader5, heading6: mdiFormatHeader6,
   strike: mdiFormatStrikethrough, ordered: mdiFormatListNumbered, indent: mdiFormatIndentIncrease, outdent: mdiFormatIndentDecrease,
   task: mdiCheckboxMarkedOutline, rule: mdiMinus, clear: mdiFormatClear, link: mdiLinkVariant, unlink: mdiLinkVariantOff,

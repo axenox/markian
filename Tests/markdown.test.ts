@@ -20,6 +20,21 @@ test('rendering is safe, autolinks GFM and hides front matter and metadata', () 
   assert.ok(!html.includes('secret'));
 });
 
+test('alert quotes render semantic types without exposing their Markdown markers', () => {
+  for (const kind of ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']) {
+    const markdown = `> [!${kind}]\n> Read **carefully**`;
+    const html = renderMarkdown(markdown);
+    assert.ok(html.includes(`data-alert-kind="${kind.toLowerCase()}"`));
+    assert.ok(html.includes(`data-alert-title="${kind[0] + kind.slice(1).toLowerCase()}"`));
+    assert.ok(html.includes('<strong>carefully</strong>'));
+    assert.ok(!html.includes(`[!${kind}]`));
+    assert.ok(equivalentMarkdown(markdown, markdown));
+  }
+  assert.ok(!renderMarkdown('> Ordinary quote').includes('data-alert-kind'));
+  assert.ok(!renderMarkdown('> [!TIP] inline body').includes('data-alert-kind'));
+  assert.match(renderMarkdown('> [!TIP]\\\n> Read **carefully**'), /data-alert-kind="tip"/);
+});
+
 test('Unicode headings have deterministic unique anchors', () => {
   assert.deepEqual(headings('# Über\n\n## Über\n\n## Über-1\n\n## Über'), [
     { id: 'über', label: 'Über', depth: 1, line: 1 },

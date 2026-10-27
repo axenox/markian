@@ -27,18 +27,22 @@ Toolbar buttons depend on the view. The mermaid toolbar shows different buttons 
 - undo/redo
 - one or more view-specific groups
 - overflow-button - only visible of the width was not enough to show all buttons
-- full-screen button
 - search button - opens an anchored search/replace panel
+- full-screen button - always the rightmost toolbar control
 
 Toolbar items are buttons. They can either execute a command or show a dropdown with more buttons. 
 
-The default layout is Undo, Redo, separator, Headings, Formatting (bold/italic/strike), Lists (ordered/bullets/tasks), Indent, Outdent, separator, Inline code, Code block, Quote, Link, Image, Table, separator, View mode (Visual/Source/Preview), Outline, Clear formatting, Horizontal rule, Copy, Help, More, Maximize, Search. More and every following item stay outside overflow. Headings provides H1-H6; the legacy H2 toggle remains available for custom configurations. Outline uses a right-sidebar icon. Table actions have distinct row/column insertion/deletion icons. Expand code appears only in the floating toolbar when the caret is in a code block, including read-only inspection, rather than in the pinned toolbar.
+The default layout is Undo, Redo, separator, Headings, Formatting (bold/italic/strike), Lists (ordered/bullets/tasks), Indent, Outdent, separator, Inline code, Code block, Quote, Link, Image, Table, Horizontal rule, separator, View mode (Visual/Source/Preview), Outline, Clear formatting, Copy, Help, More, Search, Maximize. Search and Maximize stay outside overflow and align to the right, with Maximize last. Secondary views retain the same relative control order, including extension-owned Undo/Redo in the history position. Views with Back begin with Back and a separator and omit the View mode menu. Headings provides H1-H6; the legacy H2 toggle remains available for custom configurations. Outline uses a right-sidebar icon. Table actions have distinct row/column insertion/deletion icons. Expand code appears only in the floating toolbar when the caret is in a code block, including read-only inspection, rather than in the pinned toolbar.
 
 Menus share `.markian-menu` / `.markian-menu-items`, native details/summary disclosure, native popover surfaces, and arrow/Home/End/Escape navigation. Home/End stay inside the active disclosure; Escape closes it and restores focus to its summary, retaining an open parent menu. Right/Left enters/leaves a submenu. Pinned group buttons have a small dropdown cue. Submenus open beside the parent as independent flyouts, flipping left and clamping to the viewport when necessary; they never expand inside a parent's scrolling surface. On very narrow viewports a clamped flyout may partially overlap its parent, but each surface has just one scrollbar. Bottom toolbars open their first-level menus upward. Overflow uses full-width icon-and-label rows with submenu chevrons. Outside clicks and toolbar command activation dismiss the open disclosures. Pinned and floating layouts are independently configurable; pointer interaction preserves engine selection. Use the same recursive layout entries for host configuration and registered groups, not custom per-group rendering code.
 
 Toolbar items have a toggled-state. E.g. the `bold` item should appear toggled when the cursor is placed on a bold word. 
 
+All quote choices are mutually exclusive toggles in Visual and Source views, with the current type shown as pressed like the heading choices. Selecting the active type removes the quote wrapper and alert marker while retaining its content and inline formatting. Selecting another type changes the existing quote without nesting; selecting plain Quote on an alert removes only the alert marker. There is no separate Remove quote button. Note, Tip, Important, Warning, and Caution use distinct information, lightbulb, message-alert, warning-triangle, and caution-octagon icons. Visual view uses the MDI file-edit-outline icon; Preview keeps its eye icon. Opening toolbar menus by pointer retains the document text selection, including its visible highlight, until a command is chosen.
+
 Toolbar items can be arranged in groups for better visualization. 
+
+Alert quotes show a readable type label and a type-colored border in Visual and Preview: Note is blue, Tip green, Important magenta, Warning amber, and Caution red, with brighter dark-theme colors. The `[!TYPE]` source marker is hidden only in rendered presentation and remains in saved Markdown and Source view. Toolbar commands enforce a real line break after the marker, keeping it on its own line as required by GitHub alert syntax; inline marker text remains an ordinary quote. The quote menu marks only the detected type as active, including after loading Markdown or returning from Source.
 
 When the screen is to narrow to house all items, the toolbar must overflow into a `...`  dropdown. 
 ### Status bar
@@ -114,7 +118,7 @@ Table caret/touch controls use `.markian-floating` and the same commands as cont
 The `.markian-outline` sidebar uses parsed headings and `aria-current="location"`; it excludes the title beginning on line 1. Its toggle collapses the desktop sidebar or opens the compact drawer. Navigation scrolls the active visual/source surface, never the outer page. Specialized views hide the document outline. Pending image panels offer Cancel; failure panels offer Retry and Remove pending image. Both themes reuse these same classes.
 
 - Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
-- Task checkboxes look and behave like checkboxes. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
+- Task checkboxes use 16px native controls aligned with the first text line, a clear gap before the text, and consistent item spacing in editing and Preview. List-type changes apply to all selected items and remove obsolete task markers when switching to bullets or numbering. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
 - Enter continues nonempty bullet, numbered, and task list items; Enter on an empty item exits or lifts the list using ProseMirror list behavior. Code blocks retain their ordinary newline behavior.
 - Hidden comments and extension delimiters remain invisible in the normal document view. Do not render metadata as badges or private syntax without a specific approved interaction.
 - Raw mode uses CodeMirror, source-local selection/history, and its own outline. Keep the toolbar and surrounding frame consistent with visual mode rather than introducing a separate application aesthetic.
@@ -157,6 +161,7 @@ The current demo and packaged example reuse the prototype's masthead: a green "m
 
 - Separate document hierarchy from tool hierarchy. Toolbar labels, outline headings, dialogs, and status text stay compact; demo branding does not set tool heading sizes.
 - Use consistent document spacing for headings, paragraphs, lists, quotes, code, and tables in editable and disabled/read-only editor output.
+- Lists use 24px indentation, 8px outer vertical margins, and 2px item spacing, without ordinary paragraph bottom margins inside items. Tables use 4px vertical / 8px horizontal cell padding, 72px minimum cell width, and 1.5 line height. Cell paragraphs have no outer margin; additional paragraphs within a list item or table cell keep a 4px gap. Task lists use the same compact item spacing.
 - Keep code monospaced, preserve meaningful whitespace, and provide scrolling for long lines where appropriate.
 - Do not use viewport-scaled type or negative letter spacing. Allow labels to wrap or constrain their layout without overlapping neighbors.
 

@@ -37,6 +37,7 @@
 .markian *, .markian *::before, .markian *::after { box-sizing: border-box; }
 .markian [hidden] { display: none !important; }
 .markian-toolbar { display: flex; position: relative; z-index: 4; flex: 0 0 46px; gap: 2px; align-items: center; padding: 5px 8px; border-bottom: 1px solid var(--markian-line); }
+.markian-toolbar > [data-command='search'], .markian-toolbar:not(:has(> [data-command='search'])) > [data-command='fullscreen'] { margin-left: auto; }
 .markian-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
 .markian-button svg { width: 20px; height: 20px; fill: currentColor; }
 .markian-button:hover:not(:disabled) { background: var(--markian-soft); color: var(--markian-accent); }
@@ -104,10 +105,12 @@
 .markian[data-toolbar-placement='bottom'] .markian-toolbar { order: 3; border-top: 1px solid var(--markian-line); border-bottom: 0; }
 .markian .selectedCell::after { position: absolute; inset: 0; background: #22776122; pointer-events: none; content: ''; }
 .markian .ProseMirror td, .markian .ProseMirror th { position: relative; }
-.markian .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; }
-.markian .ProseMirror li[data-item-type='task'] > input { position: absolute; top: 5px; left: -22px; accent-color: var(--markian-accent); width: 15px; height: 15px; cursor: pointer; }
+.markian .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
+.markian .ProseMirror li[data-item-type='task'] > input { position: absolute; top: 5px; left: -20px; margin: 0; accent-color: var(--markian-accent); width: 16px; height: 16px; cursor: pointer; }
+.markian .ProseMirror li[data-item-type='task'] > div { min-width: 0; }
 .markian .ProseMirror li[data-item-type='task'] > input:disabled { cursor: default; }
-.markian .ProseMirror li[data-item-type='task'] > div > p { margin: 4px 0; }
+.markian .ProseMirror li[data-item-type='task'] > div > p { margin: 0; }
+.markian .ProseMirror li[data-item-type='task'] > div > p + p { margin-top: 4px; }
 @container (max-width: 480px) {
   .markian-toolbar { order: 3; flex-basis: 50px; border-top: 1px solid var(--markian-line); border-bottom: 0; }
   .markian-button { width: 40px; height: 40px; }

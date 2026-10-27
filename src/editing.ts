@@ -1,8 +1,9 @@
-import { closeHistory, setBlockType, wrapIn, wrapInList, lift, liftListItem, sinkListItem, addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, setCellAttr, TextSelection } from './engines/prose';
-import type { Command, EditorView, ProseNode } from './engines/prose';
+import { closeHistory, setBlockType, wrapIn, wrapInList, liftListItem, sinkListItem, addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, setCellAttr, TextSelection } from './engines/prose';
+import type { Command, EditorView, ProseNode, Transaction } from './engines/prose';
 import type { SourceEditor } from './engines/source';
 import type { CommandDefinition, EditorOptions, MarkianInstance } from './types';
 import { defaultColors } from './render/colors';
+import { quoteMarker } from './render/markdown';
 
 export function installEditing(instance: MarkianInstance, visual: () => EditorView, raw: () => SourceEditor, options: EditorOptions, destination: (image: boolean) => void): void {
   const add = (definition: CommandDefinition, pinned = false) => {
@@ -52,13 +53,26 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     const last = view.state.doc.lineAt(selection.to);
     view.dispatch({ changes: { from: first.from, to: last.to, insert: view.state.sliceDoc(first.from, last.to).split('\n').map(transform).join('\n') } });
   };
+  const selectedListItems = (state: EditorView['state']) => {
+    const items: { node: ProseNode; position: number }[] = [];
+    state.doc.nodesBetween(state.selection.from, state.selection.to, (node, position) => {
+      if (node.type.name === 'list_item') items.push({ node, position });
+    });
+    return items;
+  };
   const list = (name: string): Command => (state, dispatch) => {
-    const selected = state.selection.$from;
-    for (let depth = selected.depth; depth > 0; depth--) {
-      const node = selected.node(depth);
-      if (!['bullet_list', 'ordered_list'].includes(node.type.name)) continue;
-      if (node.type.name === name) return liftListItem(state.schema.nodes.list_item)(state, dispatch);
-      dispatch?.(state.tr.setNodeMarkup(selected.before(depth), state.schema.nodes[name]));
+    const items = selectedListItems(state);
+    if (items.length) {
+      const lists = new Map<number, ProseNode>();
+      for (const item of items) {
+        const resolved = state.doc.resolve(item.position);
+        lists.set(resolved.before(resolved.depth), resolved.parent);
+      }
+      if ([...lists.values()].every(node => node.type.name === name) && items.every(item => item.node.attrs.checked === null)) return liftListItem(state.schema.nodes.list_item)(state, dispatch);
+      const transaction = state.tr;
+      for (const [position, node] of lists) transaction.setNodeMarkup(position, state.schema.nodes[name], { ...node.attrs });
+      for (const item of items) transaction.setNodeMarkup(item.position, undefined, { ...item.node.attrs, checked: null });
+      dispatch?.(transaction);
       return true;
     }
     return wrapInList(state.schema.nodes[name])(state, dispatch);
@@ -90,7 +104,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
   } }, true);
   for (const [id, label, prefix, node] of [['list:bullet', 'Bullet list', '- ', 'bullet_list'], ['ordered', 'Numbered list', '1. ', 'ordered_list']]) add({
     id, label, icon: id === 'ordered' ? 'ordered' : 'bullet', views: ['visual', 'raw'], mutates: true,
-    run: () => { if (instance.activeView === 'raw') sourceLines(line => /^(?:[-+*]|\d+\.)\s/.test(line) ? line.replace(/^(?:[-+*]|\d+\.)\s+/, prefix) : prefix + line); else run(list(node)); },
+    run: () => { if (instance.activeView === 'raw') sourceLines(line => prefix + line.replace(/^(?:[-+*]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')); else run(list(node)); },
   }, id === 'ordered');
   for (const [id, label, command] of [['indent', 'Indent list item', sinkListItem], ['outdent', 'Outdent list item', liftListItem]] as const) add({
     id, label, icon: id, views: ['visual', 'raw'], mutates: true,
@@ -98,14 +112,17 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     run: () => { if (instance.activeView === 'raw') sourceLines(line => id === 'indent' ? '  ' + line : line.replace(/^(?: {1,2}|\t)/, '')); else run(command(visual().state.schema.nodes.list_item)); },
   }, true);
   add({ id: 'task', label: 'Task list', icon: 'task', views: ['visual', 'raw'], mutates: true, run: () => {
-    if (instance.activeView === 'raw') { sourceInsert('- [ ] '); return; }
+    if (instance.activeView === 'raw') { sourceLines(line => '- [ ] ' + line.replace(/^(?:[-+*]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')); return; }
     const view = visual();
-    let depth = view.state.selection.$from.depth;
-    while (depth > 0 && view.state.selection.$from.node(depth).type.name !== 'list_item') depth--;
-    if (!depth) { run(wrapInList(view.state.schema.nodes.bullet_list)); depth = visual().state.selection.$from.depth - 1; }
-    const selected = view.state.selection.$from;
-    const node = selected.node(depth);
-    if (node.type.name === 'list_item') view.dispatch(closeHistory(view.state.tr.setNodeMarkup(selected.before(depth), undefined, { ...node.attrs, checked: node.attrs.checked === null ? false : null })));
+    const apply = (transaction: Transaction) => {
+      const items = selectedListItems(view.state.apply(transaction));
+      const remove = items.every(item => item.node.attrs.checked !== null);
+      for (const item of items) transaction.setNodeMarkup(item.position, undefined, { ...item.node.attrs, checked: remove ? null : item.node.attrs.checked ?? false });
+      view.dispatch(closeHistory(transaction));
+      view.focus();
+    };
+    if (selectedListItems(view.state).length) apply(view.state.tr);
+    else wrapInList(view.state.schema.nodes.bullet_list)(view.state, apply);
   } }, true);
   add({ id: 'rule', label: 'Horizontal rule', icon: 'rule', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') sourceInsert('\n\n---\n\n');
@@ -129,20 +146,64 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     if (transaction.selection.$from.parent.type.name !== 'paragraph') transaction.setBlockType(from, to, view.state.schema.nodes.paragraph);
     view.dispatch(transaction);
   } }, true);
-  visualCommand('quote:remove', 'Remove quote', 'outdent', () => lift);
-  for (const kind of ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']) add({
-    id: `quote:${kind.toLowerCase()}`, label: kind[0] + kind.slice(1).toLowerCase(), icon: 'quote', views: ['visual', 'raw'], mutates: true,
+  const quoteContext = (transaction = visual().state.tr) => {
+    const selected = transaction.selection.$from;
+    let depth = selected.depth;
+    while (depth > 0 && selected.node(depth).type.name !== 'blockquote') depth--;
+    const paragraph = depth ? selected.node(depth).firstChild : null;
+    const marker = paragraph ? quoteMarker(paragraph.textBetween(0, paragraph.content.size, '\n', '\n')) : null;
+    return { depth, markerLength: marker?.length ?? 0, kind: depth ? marker?.kind ?? '' : null, start: depth ? selected.start(depth) + 1 : 0 };
+  };
+  const sourceQuoteContext = () => {
+    const view = raw().view;
+    const selection = view.state.selection.main;
+    let first = view.state.doc.lineAt(selection.from);
+    let last = view.state.doc.lineAt(selection.to);
+    if (/^ {0,3}>/.test(first.text)) {
+      while (first.number > 1 && /^ {0,3}>/.test(view.state.doc.line(first.number - 1).text)) first = view.state.doc.line(first.number - 1);
+      while (last.number < view.state.doc.lines && /^ {0,3}>/.test(view.state.doc.line(last.number + 1).text)) last = view.state.doc.line(last.number + 1);
+    }
+    const quoted = /^ {0,3}>/.test(first.text);
+    const lines = view.state.sliceDoc(first.from, last.to).split('\n').map(line => quoted ? line.replace(/^ {0,3}> ?/, '') : line);
+    const marker = quoted ? lines[0].match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/) : null;
+    return { view, first, last, lines, marker, kind: quoted ? marker?.[1] ?? '' : null };
+  };
+  for (const kind of ['', 'NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']) add({
+    id: kind ? `quote:${kind.toLowerCase()}` : 'quote', label: kind ? kind[0] + kind.slice(1).toLowerCase() : 'Quote', icon: kind ? `quote:${kind.toLowerCase()}` : 'quote', views: ['visual', 'raw'], mutates: true,
+    active: () => (instance.activeView === 'raw' ? sourceQuoteContext().kind : quoteContext().kind) === kind,
     run: () => {
-      if (instance.activeView === 'raw') sourceInsert(`> [!${kind}]\n> `);
+      if (instance.activeView === 'raw') {
+        const context = sourceQuoteContext();
+        if (context.marker) context.lines.shift();
+        if (!context.lines.length) context.lines.push('');
+        const lines = context.kind === kind ? context.lines : [...(kind ? [`[!${kind}]`] : []), ...context.lines].map(line => '> ' + line);
+        context.view.dispatch({ changes: { from: context.first.from, to: context.last.to, insert: lines.join('\n') }, selection: { anchor: context.first.from + (context.kind === kind ? 0 : kind ? kind.length + 8 : 2) } });
+        context.view.focus();
+      }
       else {
-        run(wrapIn(visual().state.schema.nodes.blockquote));
         const view = visual();
-        view.dispatch(closeHistory(view.state.tr.insertText(`[!${kind}]\n`, view.state.selection.$from.start())));
+        const current = quoteContext();
+        const apply = (transaction: Transaction) => {
+          const context = quoteContext(transaction);
+          if (!context.depth) return;
+          if (kind && current.kind !== kind) {
+            transaction.replaceWith(context.start, context.start + context.markerLength, [view.state.schema.text(`[!${kind}]`), view.state.schema.nodes.hardbreak.create()]);
+          } else transaction.delete(context.start, context.start + context.markerLength);
+          if (current.kind === kind) {
+            const selected = transaction.selection.$from;
+            const range = transaction.doc.resolve(selected.start(context.depth)).blockRange(transaction.doc.resolve(selected.end(context.depth)));
+            if (range) transaction.lift(range, context.depth - 1);
+          }
+          view.dispatch(closeHistory(transaction));
+          view.focus();
+        };
+        if (current.depth) apply(view.state.tr);
+        else wrapIn(view.state.schema.nodes.blockquote)(view.state, apply);
       }
     },
   });
   add({ id: 'quotes', label: 'Quote', icon: 'quote', views: ['visual', 'raw'], run: () => {} });
-  instance.getToolbar().insert({ id: 'quotes', command: 'quotes', menu: ['quote', 'quote:remove', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'] }, 'raw');
+  instance.getToolbar().insert({ id: 'quotes', command: 'quotes', menu: ['quote', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'] }, 'raw');
   for (const image of [false, true]) add({ id: image ? 'image' : 'link', label: image ? 'Insert image' : 'Edit link', icon: image ? 'image' : 'link', views: ['visual', 'raw'], mutates: true, run: () => destination(image) }, true);
   add({ id: 'unlink', label: 'Remove link', icon: 'unlink', views: ['visual'], mutates: true, run: () => {
     const view = visual();
