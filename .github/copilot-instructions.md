@@ -21,6 +21,17 @@ Markian is a framework-independent Markdown editor/viewer library in development
 - Keep demo assets, global styles, and the prototype's sibling-Core Mermaid import out of the reusable library contract. Consumers must ultimately work with prebuilt assets without Node.js or a build step.
 - Preserve independently deployable host adapters and the separate Core `MarkianTrait` migration. Do not alter legacy Toast UI integrations incidentally.
 
+## Coding guidelines
+
+- Use type-prefixed variable names. Examples:
+  - `oToolbar` for an object
+  - `aData` - for an array
+  - `bFlag` - for a boolean
+  - `iCount` - for a number
+  - `sName` - for a string
+  - `fValue` - for a floating-point number
+  - `fnCallback` - for a function
+
 ## Validation
 
 - Reuse [existing browser tests](../Tests/prototype.spec.js) and the scripts in [package.json](../package.json). Run focused checks for affected behavior, and `npm run build` for build/distribution changes. `npm test` runs Playwright; `npm run dev` starts the demo.
