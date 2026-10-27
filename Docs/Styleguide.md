@@ -6,7 +6,7 @@ Markian should feel like a focused writing tool: a readable document, compact re
 
 This is the living reference for look-and-feel, shared UI patterns, and interaction presentation. Update it in the same change whenever a reusable visual or interaction pattern changes. Internal ownership belongs in the [architecture](Architecture.md); feature scope and implementation status belong in the [plan](Requirements/Plan.md).
 
-The new implementation is in [style.css](../src/style.css), with engine-independent typography in [content.css](../src/render/content.css). The original prototype is archived. The current slice implements scoped light/dark surfaces, MDI icon controls with native name tooltips, stable 32px toolbar buttons, a horizontally scrolling strip, view-local editing surfaces, status, and an inline diagnostic. Below 480px of editor container width, controls become 40px, the toolbar moves below the work area, and status is hidden. Fullscreen uses the same root within the current document viewport. Advanced overflow menus, floating controls, search, outlines, host-owned fullscreen callbacks, and complete accessibility verification remain planned.
+The implementation is in [style.css](../src/style.css), with engine-independent typography in [content.css](../src/render/content.css). The original prototype is archived. Current controls use scoped light/dark surfaces, selected MDI icons with native tooltips, stable 32px targets, measured More overflow, selection/table toolbars, and shared search/destination panels. Below 480px of editor container width, targets become 40px, the toolbar defaults below the work area, and status is hidden. Fullscreen keeps the same root; a host callback can replace the built-in viewport overlay. Complete accessibility and real-device/IME acceptance remain unverified.
 
 The public root is `[data-markian]` with `data-theme`, `data-view`, and (after a permission change) `data-readonly`. `.markian-document` is the content styling hook; do not depend on Milkdown DOM. All library selectors are scoped under `.markian` or the explicit content hook; demo page styles are separate and no fonts are requested remotely. Current variables use the `--markian-` prefix: `surface`, `text`, `muted`, `line`, `accent`, `soft`, `code`, `font`, and `mono`. The unprefixed prototype tokens below are historical reference, not the current customization API.
 
@@ -27,12 +27,14 @@ Toolbar buttons depend on the view. The mermaid toolbar shows different buttons 
 - undo/redo
 - one or more view-specific groups
 - overflow-button - only visible of the width was not enough to show all buttons
-- search button - shows a small input with search&replace controls in the main workarea
 - full-screen button
+- search button - opens an anchored search/replace panel
 
 Toolbar items are buttons. They can either execute a command or show a dropdown with more buttons. 
 
-The current H2 button toggles the selected textblock between Heading 2 and a regular paragraph; other heading levels become Heading 2. Its accessible name and tooltip are "Heading 2".
+The default layout is Undo, Redo, separator, Headings, Formatting (bold/italic/strike), Lists (ordered/bullets/tasks), Indent, Outdent, separator, Inline code, Code block, Quote, Link, Image, Table, separator, View mode (Visual/Source/Preview), Outline, Clear formatting, Horizontal rule, Copy, Help, More, Maximize, Search. More and every following item stay outside overflow. Headings provides H1-H6; the legacy H2 toggle remains available for custom configurations. Outline uses a right-sidebar icon. Table actions have distinct row/column insertion/deletion icons. Expand code appears only in the floating toolbar when the caret is in a code block, including read-only inspection, rather than in the pinned toolbar.
+
+Menus share `.markian-menu` / `.markian-menu-items`, native details/summary disclosure, native popover surfaces, and arrow/Home/End/Escape navigation. Home/End stay inside the active disclosure; Escape closes it and restores focus to its summary, retaining an open parent menu. Right/Left enters/leaves a submenu. Pinned group buttons have a small dropdown cue. Submenus open beside the parent as independent flyouts, flipping left and clamping to the viewport when necessary; they never expand inside a parent's scrolling surface. On very narrow viewports a clamped flyout may partially overlap its parent, but each surface has just one scrollbar. Bottom toolbars open their first-level menus upward. Overflow uses full-width icon-and-label rows with submenu chevrons. Outside clicks and toolbar command activation dismiss the open disclosures. Pinned and floating layouts are independently configurable; pointer interaction preserves engine selection. Use the same recursive layout entries for host configuration and registered groups, not custom per-group rendering code.
 
 Toolbar items have a toggled-state. E.g. the `bold` item should appear toggled when the cursor is placed on a bold word. 
 
@@ -105,8 +107,15 @@ New patterns must be documented here and implemented through shared classes/comp
 
 ## Content and Specialized Views
 
+Search and destination dialogs are compact `.markian-panel` surfaces in instance-owned `.markian-popup` native popover wrappers. Place them beneath the corresponding Link, Image/file, or Search button, clamped to the viewport, with a speech-bubble tip pointing to that button. Commands inside overflow point to More after the menu closes. Bottom toolbars open panels above their button, and limited viewport space may also flip placement upward. Only the inner panel scrolls, leaving the tip visible. Stack full-width labeled inputs vertically; keep checkbox options together and group actions in `.markian-panel-actions` below the fields. Search includes previous/next, count, case/word options, and replacement controls only when permitted. Help/Preview highlights are presentation-only. Destination dialogs share field/suggestion styling, target-heading selection, file selection, and a focus trap. Escape and explicit Close return focus to editing; an outside pointer press dismisses the popup without stealing focus from the clicked destination, including another instance. Dismissal aborts destination lookups, but does not silently cancel an already-started image insertion. Suggestions show loading/empty/error states; do not make a pending result look saved.
+
+Table caret/touch controls use `.markian-floating` and the same commands as context/overflow menus, without requiring right-click. Tasks render actual checkboxes, disabled when editing is forbidden. Opt-in colors use compact labeled hex swatches, not text pills; arbitrary style controls are not supported.
+
+The `.markian-outline` sidebar uses parsed headings and `aria-current="location"`; it excludes the title beginning on line 1. Its toggle collapses the desktop sidebar or opens the compact drawer. Navigation scrolls the active visual/source surface, never the outer page. Specialized views hide the document outline. Pending image panels offer Cancel; failure panels offer Retry and Remove pending image. Both themes reuse these same classes.
+
 - Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
 - Task checkboxes look and behave like checkboxes. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
+- Enter continues nonempty bullet, numbered, and task list items; Enter on an empty item exits or lifts the list using ProseMirror list behavior. Code blocks retain their ordinary newline behavior.
 - Hidden comments and extension delimiters remain invisible in the normal document view. Do not render metadata as badges or private syntax without a specific approved interaction.
 - Raw mode uses CodeMirror, source-local selection/history, and its own outline. Keep the toolbar and surrounding frame consistent with visual mode rather than introducing a separate application aesthetic.
 - Mermaid uses a dedicated code/preview workspace. On desktop show both panes; on narrow layouts stack them without overlap. Keep Back as the default return/apply action; do not add redundant Apply/Cancel controls.

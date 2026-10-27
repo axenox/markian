@@ -6,7 +6,7 @@ Markian is a framework-independent Markdown editor intended for standalone use a
 
 This is a living document about internal structure, ownership, and engineering principles. Update it in the same change as any architectural change. Appearance and interaction patterns belong in the [style guide](Styleguide.md). Scope, acceptance criteria, packaging work, and migration sequencing belong in the [implementation plan](Requirements/Plan.md).
 
-The repository now contains a fresh strict-TypeScript, instance-based W0-W3 implementation slice. The former interaction prototype and its tests are archived under `Prototype/` and are not build inputs. The [README](../README.md) defines the implemented API subset and limitations; the plan remains the full approved destination, not a completion claim. Earlier alternatives in the [approach](Requirements/Approach.md) must be read in light of the later decisions in the plan.
+The repository contains strict-TypeScript, instance-based W0-W3 foundations and W4-W7 editing/provider/navigation features. The former interaction prototype and its tests are archived under `Prototype/` and are not build inputs. The [README](../README.md) defines implemented APIs and remaining acceptance limitations; the plan remains the full approved destination, not a completion claim. Earlier alternatives in the [approach](Requirements/Approach.md) must be read in light of later plan decisions.
 
 ## Current Implementation
 
@@ -14,6 +14,12 @@ The repository now contains a fresh strict-TypeScript, instance-based W0-W3 impl
 | --- | --- |
 | [index.ts](../src/index.ts) | Public factory, per-host mount ownership, extension factory registration, and public exports. |
 | [editor.ts](../src/editor.ts) | Instance document projection, events, commands, view stack, host/form lifecycle, and disposal. |
+| [editing.ts](../src/editing.ts) | Built-in formatting/table commands and schema-aware GFM header/body operations through shared registries. |
+| [search.ts](../src/search.ts) | Bounded literal Unicode-aware matching, independent of editor engines. |
+| [panels.ts](../src/ui/panels.ts) | Shared search/destination forms, suggestions/inspection, validation, focus, and query cancellation. |
+| [toolbar.ts](../src/ui/toolbar.ts) | Declarative grouped default toolbar and validation of recursive host layouts, separators, and overflow boundaries. |
+| [static-search.ts](../src/ui/static-search.ts) | Disposable Help/Preview text highlights and navigation without Markdown mutation. |
+| [colors.ts](../src/render/colors.ts) | Bounded opt-in hex-color syntax shared by visual import and safe rendering. |
 | [visual.ts](../src/engines/visual.ts) | Only Milkdown importer; construction, structural translation, parse/serialize fidelity checks, and ProseMirror transactions. |
 | [prose.ts](../src/engines/prose.ts) | Internal ProseMirror re-exports using one pinned/deduplicated direct dependency graph, not Milkdown imports outside the adapter. |
 | [source.ts](../src/engines/source.ts) | CodeMirror buffers/history and editing permissions, shared through the public source handle. |
@@ -84,6 +90,16 @@ Opening Help from an unfinished Mermaid session suspends its presentation, not i
 - Theme, resizing, fullscreen, and preview navigation are presentation changes, not document edits.
 
 Visual startup is the default. Standalone callers may opt into raw startup; current Power UI and Codiware migrations always start visually.
+
+### Implemented W4-W7 Ownership
+
+The controller routes commands and search to the visible engine or static presentation. ProseMirror decorations and CodeMirror's search extension own editing highlights; static highlights are disposable DOM decoration. Visual matches may cross inline marks within one textblock, but not atomic/opaque nodes. Replacement inherits starting marks and is one history transaction. Help/Preview cannot replace; public handles cannot edit suspended sessions. Query state is instance-local and keyed by view; separate block sessions using the same view ID do not yet have independent query histories.
+
+Toolbar registries and one declarative default layout drive pinned, floating, overflow, and contextual controls. Host layouts use the same recursive menu entries as registry contributions, with separators and an explicit fixed-controls overflow boundary. Built-ins use `editing.ts`; extensions use public operations rather than engine getters. The controller positions instance-owned native popover flyouts and button-anchored transient panels; top-layer rendering escapes parent scrolling without moving DOM ownership outside the instance. Code expansion is offered only by the code-caret floating toolbar by default, not by a pinned extension contribution. ProseMirror primitives provide table navigation/selection. The GFM preset already owns the table-editing plugin; schema-aware commands preserve its distinct header/body rows. The controller owns parsed outline targets, view-local scrolling, and current-section indication. Shared parsing supplies nested/duplicate heading anchors to outline and Preview.
+
+Async image operations capture revision, selection, permissions, and view. Abort races settle even if a host ignores the signal. Pending blobs never enter the saved value; failed current-document operations block `whenIdle()` and native textarea submission until retry/removal. A newer revision cannot be blocked or overwritten by an obsolete result. Hosts must await the gate and handle subsequent edits during their storage operation. Markian owns no upload/storage transaction.
+
+Fullscreen callback entry is cancellable and paired with exactly-once restoration. The controller owns command state and teardown, not host overlays. Provider panels similarly own transient UI and stale-result validation while callbacks own I/O. See the [README](../README.md#editing-and-host-callbacks) for signatures, bounds, and limitations; real-device/IME, complete accessibility, and actual Codiware file persistence remain acceptance gates. The bounded color preset is the only currently mapped HTML style; general allowed-HTML/stencil mappings remain separate work.
 
 ## Configuration and Host Services
 

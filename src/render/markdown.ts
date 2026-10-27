@@ -6,6 +6,9 @@ import remarkRehype from 'remark-rehype';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import type { Root, RootContent } from 'mdast';
+import type { State as HastState } from 'mdast-util-to-hast';
+import type { Element as HastElement } from 'hast';
+import { colorSyntax, type TextColor } from './colors';
 
 export const documentLimit = 1_000_000;
 
@@ -16,7 +19,8 @@ export function validateMarkdown(markdown: string): void {
 
 export function parseMarkdown(markdown: string): Root {
   validateMarkdown(markdown);
-  return unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ['yaml', 'toml']).parse(markdown);
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ['yaml', 'toml']).use(colorSyntax);
+  return processor.runSync(processor.parse(markdown)) as Root;
 }
 
 function canonical(value: unknown): unknown {
@@ -57,24 +61,32 @@ export interface Heading {
 
 export function headings(markdown: string): Heading[] {
   const used = new Set<string>();
-  return parseMarkdown(markdown).children.filter(node => node.type === 'heading').map(node => {
+  const found: Heading[] = [];
+  const visit = (node: Root | RootContent): void => {
+    if (node.type !== 'heading') {
+      if ('children' in node) node.children.forEach(child => visit(child as RootContent));
+      return;
+    }
     const label = textContent(node);
     const base = label.toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s/g, '-');
     let id = base;
     let suffix = 0;
     while (used.has(id)) id = `${base}-${++suffix}`;
     used.add(id);
-    return { id, label, depth: node.depth, line: node.position?.start.line ?? 1 };
-  });
+    found.push({ id, label, depth: node.depth, line: node.position?.start.line ?? 1 });
+  };
+  visit(parseMarkdown(markdown));
+  return found;
 }
 
-export function renderMarkdown(markdown: string, softbreaks = false): string {
+export function renderMarkdown(markdown: string, softbreaks = false, allowTextColors = false): string {
   const anchors = headings(markdown);
   let headingIndex = 0;
   return String(unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkFrontmatter, ['yaml', 'toml'])
+    .use(colorSyntax)
     .use(() => (tree: Root) => {
       const walk = (node: Root | RootContent): void => {
         if (node.type === 'heading') node.data = { hProperties: { id: anchors[headingIndex++].id } };
@@ -83,7 +95,9 @@ export function renderMarkdown(markdown: string, softbreaks = false): string {
       };
       walk(tree);
     })
-    .use(remarkRehype)
+    .use(remarkRehype, { handlers: {
+      textColor: (state: HastState, node: TextColor): HastElement => ({ type: 'element', tagName: 'span', properties: allowTextColors ? { style: `color: ${node.color}` } : {}, children: state.all(node) }),
+    } })
     .use(() => (tree) => {
       if (!softbreaks) return;
       const walk = (node: { type: string; tagName?: string; value?: string; children?: typeof node[] }): void => {
@@ -97,7 +111,7 @@ export function renderMarkdown(markdown: string, softbreaks = false): string {
       };
       walk(tree);
     })
-    .use(rehypeSanitize, { ...defaultSchema, clobberPrefix: '', attributes: { ...defaultSchema.attributes, '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
+    .use(rehypeSanitize, { ...defaultSchema, clobberPrefix: '', attributes: { ...defaultSchema.attributes, span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
     .use(rehypeStringify)
     .processSync(markdown));
 }

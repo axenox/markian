@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
+import { posix } from 'node:path';
 
 async function check(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -9,7 +10,8 @@ async function check(directory) {
     const imports = Array.from(source.matchAll(/(?:from\s*|import\s*\()['"]([^'"]+)['"]/g), match => match[1]);
     for (const dependency of imports) {
       if (dependency.startsWith('@milkdown/') && path !== 'src/engines/visual.ts') throw new Error(`Milkdown boundary: ${path}`);
-      if (path.startsWith('src/render/') && !['unified', 'remark-', 'rehype-', 'mdast', 'hast'].some(prefix => dependency.startsWith(prefix))) throw new Error(`Rendering boundary: ${path} -> ${dependency}`);
+      const localRender = dependency.startsWith('.') && posix.normalize(posix.join(posix.dirname(path), dependency)).startsWith('src/render/');
+      if (path.startsWith('src/render/') && !localRender && !['unified', 'remark-', 'rehype-', 'mdast', 'hast'].some(prefix => dependency.startsWith(prefix))) throw new Error(`Rendering boundary: ${path} -> ${dependency}`);
     }
     if (/\bfetch\s*\(|XMLHttpRequest|\beval\s*\(/.test(source)) throw new Error(`Forbidden transport or evaluation: ${path}`);
   }

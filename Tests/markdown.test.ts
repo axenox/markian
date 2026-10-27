@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { equivalentMarkdown, headings, renderMarkdown, safeUrl, validateMarkdown } from '../src/render/markdown';
+import { findMatches } from '../src/search';
 
 test('ordinary GFM and unknown comments survive semantic comparison', () => {
   const source = '# Notes\n\n<!-- BEGIN sample -->\n\n3. Three\n4. Four\n\n<!-- END sample -->\n\n```mermaid\ngraph LR\n A-->B\n```\n';
@@ -38,4 +39,31 @@ test('URL and document bounds reject unsafe input', () => {
   assert.equal(safeUrl('../notes.md?q=1#heading'), true);
   assert.equal(safeUrl('data:image/png;base64,AA==', true), true);
   assert.throws(() => validateMarkdown('x'.repeat(1_000_001)), RangeError);
+});
+
+test('literal search handles Unicode words, punctuation and case without regex execution', () => {
+  assert.deepEqual(findMatches('Alpha alpha alphabet', { query: 'alpha', wholeWord: true }), [{ from: 0, to: 5 }, { from: 6, to: 11 }]);
+  assert.deepEqual(findMatches('Alpha alpha', { query: 'alpha', caseSensitive: true }), [{ from: 6, to: 11 }]);
+  assert.equal(findMatches('éclair éclairé', { query: 'éclair', wholeWord: true }).length, 1);
+  assert.deepEqual(findMatches('a.*b', { query: '.*' }, 10), [{ from: 11, to: 13 }]);
+  assert.deepEqual(findMatches('text', { query: '' }), []);
+});
+
+test('color preset renders only bounded hex styles and keeps nested Markdown readable', () => {
+  const markdown = '<span style="color:#a82736">A **bold** word</span>';
+  assert.match(renderMarkdown(markdown, false, true), /style="color: #a82736"/);
+  assert.match(renderMarkdown(markdown, false, true), /<strong>bold<\/strong>/);
+  assert.doesNotMatch(renderMarkdown(markdown), /style=/);
+  const unsafe = '<span style="color:red;background:url(javascript:alert(1))" onclick="alert(1)">text</span>';
+  assert.doesNotMatch(renderMarkdown(unsafe, false, true), /style=|onclick|javascript:/);
+  assert.ok(equivalentMarkdown(markdown, markdown.replace('#a82736', '#A82736')));
+});
+
+test('nested headings share the same anchors as rendered output', () => {
+  const markdown = '# Title\n\n> ## Nested\n\n- ### Item heading\n\n## Nested';
+  assert.deepEqual(headings(markdown).map(heading => heading.id), ['title', 'nested', 'item-heading', 'nested-1']);
+  const html = renderMarkdown(markdown);
+  assert.match(html, /<h2 id="nested">/);
+  assert.match(html, /<h3 id="item-heading">/);
+  assert.match(html, /<h2 id="nested-1">/);
 });

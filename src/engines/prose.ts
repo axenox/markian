@@ -1,8 +1,11 @@
-export { Plugin, EditorState, TextSelection } from 'prosemirror-state';
+export { Plugin, PluginKey, EditorState, TextSelection } from 'prosemirror-state';
 export type { Command, Transaction } from 'prosemirror-state';
 export type { Node as ProseNode, NodeSpec, Attrs } from 'prosemirror-model';
 export type { EditorView } from 'prosemirror-view';
-export { toggleMark, setBlockType, wrapIn, baseKeymap } from 'prosemirror-commands';
+export { Decoration, DecorationSet } from 'prosemirror-view';
+export { toggleMark, setBlockType, wrapIn, baseKeymap, lift } from 'prosemirror-commands';
 export { history, undo, redo, closeHistory } from 'prosemirror-history';
 export { keymap } from 'prosemirror-keymap';
-export { wrapInList } from 'prosemirror-schema-list';
+export { InputRule, inputRules } from 'prosemirror-inputrules';
+export { wrapInList, liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
+export { addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, goToNextCell, setCellAttr, tableEditing } from 'prosemirror-tables';

@@ -11,4 +11,4 @@ export interface Heading {
     line: number;
 }
 export declare function headings(markdown: string): Heading[];
-export declare function renderMarkdown(markdown: string, softbreaks?: boolean): string;
+export declare function renderMarkdown(markdown: string, softbreaks?: boolean, allowTextColors?: boolean): string;

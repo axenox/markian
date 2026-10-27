@@ -1,16 +1,23 @@
 import { Items } from './registry';
 import { createVisual, type VisualEngine } from './engines/visual';
 import { SourceEditor } from './engines/source';
-import { redo, undo, closeHistory, toggleMark, setBlockType, wrapIn, wrapInList } from './engines/prose';
-import { parseMarkdown, renderMarkdown, validateMarkdown } from './render/markdown';
+import { redo, undo, closeHistory, toggleMark, setBlockType, wrapIn, lift, TextSelection } from './engines/prose';
+import { parseMarkdown, renderMarkdown, validateMarkdown, safeUrl, headings } from './render/markdown';
+import { findMatches } from './search';
 import { commandButton } from './ui/controls';
-import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarItem, ViewDefinition } from './types';
+import { defaultToolbar, validateToolbar } from './ui/toolbar';
+import { searchPanel, destinationPanel } from './ui/panels';
+import { installEditing } from './editing';
+import { StaticSearch } from './ui/static-search';
+import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
   id: string;
   element: HTMLElement;
   dispose: Disposer;
   session?: BlockSession;
+  search?: StaticSearch;
+  baseline?: string;
 }
 
 function fence(value: string, language: string): string {
@@ -27,6 +34,8 @@ export class EditorInstance implements MarkianInstance {
   private initialized = false;
   private structuresClosed = false;
   private destroyed = false;
+  private fullscreenEntry?: AbortController;
+  private fullscreenRestore?: Disposer;
   private source: string;
   private mode: Mode = 'visual';
   private locked = false;
@@ -39,14 +48,31 @@ export class EditorInstance implements MarkianInstance {
   private rawElement: HTMLElement;
   private work: HTMLElement;
   private toolbar: HTMLElement;
+  private toolbarWidth = 0;
   private status: HTMLElement;
   private diagnostic: HTMLElement;
+  private floating: HTMLElement;
+  private outline: HTMLElement;
+  private searchElement?: HTMLElement;
+  private destination?: { element: HTMLElement; dispose: Disposer };
+  private queries = new Map<string, SearchOptions>();
+  private outlineRevision = -1;
+  private outlineTargets: { button: HTMLButtonElement; rendered?: HTMLElement; line: number }[] = [];
   private frames: Frame[] = [];
   private sources = new Set<SourceHandle>();
+  private sourceElements = new Map<SourceHandle, HTMLElement>();
+  private searchOptions: SearchOptions = { query: '' };
+  private searchMatches: readonly SearchMatch[] = [];
+  private searchIndex = 0;
+  private pendingImages = new Map<Promise<void>, number>();
+  private imageControllers = new Set<AbortController>();
+  private imageFailure?: unknown;
+  private imageRetry?: HTMLElement;
   private listeners = new Map<EventName, Set<(event: EditorEvent) => void>>();
   private cleanups: Disposer[] = [];
   private lastValue: string;
   private commands = new Items<CommandDefinition>(() => this.refreshToolbar(), () => this.alive());
+  private builtinToolbarIds = new Set<string>();
   private toolbarItems = new Items<ToolbarItem>(() => this.refreshToolbar(), () => this.alive());
   private views = new Items<ViewDefinition>(() => {}, () => this.alive());
   private renderers = new Items<RendererDefinition>(() => {}, () => this.alive());
@@ -57,6 +83,13 @@ export class EditorInstance implements MarkianInstance {
 
   constructor(private host: HTMLElement, private options: EditorOptions, private factories: ReadonlyMap<string, ExtensionFactory>) {
     validateMarkdown(options.markdown);
+    for (const [name, callback] of Object.entries(options)) if (name.startsWith('on') && callback !== undefined && typeof callback !== 'function') throw new TypeError(`${name} must be a callback function.`);
+    for (const name of ['readOnly', 'disabled', 'softbreaks', 'allowTextColors'] as const) if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
+    if (options.toolbar !== undefined) validateToolbar(options.toolbar);
+    if (options.floatingToolbar !== undefined && (!Array.isArray(options.floatingToolbar) || options.floatingToolbar.some(id => typeof id !== 'string'))) throw new TypeError('floatingToolbar must be an array of command IDs.');
+    if (options.textColors && (!Array.isArray(options.textColors) || options.textColors.length < 5 || options.textColors.length > 10 || options.textColors.some(color => typeof color !== 'string' || !/^#[a-f0-9]{6}$/i.test(color)) || new Set(options.textColors.map(color => color.toLowerCase())).size !== options.textColors.length)) throw new TypeError('Text colors require 5-10 unique hexadecimal #rrggbb swatches.');
+    if (options.toolbarPlacement && !['top', 'bottom'].includes(options.toolbarPlacement)) throw new TypeError('Unknown toolbar placement.');
+    if (options.documentBase) new URL(options.documentBase, host.ownerDocument.baseURI);
     if (host.tagName !== 'DIV' && host.tagName !== 'TEXTAREA') throw new TypeError('Mount Markian on a div or textarea.');
     if (options.initialMode && !['visual', 'raw'].includes(options.initialMode)) throw new TypeError('Unknown initial mode.');
     this.source = this.lastValue = options.markdown;
@@ -79,20 +112,37 @@ export class EditorInstance implements MarkianInstance {
     this.rawElement = document.createElement('div');
     this.rawElement.className = 'markian-source';
     this.work.append(this.visualElement, this.rawElement);
+    this.floating = document.createElement('div');
+    this.floating.className = 'markian-floating';
+    this.floating.setAttribute('role', 'toolbar');
+    this.floating.setAttribute('aria-label', 'Selection commands');
+    this.floating.hidden = true;
+    this.outline = document.createElement('nav');
+    this.outline.className = 'markian-outline';
+    this.outline.setAttribute('aria-label', 'Document outline');
+    this.work.append(this.outline);
     this.diagnostic = document.createElement('div');
     this.diagnostic.className = 'markian-diagnostic';
     this.diagnostic.setAttribute('role', 'alert');
     this.diagnostic.hidden = true;
     this.status = document.createElement('div');
     this.status.className = 'markian-status';
-    this.element.append(this.toolbar, this.diagnostic, this.work, this.status);
+    this.element.append(this.toolbar, this.floating, this.diagnostic, this.work, this.status);
+    this.element.dataset.toolbarPlacement = options.toolbarPlacement ?? 'top';
     host.after(this.element);
     host.hidden = true;
     this.setTheme(options.theme ?? 'light');
     this.installCommands();
+    this.builtinToolbarIds = new Set(this.toolbarItems.items().map(item => item.id));
     this.listen(this.element, 'focusin', () => this.emit('focus', 'user'));
     this.listen(this.element, 'focusout', event => {
       if (!this.element.contains((event as FocusEvent).relatedTarget as Node | null)) this.emit('blur', 'user');
+    });
+    this.listen(this.host.ownerDocument, 'pointerdown', event => {
+      const target = event.target as Node | null;
+      for (const menu of this.toolbar.querySelectorAll<HTMLDetailsElement>('details[open]')) if (!menu.contains(target)) this.setMenuOpen(menu, false);
+      if (this.searchElement && !this.searchElement.contains(target)) this.closeSearch(false);
+      if (this.destination && !this.destination.element.contains(target)) this.closeDestination(false);
     });
     this.listen(this.element, 'keydown', event => {
       const keyboard = event as KeyboardEvent;
@@ -100,12 +150,98 @@ export class EditorInstance implements MarkianInstance {
         keyboard.preventDefault();
         this.emit('save-request', 'user');
       }
-      if (keyboard.key === 'Escape' && this.element.classList.contains('markian-fullscreen')) {
-        this.element.classList.remove('markian-fullscreen');
-        this.refreshToolbar();
-        this.resize();
+      if ((keyboard.ctrlKey || keyboard.metaKey) && ['f', 'h'].includes(keyboard.key.toLowerCase())) {
+        keyboard.preventDefault();
+        this.openSearch();
+      }
+      if (keyboard.key === 'Escape' && this.searchElement) { this.closeSearch(); return; }
+      if (keyboard.key === 'Escape' && this.destination) { this.closeDestination(); return; }
+      if (keyboard.key === 'Escape') this.exitFullscreen();
+    });
+    this.listen(this.toolbar, 'keydown', event => {
+      const keyboard = event as KeyboardEvent;
+      const target = keyboard.target as HTMLElement;
+      const focusedMenu = target.closest('details');
+      const menu = target.matches('summary') && focusedMenu && !focusedMenu.open && keyboard.key !== 'ArrowRight'
+        ? focusedMenu.parentElement?.closest('details') ?? focusedMenu
+        : focusedMenu;
+      if (keyboard.key === 'Escape' && menu) {
+        keyboard.preventDefault();
+        keyboard.stopPropagation();
+        this.setMenuOpen(menu, false);
+        menu.querySelector<HTMLElement>(':scope > summary')?.focus();
+      } else if (keyboard.key === 'ArrowRight' && target.matches('summary') && target.closest('.markian-menu-items') && menu) {
+        keyboard.preventDefault();
+        this.setMenuOpen(menu, true);
+        this.menuControls(menu)[1]?.focus();
+      } else if (keyboard.key === 'ArrowLeft' && menu?.parentElement?.closest('details')) {
+        keyboard.preventDefault();
+        this.setMenuOpen(menu, false);
+        menu.querySelector<HTMLElement>(':scope > summary')?.focus();
+      } else if (['ArrowDown', 'ArrowUp'].includes(keyboard.key) && menu) {
+        keyboard.preventDefault();
+        this.setMenuOpen(menu, true);
+        const controls = this.menuControls(menu);
+        const index = controls.indexOf(target);
+        controls[(index + (keyboard.key === 'ArrowDown' ? 1 : -1) + controls.length) % controls.length]?.focus();
+      } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(keyboard.key)) {
+        keyboard.preventDefault();
+        const scope = menu && ['Home', 'End'].includes(keyboard.key) ? menu : this.toolbar;
+        const controls = scope === menu ? this.menuControls(menu!) : [...this.toolbar.querySelectorAll<HTMLElement>(':scope > button:not(:disabled), :scope > details > summary')].filter(control => control.getClientRects().length);
+        const index = controls.indexOf(target);
+        const next = keyboard.key === 'Home' ? 0 : keyboard.key === 'End' ? controls.length - 1 : (index + (keyboard.key === 'ArrowRight' ? 1 : -1) + controls.length) % controls.length;
+        controls[next]?.focus();
       }
     });
+    this.listen(this.toolbar, 'click', event => {
+      if (!(event.target as Element).closest('button')) return;
+      for (const menu of this.toolbar.querySelectorAll<HTMLDetailsElement>('details[open]')) this.setMenuOpen(menu, false);
+      this.positionPanels();
+    });
+    this.listen(this.visualElement, 'contextmenu', event => {
+      if (!(event.target as Element).closest('td,th') || this.readOnly) return;
+      event.preventDefault();
+      this.refreshFloating(true);
+    });
+    for (const eventName of ['paste', 'drop']) this.listen(this.element, eventName, event => {
+      const transfer = event instanceof ClipboardEvent ? event.clipboardData : (event as DragEvent).dataTransfer;
+      const files = [...(transfer?.files ?? [])].filter(file => file.type.startsWith('image/'));
+      if (!files.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (this.readOnly) return;
+      if (files.length > 1) { this.report(new Error('Insert one image at a time.')); return; }
+      void this.insertImage(files[0]).catch(() => {});
+    });
+    this.listen(this.element, 'click', event => {
+      const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
+      if (!anchor || !this.element.contains(anchor)) return;
+      event.preventDefault();
+      const mouse = event as MouseEvent;
+      if (!this.readOnly && !mouse.ctrlKey && !mouse.metaKey && this.activeView === 'visual') return;
+      const destination = anchor.getAttribute('href') ?? '';
+      if (!safeUrl(destination)) return;
+      if (this.options.onLinkOpen) {
+        void Promise.resolve(this.options.onLinkOpen({ instance: this, destination, query: '', revision: this.revision, documentBase: this.options.documentBase, signal: this.lifetime.signal })).catch(error => this.report(error));
+      } else {
+        const resolved = new URL(destination, this.options.documentBase ? new URL(this.options.documentBase, document.baseURI) : document.baseURI);
+        document.defaultView?.open(resolved.href, '_blank', 'noopener,noreferrer');
+      }
+    });
+    const resizeObserver = new ResizeObserver(() => {
+      if (this.destroyed) return;
+      if (this.element.clientWidth !== this.toolbarWidth) this.refreshToolbar();
+      this.positionPanels();
+    });
+    resizeObserver.observe(this.element);
+    this.cleanups.push(() => resizeObserver.disconnect());
+    const positionPanels = () => this.positionPanels();
+    document.addEventListener('scroll', positionPanels, true);
+    this.cleanups.push(() => document.removeEventListener('scroll', positionPanels, true));
+    this.listen(document.defaultView, 'resize', positionPanels);
+    const scroll = () => this.updateCurrentSection();
+    this.work.addEventListener('scroll', scroll, true);
+    this.cleanups.push(() => this.work.removeEventListener('scroll', scroll, true));
     if (host.tagName === 'TEXTAREA') {
       const textarea = host as HTMLTextAreaElement;
       this.listen(textarea.form, 'reset', event => queueMicrotask(() => {
@@ -113,6 +249,12 @@ export class EditorInstance implements MarkianInstance {
           this.set(textarea.defaultValue, { origin: 'form-reset', resetHistory: true, pending: 'discard' });
         }
       }));
+      this.listen(textarea.form, 'submit', event => {
+        if ([...this.pendingImages.values()].includes(this.revision) || this.imageFailure) {
+          event.preventDefault();
+          this.report(new Error('Finish, retry, or remove pending images before submitting.'));
+        }
+      });
     }
     this.ready = this.initialize().catch(error => {
       this.report(error);
@@ -146,10 +288,20 @@ export class EditorInstance implements MarkianInstance {
       this.cleanups.push(dispose);
     }
     this.structuresClosed = true;
+    const checkToolbar = (entries: readonly ToolbarEntry[], path: readonly string[] = []) => {
+      for (const entry of entries) {
+        const item = typeof entry === 'string' ? this.toolbarItems.items().find(item => item.id === entry) ?? { id: entry, command: entry } : entry;
+        if (path.includes(item.id)) throw new Error(`Recursive toolbar menu: ${item.id}`);
+        if (item.command && !this.commands.items().some(command => command.id === item.command)) throw new Error(`Unknown toolbar command: ${item.command}`);
+        if (item.menu) checkToolbar(item.menu, [...path, item.id]);
+      }
+    };
+    checkToolbar(this.options.toolbar ?? defaultToolbar);
+    for (const id of this.options.floatingToolbar ?? []) if (!this.commands.items().some(item => item.id === id)) throw new Error(`Unknown floating command: ${id}`);
     const visual = await createVisual(this.visualElement, this.structures.items(), () => this.readOnly, value => {
       this.source = value;
       this.changed('user');
-    });
+    }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } }, this.options.documentBase, this.options.allowTextColors);
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
     this.initialized = true;
@@ -175,14 +327,21 @@ export class EditorInstance implements MarkianInstance {
     validateMarkdown(markdown);
     if (markdown === this.get()) return;
     const session = this.frames.find(frame => frame.session)?.session;
-    if (session && !options.pending) throw new Error('Specify pending: commit, discard, or reject before replacing a block session.');
-    if (session && options.pending === 'reject') throw new Error('Replacement rejected while a block session is open.');
+    const dirtyRaw = this.mode === 'raw' && this.raw?.get() !== this.source;
+    if ((session || dirtyRaw) && !options.pending) throw new Error('Specify pending: commit, discard, or reject before replacing an editing session.');
+    if ((session || dirtyRaw) && options.pending === 'reject') throw new Error('Replacement rejected while an editing session is open.');
     if (this.mode === 'visual') this.visual!.parse(markdown);
     if (session && options.pending === 'commit') {
       while (this.frames.length) this.back();
     } else this.clearFrames();
+    if (dirtyRaw && options.pending === 'commit') {
+      this.visual!.replace(this.raw!.get(), false);
+      this.source = this.raw!.get();
+    }
     if (this.mode === 'visual') this.visual!.replace(markdown, options.resetHistory ?? true);
     this.source = markdown;
+    this.imageFailure = undefined;
+    this.imageRetry?.remove();
     this.dropRaw();
     if (this.mode === 'raw') this.ensureRaw();
     this.diagnostic.hidden = true;
@@ -219,12 +378,15 @@ export class EditorInstance implements MarkianInstance {
   setDisabled(value: boolean): void { this.alive(); this.disabled = Boolean(value); this.updatePermissions(); }
 
   private updatePermissions(): void {
+    for (const controller of this.imageControllers) controller.abort();
+    this.closeDestination();
     this.visual?.setReadOnly(this.readOnly);
     this.raw?.setReadOnly(this.readOnly);
     for (const source of this.sources) source.setReadOnly(this.readOnly);
     for (const frame of this.frames) this.views.items().find(view => view.id === frame.id)?.setReadOnly?.(this.readOnly);
     this.element.dataset.readonly = String(this.readOnly);
     this.refreshToolbar();
+    this.refreshFloating();
   }
 
   on(event: EventName, callback: (event: EditorEvent) => void): Disposer {
@@ -255,9 +417,12 @@ export class EditorInstance implements MarkianInstance {
     if (value === this.lastValue) return;
     this.lastValue = value;
     this.revision++;
+    for (const controller of this.imageControllers) controller.abort();
     this.syncHost();
     this.updateStatus();
+    this.updateOutline();
     this.emit('change', origin);
+    if (this.mode === 'raw' || this.frames.some(frame => frame.session)) this.emit('draft', origin);
   }
 
   private syncHost(): void {
@@ -268,7 +433,7 @@ export class EditorInstance implements MarkianInstance {
     if (this.raw && this.rawBaseline === this.source) return;
     this.dropRaw();
     this.rawBaseline = this.source;
-    this.raw = new SourceEditor(this.rawElement, this.source, this.readOnly, () => this.changed('user'));
+    this.raw = new SourceEditor(this.rawElement, this.source, this.readOnly, () => this.changed('user'), () => this.refreshFloating());
   }
 
   private dropRaw(): void { this.raw?.destroy(); this.raw = undefined; this.rawBaseline = undefined; }
@@ -277,7 +442,7 @@ export class EditorInstance implements MarkianInstance {
     this.usable();
     const command = this.commands.items().find(item => item.id === id);
     if (!command) throw new Error(`Unknown command: ${id}`);
-    if (!command.views.includes(this.activeView) || (command.mutates && this.readOnly)) return false;
+    if ((!command.views.includes('*') && !command.views.includes(this.activeView)) || (command.mutates && this.readOnly) || command.enabled?.(this) === false) return false;
     await command.run(this, payload);
     return true;
   }
@@ -290,17 +455,140 @@ export class EditorInstance implements MarkianInstance {
       if (!this.readOnly && !this.destroyed) changed(next);
     });
     let disposed = false;
+    const editable = () => !this.readOnly && !disposed && this.frames.at(-1)?.element.contains(element);
     const handle: SourceHandle = {
       get: () => source.get(),
-      undo: () => { if (!this.readOnly && !disposed) source.undo(); },
-      redo: () => { if (!this.readOnly && !disposed) source.redo(); },
+      search: options => source.search(options),
+      select: (from, to) => source.select(from, to),
+      replaceSearch: (replacement, all) => { if (editable()) source.replaceSearch(replacement, all); },
+      undo: () => { if (editable()) source.undo(); },
+      redo: () => { if (editable()) source.redo(); },
       focus: () => { if (!disposed) source.focus(); },
       resize: () => { if (!disposed) source.view.requestMeasure(); },
       setReadOnly: value => { if (!disposed) source.setReadOnly(this.readOnly || value); },
-      destroy: () => { if (disposed) return; disposed = true; source.destroy(); this.sources.delete(handle); },
+      destroy: () => { if (disposed) return; disposed = true; source.destroy(); this.sources.delete(handle); this.sourceElements.delete(handle); },
     };
     this.sources.add(handle);
+    this.sourceElements.set(handle, element);
     return handle;
+  }
+
+  private searchEngine(): SourceHandle | SourceEditor | VisualEngine | StaticSearch | undefined {
+    const frame = this.frames.at(-1);
+    if (frame) {
+      const source = [...this.sources].find(source => frame.element.contains(this.sourceElements.get(source)!));
+      if (source) return source;
+      frame.search ??= new StaticSearch(frame.element);
+      return frame.search;
+    }
+    return this.mode === 'raw' ? this.raw : this.visual;
+  }
+
+  search(options: SearchOptions): readonly SearchMatch[] {
+    this.usable();
+    if (typeof options.query !== 'string' || options.query.length > 1000) throw new TypeError('Search query must be a string of at most 1000 characters.');
+    this.searchOptions = { ...options };
+    this.queries.set(this.activeView, this.searchOptions);
+    this.searchMatches = this.searchEngine()?.search(options) ?? findMatches(this.frames.at(-1)?.element.textContent ?? '', options);
+    return this.searchMatches;
+  }
+
+  selectSearch(index: number): void {
+    this.usable();
+    this.search(this.searchOptions);
+    this.searchIndex = this.searchMatches.length ? ((index % this.searchMatches.length) + this.searchMatches.length) % this.searchMatches.length : 0;
+    const match = this.searchMatches[this.searchIndex];
+    if (match) this.searchEngine()?.select(match.from, match.to);
+  }
+
+  replaceSearch(replacement: string, all = false): void {
+    this.usable();
+    validateMarkdown(replacement);
+    if (this.readOnly) return;
+    this.searchEngine()?.replaceSearch(replacement, all);
+    this.search(this.searchOptions);
+  }
+
+  async whenIdle(): Promise<void> {
+    await Promise.all([...this.pendingImages].filter(([, revision]) => revision === this.revision).map(([operation]) => operation));
+    if (this.imageFailure) throw this.imageFailure;
+  }
+
+  async insertImage(blob: Blob): Promise<void> {
+    this.usable();
+    if (this.readOnly || !['visual', 'raw'].includes(this.activeView)) throw new Error('Images cannot be inserted in this view.');
+    if ([...this.pendingImages.values()].includes(this.revision)) throw new Error('Wait for the pending image or cancel it before inserting another.');
+    if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(blob.type) || blob.size > 1_000_000) throw new Error('Choose a raster image of at most 1 MB.');
+    const revision = this.revision;
+    const activeView = this.activeView;
+    const selection = this.mode === 'raw' ? this.raw!.view.state.selection.main : this.visual!.view.state.selection;
+    const controller = new AbortController();
+    this.imageControllers.add(controller);
+    const abort = () => controller.abort();
+    this.lifetime.signal.addEventListener('abort', abort, { once: true });
+    let cancel: () => void = () => {};
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      cancel = () => reject(new Error('Image insertion became stale or was cancelled; retry it in the current document.'));
+      controller.signal.addEventListener('abort', cancel, { once: true });
+    });
+    const operation = (async () => {
+      const supplied = (async () => this.options.onImageInsert
+        ? await this.options.onImageInsert({ instance: this, blob, query: '', documentBase: this.options.documentBase, revision, signal: controller.signal })
+        : { destination: await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        }) })();
+      const result = await Promise.race([supplied, cancelled]);
+      if (this.destroyed || controller.signal.aborted || this.readOnly || revision !== this.revision || activeView !== this.activeView) throw new Error('Image insertion became stale; retry the image in the current document.');
+      if (!result || typeof result.destination !== 'string' || !safeUrl(result.destination, true) || !result.destination || /^blob:/i.test(result.destination)) throw new Error('Image callback returned an unsafe destination.');
+      if (this.options.onImageInsert && /^data:/i.test(result.destination)) throw new Error('Image callbacks must return a saved image destination, not embedded binary.');
+      const alt = result.alt ?? '';
+      if (typeof alt !== 'string') throw new TypeError('Image alt text must be a string.');
+      if (this.mode === 'raw') {
+        const destination = result.destination.replace(/[<>\s]/g, character => encodeURIComponent(character));
+        this.raw!.view.dispatch({ changes: { from: selection.from, to: selection.to, insert: `![${alt.replace(/[\\\[\]]/g, '\\$&')}](<${destination}>)` } });
+      } else {
+        const view = this.visual!.view;
+        view.dispatch(closeHistory(view.state.tr.replaceRangeWith(selection.from, selection.to, view.state.schema.nodes.image.create({ src: result.destination, alt }))));
+      }
+      this.imageFailure = undefined;
+      this.imageRetry?.remove();
+    })();
+    this.pendingImages.set(operation, revision);
+    const pending = this.host.ownerDocument.createElement('div');
+    pending.className = 'markian-panel';
+    const pendingLabel = this.host.ownerDocument.createElement('span');
+    pendingLabel.textContent = 'Inserting image';
+    pending.append(pendingLabel, commandButton(this.host.ownerDocument, 'Cancel image insertion', 'close', () => controller.abort()));
+    this.element.insertBefore(pending, this.work);
+    this.status.setAttribute('aria-busy', 'true');
+    try { await operation; }
+    catch (error) {
+      if (!this.destroyed && revision === this.revision) { this.imageFailure = error; this.report(error); }
+      if (!this.destroyed && revision === this.revision) {
+        this.imageRetry?.remove();
+        const retry = this.host.ownerDocument.createElement('div');
+        retry.className = 'markian-panel';
+        const label = this.host.ownerDocument.createElement('span');
+        label.textContent = 'Image insertion failed';
+        const retryButton = commandButton(this.host.ownerDocument, 'Retry image', 'redo', () => { retry.remove(); void this.insertImage(blob).catch(() => {}); });
+        const remove = commandButton(this.host.ownerDocument, 'Remove pending image', 'close', () => { this.imageFailure = undefined; retry.remove(); });
+        retry.append(label, retryButton, remove);
+        this.element.insertBefore(retry, this.work);
+        this.imageRetry = retry;
+      }
+      throw error;
+    }
+    finally {
+      this.pendingImages.delete(operation);
+      this.imageControllers.delete(controller);
+      controller.signal.removeEventListener('abort', cancel);
+      pending.remove();
+      this.lifetime.signal.removeEventListener('abort', abort);
+      this.status.setAttribute('aria-busy', String(this.pendingImages.size > 0));
+    }
   }
 
   getCodeTarget(): BlockTarget | null {
@@ -308,10 +596,10 @@ export class EditorInstance implements MarkianInstance {
     if (this.activeView !== 'visual') return null;
     const selection = this.visual!.view.state.selection;
     const selected = selection.$from;
-    if (selected.parent.type.name !== 'code_block') return null;
+    if (selected.parent.type.name !== 'code_block' || selected.depth !== 1) return null;
     let index = -1;
     let current = -1;
-    this.visual!.view.state.doc.descendants((node, position) => {
+    this.visual!.view.state.doc.forEach((node, position) => {
       if (node.type.name !== 'code_block') return;
       current++;
       if (selected.pos > position && selected.pos <= position + node.nodeSize) index = current;
@@ -319,6 +607,11 @@ export class EditorInstance implements MarkianInstance {
     const code = parseMarkdown(this.source).children.filter(node => node.type === 'code')[index];
     if (!code?.position) return null;
     return { from: code.position.start.offset!, to: code.position.end.offset!, value: code.value, language: code.lang ?? '', revision: this.revision };
+  }
+
+  getActiveSession(): BlockSession | null {
+    this.usable();
+    return this.frames.find(frame => frame.session)?.session ?? null;
   }
 
   openView(id: string, target?: BlockTarget): void {
@@ -337,14 +630,14 @@ export class EditorInstance implements MarkianInstance {
       set: value => {
         this.usable();
         if (this.readOnly) throw new Error('The editor is read-only.');
-        if (!this.frames.some(frame => frame.session === session)) throw new Error('Block session is no longer active.');
+        if (this.frames.at(-1)?.session !== session) throw new Error('Block session is not the active editing view.');
         validateMarkdown(value);
         draft = value;
         this.changed('user');
       },
     } : undefined;
     this.work.append(element);
-    const frame: Frame = { id, element, dispose: () => {}, session };
+    const frame: Frame = { id, element, dispose: () => {}, session, baseline: this.source };
     this.frames.push(frame);
     try { frame.dispose = view.mount({ element, session, signal: this.lifetime.signal }); }
     catch (error) { this.frames.pop(); element.remove(); this.show(); throw error; }
@@ -362,6 +655,7 @@ export class EditorInstance implements MarkianInstance {
       return;
     }
     if (frame.session && frame.session.get() !== frame.session.target.value) {
+      if (frame.baseline !== this.source) throw new Error('The target document changed. The draft is retained; choose an explicit host replacement policy.');
       if (this.readOnly) throw new Error('Unlock the editor before applying this draft. The draft is retained.');
       const value = this.get();
       this.visual!.replace(value, false);
@@ -381,12 +675,16 @@ export class EditorInstance implements MarkianInstance {
   }
 
   private show(): void {
+    this.closeSearch();
+    this.closeDestination();
     this.visualElement.hidden = this.frames.length > 0 || this.mode !== 'visual';
     this.rawElement.hidden = this.frames.length > 0 || this.mode !== 'raw';
     this.frames.forEach((frame, index) => { frame.element.hidden = index !== this.frames.length - 1; });
     this.element.dataset.view = this.activeView;
     this.refreshToolbar();
     this.updateStatus();
+    this.updateOutline();
+    this.refreshFloating();
     this.resize();
   }
 
@@ -396,24 +694,371 @@ export class EditorInstance implements MarkianInstance {
   }
 
   private refreshToolbar(): void {
+    this.toolbarWidth = this.element.clientWidth;
     this.toolbar.replaceChildren();
-    if (this.frames.length || this.mode === 'raw') this.toolbar.append(commandButton(this.host.ownerDocument, 'Back', 'back', () => { try { this.back(); } catch (error) { this.report(error); } }));
-    for (const item of this.toolbarItems.items()) {
+    if (this.frames.length || this.mode === 'raw') {
+      const back = commandButton(this.host.ownerDocument, 'Back', 'back', () => { try { this.back(); } catch (error) { this.report(error); } });
+      back.dataset.fixed = 'true';
+      this.toolbar.append(back);
+    }
+    const registered = this.toolbarItems.items();
+    const entries = [...(this.options.toolbar ?? defaultToolbar)];
+    if (!this.options.toolbar) {
+      const extras = registered.filter(item => !this.builtinToolbarIds.has(item.id) || item.id === 'colors');
+      const boundary = entries.findIndex(entry => typeof entry !== 'string' && entry.overflow);
+      entries.splice(boundary < 0 ? entries.length : boundary, 0, ...extras);
+    }
+    const render = (entry: ToolbarEntry): HTMLElement | null => {
+      const item = typeof entry === 'string' ? registered.find(candidate => candidate.id === entry) ?? { id: entry, command: entry } : entry;
+      if (item.separator) {
+        const divider = this.host.ownerDocument.createElement('span');
+        divider.className = 'markian-separator';
+        divider.setAttribute('role', 'separator');
+        divider.setAttribute('aria-orientation', 'vertical');
+        return divider;
+      }
       const command = this.commands.items().find(candidate => candidate.id === item.command);
-      if (!command || !command.views.includes(this.activeView)) continue;
-      const expanded = command.id === 'fullscreen' && this.element.classList.contains('markian-fullscreen');
-      const label = command.id === 'fullscreen' ? (expanded ? 'Restore original size' : 'Maximize') : command.label;
-      const button = commandButton(this.host.ownerDocument, label, expanded ? 'fullscreenExit' : command.icon, () => { void this.execute(command.id).catch(error => this.report(error)); });
+      if (command && !command.views.includes('*') && !command.views.includes(this.activeView) && !item.menu) return null;
+      if (!command && !item.menu) {
+        if (this.initialized) throw new Error(`Unknown toolbar command: ${item.command ?? item.id}`);
+        return null;
+      }
+      if (item.menu) {
+        const children = item.menu.map(render).filter((child): child is HTMLElement => child !== null);
+        if (!children.some(child => !child.classList.contains('markian-separator'))) return null;
+        const label = item.label ?? command?.label ?? item.id;
+        const menu = this.host.ownerDocument.createElement('details');
+        menu.className = 'markian-menu';
+        menu.dataset.toolbarItem = item.id;
+        const summary = this.host.ownerDocument.createElement('summary');
+        summary.title = label;
+        summary.setAttribute('aria-label', label);
+        summary.append(...commandButton(this.host.ownerDocument, label, item.icon ?? command?.icon, () => {}).childNodes);
+        const text = this.host.ownerDocument.createElement('span');
+        text.className = 'markian-menu-label';
+        text.textContent = label;
+        summary.append(text);
+        const chevron = commandButton(this.host.ownerDocument, label, 'chevron', () => {}).firstElementChild!;
+        chevron.classList.add('markian-menu-chevron');
+        summary.append(chevron);
+        const choices = this.host.ownerDocument.createElement('div');
+        choices.className = 'markian-menu-items';
+        choices.append(...children);
+        menu.append(summary, choices);
+        this.installMenu(menu);
+        return menu;
+      }
+      if (!command) return null;
+      const expanded = command.id === 'fullscreen' && Boolean(this.fullscreenRestore);
+      const label = command.id === 'fullscreen' ? (expanded ? 'Restore original size' : 'Maximize') : item.label ?? command.label;
+      const button = commandButton(this.host.ownerDocument, label, expanded ? 'fullscreenExit' : item.icon ?? command.icon, () => { void this.execute(command.id).catch(error => this.report(error)); });
       if (command.id === 'fullscreen') button.setAttribute('aria-pressed', String(expanded));
-      button.disabled = !this.initialized || Boolean(command.mutates && this.readOnly);
+      button.disabled = !this.initialized || Boolean(command.mutates && this.readOnly) || command.enabled?.(this) === false;
+      if (this.initialized && command.active) button.setAttribute('aria-pressed', String(command.active(this)));
       button.dataset.command = command.id;
-      this.toolbar.append(button);
+      const text = this.host.ownerDocument.createElement('span');
+      text.className = 'markian-menu-label';
+      text.textContent = label;
+      button.append(text);
+      if (command.swatch) {
+        button.replaceChildren();
+        button.classList.add('markian-swatch');
+        button.style.backgroundColor = command.swatch;
+      }
+      return button;
+    };
+    let fixed = false;
+    for (const entry of entries) {
+      if (typeof entry !== 'string' && entry.overflow) {
+        fixed = true;
+        const marker = this.host.ownerDocument.createElement('span');
+        marker.dataset.overflowBoundary = '';
+        marker.hidden = true;
+        this.toolbar.append(marker);
+        continue;
+      }
+      const control = render(entry);
+      if (!control) continue;
+      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
+      this.toolbar.append(control);
+    }
+    this.layoutToolbar();
+    this.positionPanels();
+  }
+
+  private positionMenu(menu: HTMLDetailsElement): void {
+    if (!menu.isConnected || !menu.open) return;
+    const choices = menu.querySelector<HTMLElement>(':scope > .markian-menu-items')!;
+    if (!choices.matches(':popover-open')) choices.showPopover();
+    const viewport = this.host.ownerDocument.defaultView!;
+    choices.style.maxHeight = `${Math.max(80, Math.min(300, viewport.innerHeight - 24))}px`;
+    choices.style.maxWidth = `${Math.max(120, viewport.innerWidth - 16)}px`;
+    const bounds = choices.getBoundingClientRect();
+    const anchor = menu.querySelector<HTMLElement>(':scope > summary')!.getBoundingClientRect();
+    const root = this.element.getBoundingClientRect();
+    const parent = menu.parentElement?.closest<HTMLElement>('.markian-menu-items');
+    let left = anchor.left;
+    const bottom = this.toolbar.getBoundingClientRect().top > this.work.getBoundingClientRect().top;
+    let top = bottom ? anchor.top - bounds.height : anchor.bottom;
+    if (parent) {
+      const parentBounds = parent.getBoundingClientRect();
+      const rightFits = parentBounds.right + bounds.width + 4 <= viewport.innerWidth - 8;
+      left = rightFits ? parentBounds.right + 4 : parentBounds.left - bounds.width - 4;
+      top = anchor.top;
+      choices.dataset.side = rightFits ? 'right' : 'left';
+    } else left = Math.min(left, root.right - 8 - bounds.width);
+    choices.style.left = `${Math.max(8, Math.min(viewport.innerWidth - 8 - bounds.width, left))}px`;
+    choices.style.top = `${Math.max(8, Math.min(viewport.innerHeight - 8 - bounds.height, top))}px`;
+  }
+
+  private menuControls(menu: HTMLDetailsElement): HTMLElement[] {
+    return [...menu.querySelectorAll<HTMLElement>(':scope > summary, :scope > .markian-menu-items > button:not(:disabled), :scope > .markian-menu-items > details > summary')].filter(control => control.getClientRects().length > 0);
+  }
+
+  private installMenu(menu: HTMLDetailsElement): void {
+    const choices = menu.querySelector<HTMLElement>(':scope > .markian-menu-items')!;
+    choices.popover = 'manual';
+    menu.querySelector<HTMLElement>(':scope > summary')!.addEventListener('click', event => {
+      event.preventDefault();
+      this.setMenuOpen(menu, !menu.open);
+    });
+    menu.addEventListener('toggle', () => {
+      if (!menu.isConnected) return;
+      if (menu.open) this.positionMenu(menu);
+      else if (choices.matches(':popover-open')) choices.hidePopover();
+    });
+    choices.addEventListener('scroll', () => {
+      for (const child of choices.querySelectorAll<HTMLDetailsElement>('details[open]')) this.positionMenu(child);
+    });
+  }
+
+  private setMenuOpen(menu: HTMLDetailsElement, open: boolean): void {
+    if (open) {
+      for (const sibling of menu.parentElement?.children ?? []) if (sibling !== menu && sibling instanceof HTMLDetailsElement) this.setMenuOpen(sibling, false);
+      menu.open = true;
+      this.positionMenu(menu);
+    } else {
+      for (const child of menu.querySelectorAll<HTMLDetailsElement>('details[open]')) this.setMenuOpen(child, false);
+      menu.open = false;
+      const choices = menu.querySelector<HTMLElement>(':scope > .markian-menu-items');
+      if (choices?.matches(':popover-open')) choices.hidePopover();
+    }
+  }
+
+  private layoutToolbar(): void {
+    const available = this.toolbar.clientWidth;
+    if (!available) return;
+    const controls = [...this.toolbar.children].filter(control => !(control as HTMLElement).hidden) as HTMLElement[];
+    const boundary = this.toolbar.querySelector<HTMLElement>('[data-overflow-boundary]');
+    const width = (control: HTMLElement) => {
+      const style = this.host.ownerDocument.defaultView!.getComputedStyle(control);
+      return control.getBoundingClientRect().width + parseFloat(style.marginLeft) + parseFloat(style.marginRight) + 2;
+    };
+    const budget = available - 16;
+    if (controls.reduce((total, control) => total + width(control), 0) <= budget) { this.trimSeparators(this.toolbar); return; }
+    const overflow = this.host.ownerDocument.createElement('details');
+    overflow.className = 'markian-menu markian-overflow';
+    const summary = this.host.ownerDocument.createElement('summary');
+    summary.setAttribute('aria-label', 'More commands');
+    summary.title = 'More commands';
+    summary.append(...commandButton(this.host.ownerDocument, 'More commands', 'more', () => {}).childNodes);
+    const choices = this.host.ownerDocument.createElement('div');
+    choices.className = 'markian-menu-items';
+    const fixed = controls.filter(control => control.dataset.fixed === 'true');
+    const movable = controls.filter(control => !fixed.includes(control));
+    let used = fixed.reduce((total, control) => total + width(control), this.element.clientWidth <= 480 ? 42 : 34);
+    let spilling = false;
+    for (const control of movable) {
+      if (used + width(control) > budget) spilling = true;
+      if (spilling) choices.append(control);
+      else used += width(control);
+    }
+    overflow.append(summary, choices);
+    this.installMenu(overflow);
+    this.toolbar.insertBefore(overflow, boundary ?? fixed.find(control => control.dataset.command === 'fullscreen') ?? null);
+    this.trimSeparators(this.toolbar);
+    this.trimSeparators(choices);
+  }
+
+  private trimSeparators(container: HTMLElement): void {
+    const children = [...container.children].filter(child => !(child as HTMLElement).hidden) as HTMLElement[];
+    for (let index = 0; index < children.length; index++) {
+      if (!children[index].classList.contains('markian-separator')) continue;
+      if (!index || index === children.length - 1 || children[index - 1].classList.contains('markian-separator')) children[index].hidden = true;
+    }
+  }
+
+  private refreshFloating(contextual = false): void {
+    this.floating.replaceChildren();
+    const visual = this.activeView === 'visual' ? this.visual?.view : undefined;
+    const raw = this.activeView === 'raw' ? this.raw?.view : undefined;
+    const selection = visual?.state.selection ?? raw?.state.selection.main;
+    let inTable = false;
+    if (visual) for (let depth = visual.state.selection.$from.depth; depth > 0; depth--) if (visual.state.selection.$from.node(depth).type.name === 'table') inTable = true;
+    const inCode = visual?.state.selection.$from.parent.type.name === 'code_block' && this.commands.items().some(command => command.id === 'code:expand');
+    if (!selection || (selection.empty && !inTable && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
+    const items = inCode ? ['code:expand'] : inTable ? ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'] : this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link'];
+    for (const id of items) {
+      const command = this.commands.items().find(item => item.id === id);
+      if (!command || !command.views.includes(this.activeView)) continue;
+      const button = commandButton(this.host.ownerDocument, command.label, command.icon, () => { void this.execute(id).catch(error => this.report(error)); });
+      button.dataset.command = id;
+      button.disabled = command.enabled?.(this) === false;
+      if (command.active) button.setAttribute('aria-pressed', String(command.active(this)));
+      this.floating.append(button);
+    }
+    this.floating.hidden = !this.floating.childElementCount;
+    const position = visual ? visual.coordsAtPos(selection.from) : raw?.coordsAtPos(selection.from);
+    if (position) {
+      const root = this.element.getBoundingClientRect();
+      const toolbar = this.toolbar.getBoundingClientRect();
+      const topBound = this.options.toolbarPlacement === 'bottom' || this.element.clientWidth <= 480 ? 8 : toolbar.height + 8;
+      this.floating.style.top = `${Math.max(topBound, Math.min(root.height - this.floating.offsetHeight - 55, position.top - root.top - this.floating.offsetHeight - 8))}px`;
+      this.floating.style.left = `${Math.max(8, Math.min(root.width - this.floating.offsetWidth - 8, position.left - root.left))}px`;
+      this.floating.style.right = 'auto';
+    }
+  }
+
+  private closeSearch(restoreFocus = true): void {
+    if (!this.searchElement) return;
+    this.searchEngine()?.search({ query: '' });
+    this.searchElement.remove();
+    this.searchElement = undefined;
+    if (restoreFocus && this.initialized && !this.destroyed) this.focus();
+  }
+
+  private openSearch(): void {
+    this.closeDestination();
+    if (this.searchElement) { this.searchElement.querySelector('input')?.focus(); return; }
+    const previous = this.queries.get(this.activeView);
+    this.searchElement = this.wrapPanel(searchPanel(this, () => this.closeSearch(), { query: previous?.query ?? '', caseSensitive: previous?.caseSensitive ?? false, wholeWord: previous?.wholeWord ?? false }), 'search');
+    this.element.insertBefore(this.searchElement, this.work);
+    this.searchElement.showPopover();
+    this.positionPanels();
+  }
+
+  private closeDestination(restoreFocus = true): void {
+    if (!this.destination) return;
+    this.destination.dispose();
+    this.destination.element.remove();
+    this.destination = undefined;
+    if (restoreFocus && this.initialized && !this.destroyed) this.focus();
+  }
+
+  private openDestination(image: boolean): void {
+    this.closeSearch();
+    this.closeDestination();
+    this.destination = destinationPanel(this, this.options, image, this.visual!.view, this.mode === 'raw' ? this.raw : undefined, () => this.closeDestination());
+    this.destination.element = this.wrapPanel(this.destination.element, image ? 'image' : 'link');
+    this.element.insertBefore(this.destination.element, this.work);
+    this.destination.element.showPopover();
+    this.positionPanels();
+  }
+
+  private wrapPanel(panel: HTMLElement, command: string): HTMLElement {
+    const popup = this.host.ownerDocument.createElement('div');
+    popup.className = 'markian-popup';
+    popup.dataset.anchorCommand = command;
+    popup.popover = 'manual';
+    popup.append(panel);
+    const observer = new ResizeObserver(() => { if (popup.isConnected) this.positionPanels(); else observer.disconnect(); });
+    observer.observe(panel);
+    const disconnect = new MutationObserver(() => {
+      if (!popup.isConnected) { observer.disconnect(); disconnect.disconnect(); }
+    });
+    disconnect.observe(this.element, { childList: true });
+    return popup;
+  }
+
+  private positionPanels(): void {
+    if (this.destroyed) return;
+    const viewport = this.host.ownerDocument.defaultView!;
+    for (const popup of [this.searchElement, this.destination?.element]) {
+      if (!popup?.isConnected || !popup.matches(':popover-open')) continue;
+      const command = popup.dataset.anchorCommand;
+      let anchor = [...this.toolbar.querySelectorAll<HTMLElement>('[data-command]')].find(button => button.dataset.command === command);
+      for (let menu = anchor?.closest('details'); menu; menu = menu.parentElement?.closest('details')) anchor = menu.querySelector<HTMLElement>(':scope > summary')!;
+      anchor ??= this.toolbar.querySelector<HTMLElement>('.markian-overflow > summary') ?? this.toolbar.querySelector<HTMLElement>('button, summary') ?? this.toolbar;
+      const bounds = anchor.getBoundingClientRect();
+      const bottom = this.toolbar.getBoundingClientRect().top > this.work.getBoundingClientRect().top;
+      const below = viewport.innerHeight - bounds.bottom - 20;
+      const above = bounds.top - 20;
+      const opensAbove = bottom ? above >= 100 || above > below : below < 160 && above > below;
+      popup.dataset.side = opensAbove ? 'above' : 'below';
+      const panel = popup.firstElementChild as HTMLElement;
+      panel.style.maxHeight = `${Math.max(80, opensAbove ? above : below)}px`;
+      const size = popup.getBoundingClientRect();
+      const left = Math.max(8, Math.min(viewport.innerWidth - size.width - 8, bounds.left));
+      popup.style.left = `${left}px`;
+      popup.style.top = `${Math.max(8, opensAbove ? bounds.top - size.height - 10 : bounds.bottom + 10)}px`;
+      popup.style.setProperty('--markian-tip-left', `${Math.max(12, Math.min(size.width - 12, bounds.left + bounds.width / 2 - left))}px`);
+    }
+  }
+
+  private updateOutline(): void {
+    if (!this.initialized || this.destroyed) return;
+    this.outline.hidden = this.frames.length > 0;
+    if (this.frames.length || this.outlineRevision === this.revision && this.outline.childElementCount) return;
+    this.outlineRevision = this.revision;
+    this.outline.replaceChildren();
+    this.outlineTargets = [];
+    const entries = headings(this.get());
+    const visualHeadings = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+    entries.forEach((entry, index) => {
+      const rendered = visualHeadings[index];
+      if (rendered) rendered.id = entry.id;
+      if (entry.line === 1) return;
+      const button = this.host.ownerDocument.createElement('button');
+      button.type = 'button';
+      button.textContent = entry.label;
+      button.style.paddingInlineStart = `${8 + (entry.depth - 1) * 10}px`;
+      button.addEventListener('click', () => {
+        this.outline.querySelector('[aria-current]')?.removeAttribute('aria-current');
+        button.setAttribute('aria-current', 'location');
+        if (this.mode === 'raw') {
+          const line = this.raw!.view.state.doc.line(entry.line);
+          this.raw!.select(line.from);
+          this.raw!.focus();
+        } else if (rendered) {
+          this.visualElement.scrollTo({ top: rendered.offsetTop - this.visualElement.offsetTop, behavior: 'instant' });
+          this.visual!.view.focus();
+        }
+        this.element.classList.remove('markian-outline-open');
+      });
+      this.outline.append(button);
+      this.outlineTargets.push({ button, rendered, line: entry.line });
+    });
+    this.element.dataset.hasOutline = String(this.outline.childElementCount > 0);
+    this.updateCurrentSection();
+  }
+
+  private updateCurrentSection(): void {
+    if (this.destroyed || this.frames.length) return;
+    let active = this.outlineTargets[0];
+    if (this.mode === 'raw' && this.raw) {
+      const visible = this.raw.view.state.doc.lineAt(this.raw.view.viewport.from).number;
+      for (const target of this.outlineTargets) if (target.line <= visible) active = target;
+    } else {
+      const top = this.visualElement.getBoundingClientRect().top + 24;
+      for (const target of this.outlineTargets) if (target.rendered && target.rendered.getBoundingClientRect().top <= top) active = target;
+    }
+    for (const target of this.outlineTargets) {
+      if (target === active) target.button.setAttribute('aria-current', 'location');
+      else target.button.removeAttribute('aria-current');
     }
   }
 
   private installCommands(): void {
     const add = (id: string, label: string, icon: string, mutates: boolean, views: string[], run: CommandDefinition['run']) => {
-      this.commands.insert({ id, label, icon, mutates, views, run });
+      this.commands.insert({ id, label, icon, mutates, views, run,
+        enabled: id === 'undo' || id === 'redo' ? () => this.mode === 'raw' || (id === 'undo' ? undo : redo)(this.visual!.view.state) : undefined,
+        active: ['bold', 'italic', 'code'].includes(id) ? () => {
+          if (this.activeView !== 'visual') return false;
+          const state = this.visual!.view.state;
+          const mark = state.schema.marks[{ bold: 'strong', italic: 'emphasis', code: 'inlineCode' }[id]!];
+          return state.selection.empty ? Boolean(mark.isInSet(state.storedMarks ?? state.selection.$from.marks())) : state.doc.rangeHasMark(state.selection.from, state.selection.to, mark);
+        } : undefined,
+      });
       this.toolbarItems.insert({ id, command: id });
     };
     for (const id of ['undo', 'redo']) add(id, id === 'undo' ? 'Undo' : 'Redo', id, true, ['visual', 'raw'], () => {
@@ -424,12 +1069,30 @@ export class EditorInstance implements MarkianInstance {
       add(id, label, id, true, ['visual', 'raw'], () => {
         if (this.mode === 'raw') {
           const view = this.raw!.view;
-          const { from, to } = view.state.selection.main;
-          view.dispatch({ changes: { from, to, insert: wrapper + view.state.sliceDoc(from, to) + wrapper }, selection: { anchor: from + wrapper.length, head: to + wrapper.length } });
+          const selection = view.state.selection.main;
+          let { from, to } = selection;
+          if (selection.empty) {
+            const line = view.state.doc.lineAt(from);
+            const offset = from - line.from;
+            from -= line.text.slice(0, offset).match(/[\p{L}\p{M}\p{N}_]+$/u)?.[0].length ?? 0;
+            to += line.text.slice(offset).match(/^[\p{L}\p{M}\p{N}_]+/u)?.[0].length ?? 0;
+          }
+          view.dispatch({ changes: { from, to, insert: wrapper + view.state.sliceDoc(from, to) + wrapper }, selection: { anchor: selection.from + wrapper.length, head: selection.to + wrapper.length } });
           this.raw!.focus();
         } else {
           const view = this.visual!.view;
-          toggleMark(view.state.schema.marks[mark])(view.state, view.dispatch);
+          const selected = view.state.selection;
+          if (selected.empty && selected.$from.parent.isTextblock) {
+            const text = selected.$from.parent.textContent;
+            const offset = selected.$from.parentOffset;
+            const start = text.slice(0, offset).match(/[\p{L}\p{M}\p{N}_]+$/u)?.[0].length ?? 0;
+            const end = text.slice(offset).match(/^[\p{L}\p{M}\p{N}_]+/u)?.[0].length ?? 0;
+            if (start || end) this.visual!.select(selected.from - start, selected.from + end);
+          }
+          toggleMark(view.state.schema.marks[mark])(view.state, transaction => {
+            if (selected.empty) transaction.setSelection(TextSelection.create(transaction.doc, selected.from));
+            view.dispatch(closeHistory(transaction));
+          });
           view.focus();
         }
       });
@@ -444,23 +1107,55 @@ export class EditorInstance implements MarkianInstance {
       )(view.state, transaction => view.dispatch(closeHistory(transaction)));
       view.focus();
     });
-    add('bullet', 'Bullet list', 'bullet', true, ['visual'], () => { const view = this.visual!.view; wrapInList(view.state.schema.nodes.bullet_list)(view.state, view.dispatch); view.focus(); });
-    add('quote', 'Quote', 'quote', true, ['visual'], () => { const view = this.visual!.view; wrapIn(view.state.schema.nodes.blockquote)(view.state, view.dispatch); view.focus(); });
-    add('raw', 'Switch visual / source', 'raw', false, ['visual'], () => this.setMode('raw'));
-    const allViews = ['visual', 'raw', 'code', 'help', 'preview'];
-    add('preview', 'Preview', 'preview', false, ['visual', 'raw', 'code'], () => this.openView('preview'));
-    add('help', 'Help', 'help', false, ['visual', 'raw', 'code'], () => this.openView('help'));
-    add('copy', 'Copy Markdown', 'copy', false, allViews, async () => { await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(this.get()); });
-    add('fullscreen', 'Maximize', 'fullscreen', false, allViews, () => {
-      this.element.classList.toggle('markian-fullscreen');
-      this.refreshToolbar();
-      this.resize();
+    add('bullet', 'Bullet list', 'bullet', true, ['visual', 'raw'], async () => { await this.execute('list:bullet'); });
+    add('quote', 'Quote', 'quote', true, ['visual', 'raw'], () => {
+      if (this.mode === 'raw') {
+        const view = this.raw!.view;
+        const selection = view.state.selection.main;
+        const first = view.state.doc.lineAt(selection.from);
+        const last = view.state.doc.lineAt(selection.to);
+        view.dispatch({ changes: { from: first.from, to: last.to, insert: view.state.sliceDoc(first.from, last.to).split('\n').map(line => line.startsWith('> ') ? line.slice(2) : '> ' + line).join('\n') } });
+      } else {
+        const view = this.visual!.view;
+        let depth = view.state.selection.$from.depth;
+        while (depth > 0 && view.state.selection.$from.node(depth).type.name !== 'blockquote') depth--;
+        (depth ? lift : wrapIn(view.state.schema.nodes.blockquote))(view.state, transaction => view.dispatch(closeHistory(transaction)));
+        view.focus();
+      }
     });
+    add('raw', 'Switch visual / source', 'raw', false, ['visual'], () => this.setMode('raw'));
+    for (const [id, label, mode] of [['visual', 'Visual', 'visual'], ['source', 'Source', 'raw']] as const) {
+      this.commands.insert({ id, label, icon: id === 'source' ? 'raw' : 'preview', views: ['visual', 'raw', 'preview'], active: () => this.activeView === mode,
+        run: () => { if (this.activeView === 'preview') this.back(); this.setMode(mode); },
+      });
+    }
+    const allViews = ['*'];
+    add('preview', 'Preview', 'preview', false, allViews, () => { if (this.activeView !== 'preview') this.openView('preview'); });
+    add('help', 'Help', 'help', false, allViews, () => { if (this.activeView !== 'help') this.openView('help'); });
+    add('copy', 'Copy Markdown', 'copy', false, allViews, async () => { await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(this.get()); });
+    add('fullscreen', 'Maximize', 'fullscreen', false, allViews, () => this.toggleFullscreen());
+    add('search', 'Find and replace', 'search', false, allViews, () => this.openSearch());
+    add('outline', 'Document outline', 'outline', false, ['visual', 'raw'], () => { this.element.classList.toggle('markian-outline-open'); });
+    this.commands.insert({ id: 'link:open', label: 'Open link', icon: 'link', views: ['visual'],
+      enabled: () => Boolean(this.visual!.view.state.selection.$from.marks().some(mark => mark.type.name === 'link')),
+      run: async () => {
+        const destination = String(this.visual!.view.state.selection.$from.marks().find(mark => mark.type.name === 'link')!.attrs.href);
+        if (!safeUrl(destination)) throw new Error('Unsafe link destination.');
+        if (this.options.onLinkOpen) await this.options.onLinkOpen({ instance: this, destination, query: '', revision: this.revision, documentBase: this.options.documentBase, signal: this.lifetime.signal });
+        else this.host.ownerDocument.defaultView?.open(new URL(destination, this.options.documentBase ? new URL(this.options.documentBase, this.host.ownerDocument.baseURI) : this.host.ownerDocument.baseURI).href, '_blank', 'noopener,noreferrer');
+      },
+    });
+    this.toolbarItems.insert({ id: 'link:open', command: 'link:open' }, 'raw');
+    installEditing(this, () => this.visual!.view, () => this.raw!, this.options, image => this.openDestination(image));
     for (const id of ['help', 'preview']) this.views.insert({
       id,
       mount: ({ element }) => {
         element.classList.add('markian-document');
-        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' : this.get(), this.options.softbreaks);
+        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' : this.get(), this.options.softbreaks, this.options.allowTextColors);
+        if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
+          const source = image.getAttribute('src') ?? '';
+          if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);
+        }
         const disposers: Disposer[] = [];
         if (id === 'preview') for (const code of element.querySelectorAll('pre > code')) {
           const renderer = this.renderers.items().find(item => code.classList.contains(`language-${item.language}`));
@@ -476,6 +1171,33 @@ export class EditorInstance implements MarkianInstance {
     this.cleanups.push(() => target?.removeEventListener(event, handler));
   }
 
+  private exitFullscreen(): void {
+    this.fullscreenEntry?.abort();
+    this.fullscreenEntry = undefined;
+    const restore = this.fullscreenRestore;
+    this.fullscreenRestore = undefined;
+    try { restore?.(); } catch (error) { this.report(error); }
+    this.element.dataset.fullscreen = 'false';
+    if (!this.destroyed) { this.refreshToolbar(); this.resize(); }
+  }
+
+  private async toggleFullscreen(): Promise<void> {
+    if (this.fullscreenRestore || this.fullscreenEntry) { this.exitFullscreen(); return; }
+    const entry = new AbortController();
+    this.fullscreenEntry = entry;
+    try {
+      const restore = this.options.onFullscreenEnter
+        ? await this.options.onFullscreenEnter({ instance: this, element: this.element, signal: entry.signal })
+        : (() => { this.element.classList.add('markian-fullscreen'); return () => this.element.classList.remove('markian-fullscreen'); })();
+      if (typeof restore !== 'function') throw new TypeError('onFullscreenEnter must return a restore function.');
+      if (entry.signal.aborted || this.destroyed) { restore(); return; }
+      this.fullscreenRestore = restore;
+      this.element.dataset.fullscreen = 'true';
+      this.refreshToolbar();
+      this.resize();
+    } finally { if (this.fullscreenEntry === entry) this.fullscreenEntry = undefined; }
+  }
+
   focus(): void {
     this.usable();
     const frame = this.frames.at(-1);
@@ -489,6 +1211,7 @@ export class EditorInstance implements MarkianInstance {
 
   resize(): void {
     if (this.destroyed) return;
+    this.refreshToolbar();
     this.raw?.view.requestMeasure();
     const frame = this.frames.at(-1);
     if (frame) this.views.items().find(item => item.id === frame.id)?.resize?.();
@@ -497,6 +1220,9 @@ export class EditorInstance implements MarkianInstance {
   destroy(): void {
     if (this.destroyed) return;
     this.syncHost();
+    this.exitFullscreen();
+    this.closeDestination();
+    this.closeSearch();
     this.destroyed = true;
     this.lifetime.abort();
     this.clearFrames();

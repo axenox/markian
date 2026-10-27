@@ -18,13 +18,13 @@ export const codeExtension: ExtensionFactory = () => ({
     }));
     disposers.push(instance.getCommands().insert({
       id: 'code:expand', label: 'Expand code block', icon: 'expand', views: ['visual'],
+      enabled: () => instance.getCodeTarget() !== null,
       run: () => {
         const target = instance.getCodeTarget();
         if (!target) throw new Error('Place the caret inside a fenced code block.');
         instance.openView('code', target);
       },
     }));
-    disposers.push(instance.getToolbar().insert({ id: 'code:expand', command: 'code:expand' }, 'raw'));
     for (const id of ['undo', 'redo'] as const) {
       disposers.push(instance.getCommands().insert({ id: `code:${id}`, label: id === 'undo' ? 'Undo' : 'Redo', icon: id, mutates: true, views: ['code'], run: () => { source?.[id](); } }));
       disposers.push(instance.getToolbar().insert({ id: `code:${id}`, command: `code:${id}` }, 'raw'));

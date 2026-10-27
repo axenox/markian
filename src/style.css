@@ -36,7 +36,7 @@
 }
 .markian *, .markian *::before, .markian *::after { box-sizing: border-box; }
 .markian [hidden] { display: none !important; }
-.markian-toolbar { display: flex; flex: 0 0 46px; gap: 2px; align-items: center; padding: 5px 8px; overflow-x: auto; border-bottom: 1px solid var(--markian-line); scrollbar-width: thin; }
+.markian-toolbar { display: flex; position: relative; z-index: 4; flex: 0 0 46px; gap: 2px; align-items: center; padding: 5px 8px; border-bottom: 1px solid var(--markian-line); }
 .markian-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
 .markian-button svg { width: 20px; height: 20px; fill: currentColor; }
 .markian-button:hover:not(:disabled) { background: var(--markian-soft); color: var(--markian-accent); }
@@ -56,9 +56,65 @@
 .markian-status { flex: 0 0 25px; padding: 3px 12px; border-top: 1px solid var(--markian-line); color: var(--markian-muted); font-size: 11px; }
 .markian-diagnostic { padding: 8px 12px; color: #a82736; background: #fff0ef; border-bottom: 1px solid #e6b9b9; font-size: 12px; max-height: 90px; overflow: auto; }
 .markian-fullscreen { position: fixed; inset: 12px; z-index: 10000; height: auto; max-height: none; }
+.markian-button[aria-pressed='true'] { background: var(--markian-soft); color: var(--markian-accent); }
+.markian-separator { flex: 0 0 1px; align-self: stretch; margin: 5px 5px; background: var(--markian-line); }
+.markian-toolbar > .markian-button > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-chevron { display: none; }
+.markian-toolbar > .markian-menu:not(.markian-overflow) > summary > .markian-menu-chevron { display: block; position: absolute; right: 0; bottom: 1px; width: 10px; height: 10px; transform: rotate(90deg); }
+.markian-menu { position: relative; flex: 0 0 auto; }
+.markian-menu > summary { display: flex; position: relative; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; list-style: none; }
+.markian-menu > summary::-webkit-details-marker { display: none; }
+.markian-menu > summary svg { width: 20px; height: 20px; fill: currentColor; }
+.markian-menu[open] > summary, .markian-menu > summary:hover { background: var(--markian-soft); }
+.markian-menu-items { position: fixed; inset: auto; margin: 0; z-index: 8; display: flex; flex-direction: column; width: max-content; min-width: 180px; max-width: 320px; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--markian-line); border-radius: 4px; color: var(--markian-text); background: var(--markian-surface); box-shadow: 0 4px 12px #0002; }
+.markian-menu-items[popover]:not(:popover-open) { display: none; }
+.markian-menu-items > .markian-button { width: 100%; height: auto; min-height: 32px; gap: 8px; justify-content: flex-start; text-align: left; padding: 6px 8px; }
+.markian-menu-items > .markian-button svg { flex: 0 0 20px; }
+.markian-menu-items > .markian-separator { min-height: 1px; flex-basis: 1px; margin: 4px; }
+.markian-menu-items > .markian-menu > summary { width: 100%; height: auto; min-height: 32px; justify-content: flex-start; gap: 8px; padding: 6px 8px; }
+.markian-menu-items .markian-menu-label { flex: 1; text-align: left; white-space: normal; }
+.markian-menu-items .markian-menu-chevron { flex: 0 0 16px; width: 16px; margin-left: auto; }
+.markian-menu-items:has(> .markian-swatch) { display: grid; grid-template-columns: repeat(5, 28px); gap: 6px; min-width: 0; padding: 8px; }
+.markian-menu-items > .markian-swatch { width: 28px; height: 28px; min-height: 28px; border: 1px solid var(--markian-line); }
+.markian-floating { position: absolute; z-index: 3; top: 54px; right: 16px; display: flex; flex-wrap: wrap; max-width: calc(100% - 32px); padding: 3px; border: 1px solid var(--markian-line); border-radius: 4px; background: var(--markian-surface); box-shadow: 0 2px 8px #0002; }
+.markian-panel { position: relative; z-index: 5; display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px 12px; max-height: 55%; overflow: auto; background: var(--markian-surface); border-bottom: 1px solid var(--markian-line); }
+.markian-panel label { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px; }
+.markian-panel label:has(input[type='checkbox']) { flex-direction: row; align-items: center; }
+.markian-panel input:not([type='checkbox']), .markian-panel select { width: 100%; max-width: 240px; min-height: 30px; border: 1px solid var(--markian-line); border-radius: 3px; color: var(--markian-text); background: var(--markian-surface); padding: 4px 7px; font: inherit; }
+.markian-panel input:focus-visible, .markian-panel select:focus-visible { outline: 2px solid var(--markian-accent); outline-offset: 1px; }
+.markian-panel > label:has(input[type='text']) { flex: 1 1 150px; }
+.markian-panel output { color: var(--markian-muted); font-size: 12px; overflow-wrap: anywhere; }
+.markian-panel-actions > button:not(.markian-button), .markian-suggestions button { border: 1px solid var(--markian-line); border-radius: 3px; min-height: 32px; padding: 4px 10px; background: var(--markian-soft); color: var(--markian-text); cursor: pointer; }
+.markian-suggestions { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
+.markian-suggestions:empty { display: none; }
+.markian-popup { position: fixed; inset: auto; margin: 0; padding: 0; border: 0; overflow: visible; width: min(360px, calc(100vw - 16px)); color: var(--markian-text); background: transparent; }
+.markian-popup:not(:popover-open) { display: none; }
+.markian-popup::before { content: ''; position: absolute; z-index: 1; left: calc(var(--markian-tip-left, 20px) - 5px); top: -5px; width: 10px; height: 10px; border-top: 1px solid var(--markian-line); border-left: 1px solid var(--markian-line); background: var(--markian-surface); transform: rotate(45deg); pointer-events: none; }
+.markian-popup[data-side='above']::before { top: auto; bottom: -5px; transform: rotate(225deg); }
+.markian-search, .markian-destination { position: relative; width: 100%; max-height: none; display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 16px; gap: 12px; border: 1px solid var(--markian-line); border-radius: 6px; box-shadow: 0 6px 20px #0002; }
+.markian-search > label:has(input[type='text']), .markian-destination > label, .markian-destination > output, .markian-destination > .markian-suggestions { grid-column: 1 / -1; }
+.markian-search input:not([type='checkbox']), .markian-destination input:not([type='checkbox']), .markian-destination select { max-width: none; min-height: 34px; }
+.markian-panel-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; grid-column: 1 / -1; }
+.markian-panel-actions > output { margin-right: auto; }
+.markian-panel-actions > button:last-child { margin-left: auto; }
+.markian-match { background: #ffe295; color: #242824; }
+.markian-outline { position: absolute; inset: 0 0 0 auto; z-index: 2; width: 200px; max-width: 80%; padding: 10px 4px; overflow: auto; border-left: 1px solid var(--markian-line); background: var(--markian-surface); transform: translateX(100%); }
+.markian-outline-open .markian-outline { transform: none; }
+.markian-outline button { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 3px; background: transparent; color: var(--markian-muted); text-align: start; overflow-wrap: anywhere; cursor: pointer; font: inherit; font-size: 12px; }
+.markian-outline button:hover, .markian-outline button[aria-current] { color: var(--markian-accent); background: var(--markian-soft); }
+.markian[data-toolbar-placement='bottom'] .markian-toolbar { order: 3; border-top: 1px solid var(--markian-line); border-bottom: 0; }
+.markian .selectedCell::after { position: absolute; inset: 0; background: #22776122; pointer-events: none; content: ''; }
+.markian .ProseMirror td, .markian .ProseMirror th { position: relative; }
+.markian .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; }
+.markian .ProseMirror li[data-item-type='task'] > input { position: absolute; top: 5px; left: -22px; accent-color: var(--markian-accent); width: 15px; height: 15px; cursor: pointer; }
+.markian .ProseMirror li[data-item-type='task'] > input:disabled { cursor: default; }
+.markian .ProseMirror li[data-item-type='task'] > div > p { margin: 4px 0; }
 @container (max-width: 480px) {
   .markian-toolbar { order: 3; flex-basis: 50px; border-top: 1px solid var(--markian-line); border-bottom: 0; }
   .markian-button { width: 40px; height: 40px; }
+  .markian-menu > summary { width: 40px; height: 40px; }
+  .markian-panel { padding: 8px; gap: 6px; }
+  .markian-panel > label:has(input[type='text']) { flex-basis: 115px; }
+  .markian-search, .markian-destination { padding: 12px; gap: 10px; }
   .markian-status { display: none; }
   .markian-document { padding: 18px !important; }
 }
