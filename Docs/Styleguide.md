@@ -73,11 +73,15 @@ Other views can be added through the ordinary public instance API, equally by ex
 
 ### Disabled / Read-Only Editor
 
-Markian is an editor, including when editing is disabled. Power UI's separate display-only widgets are host-owned and do not require a separate Markian viewer API. For Markian, disabled/read-only means document mutation is blocked, not that focus, selection, or the whole toolbar is disabled.
+Markian remains an editor when editing is disabled. The separate W16 lightweight viewer is planned for display-only host widgets after Codiware integration; it must not be a disabled editor with hidden controls. For editors, disabled/read-only means document mutation is blocked, not that focus, selection, or the whole toolbar is disabled.
 
 Keep search (without replace), text selection, copying text or the complete current Markdown, safe link/outline navigation, Help, fullscreen, and diagram pan/zoom available. Disable or omit typing, paste/drop, insertion/formatting, undo/redo, replace, task-checkbox changes, uploads, and regeneration. Source/code views, if accessible, must be noneditable too. Apply the same rules to keyboard shortcuts, extension commands, and asynchronous results, not just visible buttons.
 
 Entering or leaving this state must retain the current document, drafts, selection/history, and pending-workspace policy without implicitly committing edits or marking the document dirty. Do not copy Help content or only a block draft when Copy Markdown is used; copy the editor's complete current value. The host can still supply an intentional new value through its normal value-setting API.
+
+### Planned Lightweight Viewer
+
+Share scoped document typography, safe rendered-content styling, theme tokens, and responsive media/table behavior with the editor from the beginning, without importing the editor frame, toolbars, dialogs, or engine styles. The viewer has no editing chrome; host display widgets supply their own surrounding UI. Retain accessible text selection, safe link navigation, nonmutating task presentation, and plain-code fallback when optional rendering is unavailable. W16 verifies standalone viewer CSS, light/dark desktop/mobile layouts, overflow, and coexistence with editors; this is planned behavior, not prototype conformance.
 
 ## Controls and Shared Patterns
 

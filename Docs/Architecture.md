@@ -2,7 +2,7 @@
 
 ## Purpose and Status
 
-Markian is a framework-independent Markdown editor intended for standalone use and embedding in host applications. It has no separate lightweight viewer API. Disabled/read-only mode prevents document edits while retaining search, selection, Markdown copying, and other nonmutating interactions. Display-only Power UI widgets are owned separately by the host. Markdown is the editor's public value and persistence format; rendered HTML and engine documents are internal representations.
+Markian is a framework-independent Markdown editor intended for standalone use and embedding in host applications. A separate lightweight viewer is planned in W16 after Codiware integration, superseding the earlier editor-only product decision. Disabled/read-only editors retain their nonmutating controls and are not the viewer implementation. Display-only Power UI widget adapters remain host-owned. Markdown is the public content format; rendered HTML and editor-engine documents are internal representations.
 
 This is a living document about internal structure, ownership, and engineering principles. Update it in the same change as any architectural change. Appearance and interaction patterns belong in the [style guide](Styleguide.md). Scope, acceptance criteria, packaging work, and migration sequencing belong in the [implementation plan](Requirements/Plan.md).
 
@@ -31,7 +31,7 @@ Extract responsibilities from the prototype without treating its current file bo
 | Markdown pipeline | Dialect, import/export, comment mappings, normalization, heading rules, and unsupported-input policy. | DOM scraping as a persistence mechanism. |
 | Editor document and editing sessions | Complete document value, whole-document or targeted drafts, engine state, selections, and local history. | Replacing the document with whatever a view displays. |
 | Views | Main-work-area presentation, toolbar/sidebar descriptions, available actions, focus, and measurement. | Independent document values or implicit draft commits on presentation changes. |
-| Editor rendering | Visual/Preview output, block rendering, sanitization, URL policy, and extension interpretation. | A separate standalone viewer or host display-widget implementation. |
+| Shared rendering and policy | Markdown-to-output pipeline, sanitization, URL/heading rules, block fallback, and content styles shared by editor Preview and W16 viewer. | Editor-engine imports, sessions/history, toolbar UI, host I/O, or widget bindings. |
 | UI and command registry | Toolbar/menu configuration, command availability, dialogs, focus, and accessible states. | Direct host framework dependencies. |
 | Host adapters | Framework lifecycle/bindings, file I/O, provider transport, document URL base, and host layout integration. | Editor engine internals as their integration API. |
 
@@ -40,7 +40,7 @@ The target exposes `Markian.create(element, options)` for editor instances, incl
 ## Markdown Contract
 
 - Persist ordinary interoperable Markdown, not editor JSON or rendered HTML. Normalization is allowed, but meaningful whitespace, code, comments, and generated bodies must survive.
-- Use the agreed CommonMark/GFM subset and one documented import/export policy. Editable and read-only editor presentation must share semantics and conformance fixtures. Compare separate host display widgets through compatibility fixtures, not a Markian viewer API.
+- Use the agreed CommonMark/GFM subset and one documented policy. Editor, Preview, and planned viewer share semantics/security fixtures and pure rendering policies, not necessarily identical DOM. Host display-widget adapters verify their own binding/lifecycle behavior.
 - Store extension delimiters and metadata as invisible HTML comments. Generated bodies remain independently readable Markdown. Unregistered extensions must not erase their markers or execute providers.
 - Store Mermaid as ordinary fenced `mermaid` code, mentions as ordinary text, and images as normal Markdown image syntax.
 - Templates use a `markdown` string with optional `{{selection}}` substitution, including HTML stencils such as `<kbd>{{selection}}</kbd>`. Substitute selected text literally with context-safe escaping, never expression evaluation or recursive expansion; reject unsupported substitution contexts. Empty selections leave the caret at the placeholder, and insertion is one active-view undo step.
@@ -48,6 +48,16 @@ The target exposes `Markian.create(element, options)` for editor instances, incl
 - Treat Markdown and provider output as untrusted input. Capture comment data before display sanitization; disposable sanitized HTML must not determine the saved representation.
 
 ## Document, Editing Sessions, and Views
+
+### Rendering Boundary for the Planned Viewer
+
+Establish this boundary during W1-W3, before W16 implementation: Markdown parsing/rendering, sanitization, URL/heading policies, and scoped content typography/theme tokens must be importable without Milkdown/ProseMirror, CodeMirror, editor controllers, sessions, history, commands, or toolbars. Editor schema/engine adapters consume shared policies; shared modules never import those adapters. Check the dependency boundary with an import-graph check or minimal rendering fixture from extraction onward.
+
+W16 follows W10's Codiware integration and delivers separate prebuilt `markian-viewer.min.js`, CSS, and declarations. It mounts rendered content directly, not a disabled editor. Keep the public lifecycle small; exact exports are W16 decisions and must coexist with editor globals. Separate entry points may embed shared source without requiring a runtime shared chunk; measure viewer/editor and combined costs before choosing further deduplication. No size reduction is established until the proof build is measured and accepted against a quantitative budget.
+
+Viewer-only hosts load no editor script/CSS or engine runtime. Optional Mermaid/highlighting uses rendering-only capabilities, not the full editing extensions. Preserve safe plain-code and generated-body fallbacks without Core, automatic provider execution, or data transport. Hosts own display-widget adapters. Read-only editors keep their richer nonmutating controls and existing API independently of the viewer.
+
+### Editor Sessions
 
 **A view owns the visible main work area and its toolbar actions, not the editor's Markdown value.** The editor always exposes one complete document value. An editing session edits either that whole document or a specific target; a view presents a task using a session or modifies nothing at all. Do not create separate architectural categories of views merely because some edit content and others do not.
 
