@@ -172,6 +172,14 @@ The callback returns the paired restore operation, not merely a notification. Ma
 
 An extension is reusable, configurable code that uses Markian’s public API. Host application code could perform the same operations directly, but extensions allow to bundle it nicely and make it plug-and-play.
 
+Each discussed extension has its own implementation work package, separate from shared editor foundations and host adoption:
+
+| Extension | Owner | Work package |
+| --- | --- | --- |
+| Mermaid | Markian | [W13: Mermaid extension](Requirements/Plan.md#w13-deliver-the-mermaid-extension) |
+| Code | Markian | [W14: Code extension](Requirements/Plan.md#w14-deliver-the-code-extension) |
+| `docsPlaceholders` | ExFace/Power UI Core | [W15: Core's DocsPlaceholders extension](Requirements/Plan.md#w15-deliver-cores-docsplaceholders-extension) |
+
 Separate extension code registration from per-editor configuration. Register a trusted factory once under an ID with `Markian.registerExtension(id, factory)`, then enable and configure that ID in each editor's `extensions` object. These are proposed APIs, not current prototype exports.
 
 Proposed initialization sketch; the host loads the extension files first, and the callback body is pseudocode:

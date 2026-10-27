@@ -341,23 +341,26 @@ Do not require both Composer routes in the same host by default. Asset URL confi
 
 Work-package IDs are used by the coverage and migration tables. Each package has explicit deliverables and an acceptance gate; complete adjacent packages incrementally rather than performing an untestable application-wide rewrite.
 
-Track completed work and remaining tasks below as implementation proceeds. The Done and ToDo columns are intentionally empty initially; an empty cell is not a completion claim.
+Track completed work and remaining tasks below as implementation proceeds. The # column gives the planned sequence; WP IDs remain stable for references. Mermaid and Code precede the Codiware integration. The Done and ToDo columns are intentionally empty initially; an empty cell is not a completion claim.
 
-| WP | Description | Done | ToDo |
-| --- | --- | --- | --- |
-| W0 | Freeze Contracts and Compatibility Fixtures | | |
-| W1 | Extract the Instance-Based Library and Demo | | |
-| W2 | Establish Build, Distribution, and Packages | | |
-| W3 | Complete Markdown Import, Export, and Viewing | | |
-| W4 | Complete Editing Controls and Responsive UI | | |
-| W5 | Finish Tables and Clipboard | | |
-| W6 | Links, Images, and Repository Providers | | |
-| W7 | Production Mermaid, Code Workspaces, and Outlines | | |
-| W8 | Templates, Mentions, and Placeholders | | |
-| W9 | Security, Accessibility, and Release Hardening | | |
-| W10 | Integrate Markian in Codiware | | |
-| W11 | Integrate Markian in JEasyUIFacade | | |
-| W12 | Integrate Markian in UI5Facade | | |
+| # | WP | Description | Done | ToDo |
+| --- | --- | --- | --- | --- |
+| 1 | W0 | Freeze Contracts and Compatibility Fixtures | | |
+| 2 | W1 | Extract the Instance-Based Library and Demo | | |
+| 3 | W2 | Establish Build, Distribution, and Packages | | |
+| 4 | W3 | Complete Markdown Import, Export, and Viewing | | |
+| 5 | W4 | Complete Editing Controls and Responsive UI | | |
+| 6 | W5 | Finish Tables and Clipboard | | |
+| 7 | W6 | Links, Images, and Repository Providers | | |
+| 8 | W7 | Shared View Navigation and Outlines | | |
+| 9 | W8 | Templates and Mentions | | |
+| 10 | W9 | Security, Accessibility, and Release Hardening | | |
+| 11 | W13 | Deliver the Mermaid Extension | | |
+| 12 | W14 | Deliver the Code Extension | | |
+| 13 | W10 | Integrate Markian in Codiware | | |
+| 14 | W11 | Integrate Markian in JEasyUIFacade | | |
+| 15 | W12 | Integrate Markian in UI5Facade | | |
+| 16 | W15 | Deliver Core's DocsPlaceholders Extension | | |
 
 ### W0. Freeze Contracts and Compatibility Fixtures
 
@@ -431,21 +434,15 @@ Markian tracks the pending callback result, not an upload transport. Keep tempor
 
 Acceptance: relative path/query/fragment behavior survives both modes; synchronous/local and promise-based callbacks work without library AJAX. Test standalone data-image persistence separately from Codiware paste-to-file behavior: an actual file exists, saved Markdown contains a regular image destination and no pasted binary/data URI, and the image renders after reopening. Pending/failed pastes cannot yield a falsely successful document save.
 
-### W7. Production Mermaid, Code Workspaces, and Outlines
+### W7. Shared View Navigation and Outlines
 
-Extract the prototype renderer dependency into a versioned adapter contract. Reuse host Mermaid without global DOM scans or repeatedly changing another application's configuration. Isolate rendering when a shared instance cannot satisfy required security/theme behavior. Sanitize generated SVG with a tested SVG policy and never bind source-defined executable callbacks.
-
-Add explicit diagram edit affordances and pan/zoom/reset controls with mouse, keyboard, and touch support. Scope IDs, rendering state, and cleanup to the diagram/instance; ignore stale asynchronous results. Bound diagram text/complexity. Mermaid code remains a standard fence; missing renderers, invalid syntax, and render failures preserve source.
-
-Retain the dedicated code-left/preview-right view with a Back-only default toolbar. Back is the Apply action. Use responsive stacked/switchable panes as appropriate; no document-wide split preview is required. Add Cancel only as a separately approved optional action. Complete target-revision conflict handling and active-draft API/event behavior.
-
-Provide an optional code extension with an expanded ordinary code editor, language choice, Tab handling, configurable tab width, line numbers, highlighting, and a way to leave a Tab-trapping editor. Keep ordinary blocks directly editable without it. Supply programming-language support as declared prebuilt extension assets loaded only when enabled/needed or preloaded by the host; offline use serves selected files locally without hidden imports. Missing highlighting must not remove code or prevent basic editing.
+Deliver the shared public view/session operations used equally by applications and extensions. Views own presentation, not separate document values. Complete target-revision conflict handling, active-draft API/events, view-local toolbars/sidebars, and Back navigation. Opening Help suspends presentation without committing or losing drafts, selection, or history; returning restores the prior task. Block sessions apply one parent-document update when their own Back action completes, with no history entry for unchanged content. Extension-specific views belong to W13-W15, not this shared package.
 
 Finish the view-owned outline: parsed ATX/Setext headings, exclude the title heading starting on line 1, shared slug rules, current-section indication, collapse on desktop and a usable mobile drawer. Visual navigation targets rendered content; raw navigation targets the actual code scroller and line, not the page. Specialized code/Mermaid views have their own relevant sidebar contract; they do not inherit a stale document outline.
 
-Acceptance: multiple diagrams, theme changes, rapid edits, no-op Back, conflicting host updates, destroyed targets, large-diagram controls, expanded code history, and desktop/mobile outline navigation pass browser tests. Core-only comment fixtures request no Mermaid or programming-language highlighting assets; enabled extension fixtures verify local/offline dependencies, deduplicated loading, failures/retry, and independent state across instances.
+Acceptance: host-created public-API view/session fixtures verify suspended drafts, complete-document values, history/events, no-op Back, conflicting host updates, destroyed targets, and permission changes. Desktop/mobile outline navigation works in visual/raw views without stale sidebars in specialized views. No optional extension dependency is required to exercise the shared contract.
 
-### W8. Templates, Mentions, and Placeholders
+### W8. Templates and Mentions
 
 Implement Markdown templates/stencils and parameterized insertion menus. Use `markdown` strings with optional literal `{{selection}}` substitution for both fixed templates and selection wrappers, including empty-selection caret placement and context-safe escaping. Add safe mapped HTML stencils, especially `<kbd>`, that serialize only the intended HTML element and escaped content. Preserve configured captions, hints, icons, and restricted presentation styles; do not serialize editor-only wrappers.
 
@@ -453,11 +450,7 @@ Implement mention rules with prefix priority, bounded matching, distinct styles,
 
 Keep each mention type's `onSuggest`, `onHover`, and `onClick` handlers directly on its configuration object in `tags[]`. Dispatch to the matched rule directly, without a nested callback object or a required global mention-type switch. Use `onHover` for accessible focus/touch details as well as pointer hover. Scope pending suggestions/details to that rule and query; test distinct ticket/user handlers and stale results when the active mention type changes.
 
-Implement the actual DocsFacade placeholder grammar as a Core-owned, Core-supplied optional `docsPlaceholders` extension, not hard-coded ExFace behavior in Markian or a duplicate IDE-owned grammar. Core ships prebuilt assets; the host loads/registers its factory and opts in per instance. Preserve paired `<!-- BEGIN ... -->` / `<!-- END ... -->` delimiters and their exact payloads, plus unrelated/unknown comments and print/image metadata. The prototype's `markian:placeholder` example is not a migration grammar.
-
-Show generated bodies in bordered regions with an Edit Tags action and a configurable insertion menu. Define protected-body editing and raw-mode override policies. Detect malformed/nested/unknown pairs without dropping their bodies. Authorized host regeneration is separate from viewing/editing markers; do not execute a provider just because a document was opened. After regeneration, the saved body must render independently without the provider.
-
-Acceptance: template selection substitution, empty-selection caret placement, literal/nonrecursive escaping, unsupported substitution contexts, single-step undo, HTML stencils, existing mention forms, competing prefixes, provider failures, unknown placeholders, marker edits, body protection, regeneration permissions, and independent fallback rendering pass round-trip/browser tests.
+Acceptance: template selection substitution, empty-selection caret placement, literal/nonrecursive escaping, unsupported substitution contexts, single-step undo, HTML stencils, existing mention forms, competing prefixes, and mention-provider failures pass round-trip/browser tests. DocsFacade-specific markers, controls, and regeneration belong to W15; generic comment preservation remains W3.
 
 ### W9. Security, Accessibility, and Release Hardening
 
@@ -473,7 +466,7 @@ Acceptance: security/accessibility gates, documented compatibility limits, measu
 
 ### W10. Integrate Markian in Codiware
 
-Implement the Codiware-owned adapter and pilot described in M2 after M0 package preparation and M1 document inventory. Start once W1-W3 and the pilot's required W4-W8 features are available; pass the applicable W9 gates before changing consumer defaults. Keep the existing editor descriptor and shell contract, visual startup, dirty/load/save semantics, active-view drafts, and Monaco alternative.
+Implement the Codiware-owned adapter and pilot described in M2 after M0 package preparation and M1 document inventory. Start once W1-W3 and the pilot's required W4-W8 features are available, plus W13/W14 for any enabled Mermaid/code features. W15 is needed only for a Core/IDE-hosted placeholder scenario, not standalone Codiware. Pass the applicable W9 gates before changing consumer defaults. Keep the existing editor descriptor and shell contract, visual startup, dirty/load/save semantics, active-view drafts, and Monaco alternative.
 
 Deliver Composer-ready assets, host-owned link/image callbacks, paste-to-file image insertion without binary fallback, relative-resource resolution/navigation, theme/fullscreen integration, and complete tab disposal. Keep standalone Codiware independent of ExFace. Coordinate IDE asset overrides under M4 without moving framework-specific logic into Codiware or Markian.
 
@@ -481,7 +474,7 @@ Acceptance: M2's real tab/load/save/failure/rename/navigation scenarios pass in 
 
 ### W11. Integrate Markian in JEasyUIFacade
 
-Implement the facade-owned migration described in M4, using the additive Core `MarkianTrait` and shared widget translation contract from M3. Depend on M0/M1 and the required W1-W9 parity subset, not on completion of the UI5 migration. Deliver the shared trait before either facade opts in; do not rename, redirect, or change `ToastUIEditorTrait`.
+Implement the facade-owned migration described in M4, using the additive Core `MarkianTrait` and shared widget translation contract from M3. Depend on M0/M1, the required W1-W9 parity subset, and W13-W15 only where the migrated consumer enables those extensions, not on completion of the UI5 migration. Deliver the shared trait before either facade opts in; do not rename, redirect, or change `ToastUIEditorTrait`.
 
 Migrate asset injection, editor/value/change wiring, validation, prefill/live references, visual startup, and resizing/disposal in a facade-local opt-in release. Implement runtime read-only/disabled behavior explicitly. Review host-owned display-Markdown rendering separately, including server-rendered paths and M4's separate server security gate, rather than assuming UI5's display-widget implementation applies.
 
@@ -489,11 +482,39 @@ Acceptance: real jEasyUI forms cover get/set, explicit clearing, validation, liv
 
 ### W12. Integrate Markian in UI5Facade
 
-Implement the UI5-owned migration described in M3 after additive delivery of Core's separate `MarkianTrait`, M0/M1 preparation, and the required W1-W9 parity subset. UI5 opts in independently of JEasyUIFacade; shared configuration translation belongs in the trait while UI5 retains model bindings, asset registration, validation, and overlay lifecycle ownership.
+Implement the UI5-owned migration described in M3 after additive delivery of Core's separate `MarkianTrait`, M0/M1 preparation, and the required W1-W9 parity subset, plus W13-W15 where the migrated consumer enables those extensions. UI5 opts in independently of JEasyUIFacade; shared configuration translation belongs in the trait while UI5 retains model bindings, asset registration, validation, and overlay lifecycle ownership.
 
 Migrate editor input elements, preserving widget configuration, visual startup, value/change semantics, prefill/live references, and permission behavior. Disabled inputs remain Markian editors with search/copy/navigation available. Separate display-only controls retain a host-owned rendering implementation; do not require Markian viewer instances. Handle rerenders, preserve-area stale DOM, reused dialog IDs, explicit empty values, model echoes, pending drafts, fullscreen restoration, and listener disposal as specified in M3. Update BDT selectors to support documented roots for both backends during rollout.
 
 Acceptance: real UI5 form/dialog/prefill/validation workflows pass, including repeated rerenders, record switches, empty-value restoration, independent instances, and permission changes. Verify UI5/Markian with jEasyUI/Toast UI and unchanged legacy consumers after the additive Core release. Demonstrate facade-local rollback without losing drafts; update UI5 documentation and add focused PHP coverage where feasible plus browser/BDT lifecycle scenarios.
+
+### W13. Deliver the Mermaid Extension
+
+Owner: Markian. Depend on W1-W4's public API, rendering, and modular packaging foundations, W7's view/session contract, and applicable W9 security/accessibility gates. Package a separately prebuilt optional factory with declared renderer versions, assets, dependency metadata, notices, and help. Use the same public API available to host applications; do not require W14 or a private engine API.
+
+Extract the prototype renderer dependency into a versioned adapter contract. Reuse host Mermaid without global DOM scans or repeatedly changing another application's configuration. Isolate rendering when a shared instance cannot satisfy required security/theme behavior. Sanitize generated SVG, never bind source-defined executable callbacks, and bound diagram text/complexity. Scope IDs, rendering state, and cleanup per diagram/instance; reject stale asynchronous results. Standard Mermaid fences and their source remain intact when rendering is unavailable.
+
+Add the insert-diagram toolbar command with a simple flowchart, diagram edit affordances, and mouse/keyboard/touch pan/zoom/reset. Retain the dedicated code-left/preview-right view with Back, undo/redo, and indent controls. Back applies the block session; use responsive stacked/switchable panes without restoring document-wide split preview. Cancel and extra snippet controls require separate approval.
+
+Acceptance: browser/distribution fixtures cover multiple diagrams, themes, rapid edits, invalid syntax, no-op Back, Help suspension, conflicts/deleted targets, active-draft saving, permissions, pan/zoom, and teardown. Verify supplied renderers and explicit local/offline loading, failure/retry, version conflicts, and multi-instance deduplication without shared state. Core-only/disabled fixtures, including Mermaid fences, request no Mermaid assets. Ordinary editing remains usable on renderer failure.
+
+### W14. Deliver the Code Extension
+
+Owner: Markian. Depend on W1-W4's public API and modular packaging foundations, W7's view/session contract, and applicable W9 gates; do not require W13. Ship the optional factory and selected prebuilt language/highlighting assets with metadata, notices, help, and a supported-language policy. Reuse the raw editor's CodeMirror foundation rather than shipping a competing runtime or loading all language parsers in the core.
+
+Add code-block highlighting and a toolbar command enabled for the current code-block target. Supply the expanded code view with Back, undo/redo, language selection, indent controls, configurable Tab width, line numbers, and an accessible way out of Tab trapping. Preserve ordinary fenced source, direct basic editing without the extension, and source on unavailable/failed highlighting. Load declared language assets only when enabled/needed or supplied by the host.
+
+Acceptance: independent enablement without Mermaid, language changes, literal fence contents, Tab/indent/escape, history, no-op Back, Help suspension, active-draft values/save, conflicts/deleted targets, permissions, and disposal pass browser tests. Packaged tests cover selected offline languages, loading failures/retry, version/deduplication behavior, and independent instances. Core-only/disabled fixtures request no programming-language assets, even with code fences present.
+
+### W15. Deliver Core's DocsPlaceholders Extension
+
+Owner: ExFace/Power UI Core, not Markian or IDE. Depend on W1-W4's public customization/rendering/packaging contracts and W3's generic comment preservation; use W8's insertion primitives and W7 if a dedicated marker view is approved. Apply W9's security/lifecycle gates. This extension must not depend on Mermaid or Code. Core ships the prebuilt `docsPlaceholders` factory and its own asset/version/dependency metadata and notices; finalize public asset paths/exports and supported Markian versions without introducing a mandatory Core dependency into Markian or requiring consumer builds.
+
+Implement the actual DocsFacade grammar, preserving paired `<!-- BEGIN ... -->` / `<!-- END ... -->` delimiters and exact payloads, unrelated/unknown comments, print/image metadata, and readable generated bodies. The prototype's `markian:placeholder` example is not a migration grammar. Add placeholder toolbar buttons, an Edit Tags action, and a configurable insertion menu with bordered generated regions. Define protected-body/raw-override policies and malformed/nested/unknown-pair handling without dropping content. A dedicated boundary/marker view remains a separate design decision, not a prerequisite implied by this package.
+
+Use only the ordinary public API. The host resolves Core's assets, loads/registers the factory, and enables it per editor. IDE configures presets/links and authorized regeneration callbacks without owning or duplicating the grammar. Never execute providers on opening/rendering; explicit regeneration checks authorization, revision, and lifetime before applying output. Generated Markdown must render independently after saving. Coordinate actual host adoption under M4, separately from delivery of the Core extension.
+
+Acceptance: verify exact DocsFacade delimiter/body round trips against its server renderer, marker edits, insertion, body policies, malformed pairs, host callback failure/cancellation, stale/unauthorized results, and independent fallback rendering. Test a Core-free install and side-by-side enabled/disabled editors, routed/subdirectory/offline assets, registration order, missing/incompatible assets, deduplicated loads, independent state, and cleanup. Absent/disabled extensions preserve comments/bodies without Core requests or provider execution; enabled unknown IDs fail explicitly without discarding Markdown.
 
 ## 6. Existing Toast UI Features and Newly Identified Gaps
 
@@ -610,7 +631,7 @@ Compare browser output with server-rendered `MarkdownDataType`/DocsFacade output
 
 ### M5. Rollout, Rollback, and Retirement
 
-Roll out in this order: internal Codiware pilot, representative editable/read-only UI5 editors with host display-widget compatibility checks, jEasyUI, IDE documentation extensions, then remaining applications. Advance per consumer only after its parity and security gates pass; advanced requirements W4-W9 must be complete before declaring the full v1 scope delivered.
+Roll out in this order: internal Codiware pilot, representative editable/read-only UI5 editors with host display-widget compatibility checks, jEasyUI, IDE documentation extensions, then remaining applications. Advance per consumer only after its parity and security gates pass; advanced requirements W4-W9 and extension packages W13-W15 must be complete before declaring the full planned scope delivered. W15 ships in Core, not Markian's v1 artifact; a core-only Markian release does not wait for external extension adoption.
 
 Keep independent facade/consumer configuration selecting Markian or Toast UI during the migration window, not one mandatory platform-wide switch. Both operate on Markdown, but test that each consumer's newly saved documents remain readable by the fallback. Keep new optional formatting within the agreed fallback subset until retirement. Switching backends is a controlled reopen/remount using the current value, not two engines editing one DOM simultaneously.
 
@@ -626,27 +647,28 @@ Retiring the bundled integrations does not automatically authorize removing Core
 | --- | --- | --- |
 | Vanilla script/CSS include; textarea/div; framework neutrality | W1-W2 | Offline script-tag, multi-instance, form submission/reset, destruction, Composer install fixtures. |
 | Normalized portable Markdown; meaningful whitespace; unknown syntax | W0/W3 | Semantic/idempotent corpus, retained source on failed import, GitHub/GitLab comparison. |
-| Invisible metadata and independently readable generated bodies | W3/W8 | Exact comment payload checks, unknown-provider/malformed-pair fixtures, independent rendering without extensions. |
+| Invisible metadata and independently readable generated bodies | W3/W15 | Exact comment payload checks, unknown-provider/malformed-pair fixtures, independent rendering without extensions. |
 | Word-friendly visual editing and Markdown-pro typing | W4 | Caret/selection/shortcuts, inline-code exit, lists, fences, IME and ordinary-user review. |
 | MDI, themes, GitHub-like output, programmatic theme switching | W1/W4/W9 | Scoped CSS, two themes in one page, host stylesheet coexistence, icon/contrast review. |
 | Configurable pinned/floating/mobile/custom toolbars | W4 | Separate layouts, floating-only preset, dropdowns, overflow and keyboard/touch tests. |
-| Formatting, headings, lists/tasks, code, quotes, links/images, colors | W3-W4/W6-W7 | Command/history parity; explicit color portability and image-policy tests. |
-| Raw mode, separate view toolbars/sidebars, history/events | W1/W3-W4/W7 | Active-value/draft events, no-op mode transitions, failed imports, conflict tests. |
+| Formatting, headings, lists/tasks, code, quotes, links/images, colors | W3-W4/W6/W14 | Command/history parity; explicit color portability and image-policy tests. |
+| Raw mode, separate view toolbars/sidebars, history/events | W1/W3-W4/W7/W13-W14 | Active-value/draft events, no-op mode transitions, failed imports, conflict tests. |
 | Small embedded editors, maximize/restore, mobile support | W1/W4/W9 | Compact host, default/custom fullscreen callback lifecycle, overlay/iframe tests, keyboard/viewport restoration, real devices. |
 | Tables, add/remove rows/columns, Excel paste | W5 | Table command/navigation suite and HTML/TSV clipboard fixtures. |
 | Pasted images and image-URL autocomplete | W6/M2 | Standalone bounded raster data URIs; Codiware paste-to-file callback with regular Markdown URLs and no pasted binary, pending/failure tests, alt text, and repository suggestions. |
 | Relative/absolute links, heading targets, URL validation | W3/W6 | Slugs/base preservation, inspector cancellation, Ctrl/Cmd/mobile opening, safe schemes. |
-| Mermaid render/edit/pan/zoom; configurable renderer | W7 | Host-injected renderer, no global scans, SVG policy, Back commit, touch controls. |
-| Code language, Tab width, line numbers, expanded editing | W7 | Optional prebuilt language assets, offline selected-feature loading, local history, Tab escape, source-preserving expansion. |
+| Mermaid render/edit/pan/zoom; configurable renderer | W13 | Host-injected renderer, no global scans, SVG policy, Back commit, touch controls. |
+| Code language, Tab width, line numbers, expanded editing | W14 | Optional prebuilt language assets, offline selected-feature loading, local history, Tab escape, source-preserving expansion. |
 | HTML templates, `<kbd>`, configurable stencils/custom links | W3-W4/W8 | Portable HTML exports, parameter validation, host label/icon translation. |
 | Mentions, multiple prefixes, suggestions/click/hover | W8-W9 | Plain/link export, existing empty-link mentions, accessible providers and context exclusions. |
-| Generated placeholders, marker editor, insertion menu | W8/M4 | Real DocsFacade grammar, body policy, no automatic provider execution, re-import. |
+| Generated placeholders, marker editor, insertion menu | W15/M4 | Real DocsFacade grammar, body policy, no automatic provider execution, re-import. |
 | TOC except heading on first line; desktop/mobile access | W3/W7 | Shared anchors, parsed outline, collapse/drawer and raw-scroller navigation. |
 | Security including HTML/JS/SVG, callbacks and providers | W9/M4 | Malicious corpus, CSP, bounded work, separate server-rendering security gate. |
-| Callback-only data integration; no library AJAX | W1/W6/W8/M2-M3 | Direct config functions, local/synchronous and promise results, exceptions/rejections, cancellation/stale-result handling, and no hidden data requests. |
+| Callback-only data integration; no library AJAX | W1/W6/W8/W15/M2-M3 | Direct config functions, local/synchronous and promise results, exceptions/rejections, cancellation/stale-result handling, and no hidden data requests. |
 | Power UI widgets, Codiware, IDE and comments integration | W10-W12/M0-M5 | Adapter contracts and real host scenarios, parity table signed off per consumer. |
 | Additive Core `MarkianTrait`; independent facade migration | W11-W12/M0/M3-M5 | Legacy trait unchanged, facade-local opt-in, mixed Markian/Toast UI scenario, and no automatic backend change on Core upgrade. |
-| Committed dist, asset delivery, Composer, commit builds | W2 | Tracked deterministic artifacts, required CI, package/archive/install tests. |
+| Committed dist, asset delivery, Composer, commit builds | W2/W13-W15 | Tracked deterministic artifacts, required CI, package/archive/install tests in each owning package. |
+| Runnable feature examples for new users | W1-W2/W4-W8/W13-W15 | Chapter 11 index, focused public-API examples, packaged-asset browser smoke tests, and explicit external prerequisites. |
 
 ## 9. Test and Release Gates
 
@@ -665,6 +687,7 @@ Use existing Playwright tests as regression coverage, but split pure transformat
 | Accessibility/devices | Keyboard/screen reader, touch and mobile keyboards, IME, bidi, focus/overlay restoration, theme contrast. |
 | Host migration | Save/load/dirty/prefill/reset/live reference, dialog rerender, disabled/read-only, validation, image policy, relative navigation, iframe and multi-instance scenarios. |
 | Facade coexistence | Additive Core trait release leaves legacy consumers working; UI5/Markian and jEasyUI/Toast UI coexist with independent assets, values, events, and rollback selection. |
+| Examples | Chapter 11's index and links are valid; standalone examples run against packaged assets without a consumer build or framework. Browser checks cover each example's primary interaction, desktop/mobile layout, and optional-dependency isolation. External examples state prerequisites and run in their owning host's suite. |
 | Performance | Measured startup/interaction/memory on agreed representative fixtures; documented budgets and no temporary instrumentation in shipping files. |
 | Stable release | All required work packages complete, parity decisions signed off, release notes and migration guide, matching npm/Composer/tag/manifest version, verified committed artifacts, rollback rehearsal. |
 
@@ -676,9 +699,9 @@ Recommended dependency order:
 
 1. W0 contracts/corpus, then W1 extraction and W2 distribution together.
 2. W3 content/rendering/security foundations, then core W4 controls.
-3. W5-W8 advanced features in small tested increments; start M0/M1 and the opt-in W10/M2 Codiware pilot once its required subset is ready.
+3. W5-W8 shared features, then independent W13 Mermaid and W14 Code extensions once their foundations are ready. Start M0/M1 and the opt-in W10/M2 Codiware pilot once its required subset is ready; neither optional extension requires the other.
 4. W9 hardening runs throughout, with its final gate before stable release.
-5. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Work-package numbering does not impose a dependency between the facades. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
+5. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Deliver W15 in Core once its public API foundations are available, then enable it in the selected M4 hosts. Work-package numbering does not impose a dependency between the facades or optional extensions. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
 
 Confirm these before finalizing v1 estimates:
 
@@ -691,3 +714,42 @@ Confirm these before finalizing v1 estimates:
 - Whether every intermediate commit must be build-certified or squash-merge certification is sufficient; local hook bypasses cannot be prevented absolutely.
 
 These are bounded decisions for implementation and rollout. They do not reopen the approved visual direction or permit silent loss of existing content.
+
+## 11. Runnable Feature Examples
+
+Create a top-level `Examples/` folder so a new user can discover important features, try them, and inspect small working integrations. This is planned library work, not a claim that the current prototype exposes these APIs. Keep the existing development demo separate: examples teach supported public contracts and must not depend on prototype globals or private engine internals.
+
+### Structure and Delivery
+
+Provide `Examples/index.html` as a browsable feature index and `Examples/README.md` with prerequisites, local serving instructions, and links to each example and its source. Use focused, clearly named subfolders with a runnable HTML page, small JavaScript file, and only the local sample assets needed for that feature. Start with a minimal editor rather than an all-features showcase; link related examples instead of duplicating a complete application in each folder.
+
+Examples load the committed prebuilt core/CSS and explicitly selected extension assets through ordinary script/link tags. No consumer bundler, npm install, compilation, CDN, sibling workspace, or backend service is required for standalone examples. A basic static HTTP server is acceptable; explain it in the README rather than promising every browser supports `file:` loading. Use generic sample documents and local images, never real client data, credentials, or installation-specific paths.
+
+Include standalone examples in tagged checkouts and published npm/Composer archives, adjusting W2's package allowlists accordingly. Relative asset paths must work in the distributed package layout. Keep support code small and shared only where it removes real duplication; the feature's configuration and public-API calls should remain easy to find. Do not copy library implementations into examples or ship a second runtime build.
+
+### Initial Example Set
+
+| Example | What a new user can try | Delivery owner |
+| --- | --- | --- |
+| Minimal editor | Mount an editor, await readiness, get/set Markdown, observe changes, and destroy it. | W1-W2 |
+| Form and disabled editing | Textarea/form values and reset, read-only transitions, retained search/copy/navigation, and blocked mutations. | W1/W4 |
+| Multiple instances and themes | Independent values, histories, themes, resizing, and teardown on one page. | W1/W4 |
+| Toolbars and host customization | Pinned/floating/compact controls, a host-added public-API command, and paired custom fullscreen restoration. | W4 |
+| Templates and allowed HTML | Fixed insertion, `{{selection}}` wrappers, `<kbd>` stencils, and the explicit HTML allowlist. | W3/W8 |
+| Mentions and hash-tags | Multiple prefixes with local suggestions and separate click/hover/focus handlers; no backend request needed. | W8 |
+| Links and images | Relative destinations, heading suggestions/inspection, local callback results, bounded image insertion, and recoverable callback failure. | W6 |
+| Tables and clipboard | Row/column controls, alignment, undo, and sanitized HTML/TSV paste using sample spreadsheet content. | W5 |
+| Views, drafts, and navigation | Visual/raw switching, outlines, a small host-created view through the public API, and Help/Back without losing pending work. | W7 |
+| Mermaid extension | Explicit factory registration, renderer supply/loading, insert/edit, preview, pan/zoom, and source-preserving errors. | W13 |
+| Code extension | Explicit opt-in, selected local language assets, expanded editing, language/Tab settings, and ordinary-code fallback. | W14 |
+| Core DocsPlaceholders integration | Actual delimiter/body preservation, marker controls, and explicit authorized regeneration in a Core host. | W15/M4 |
+
+Use local deterministic data/functions for callback demonstrations, with separate success, failure, and stale-result cases where relevant. These are working examples, not pseudocode. Host persistence and AJAX remain outside Markian; do not imply that a local callback demo implements uploads or repository storage.
+
+Mermaid and Code examples load only their declared optional assets. Core's DocsPlaceholders example belongs with Core's extension distribution and host tests; the Markian index links to its maintained documentation/example and states the required Core/Markian versions and setup. Do not bundle Core into Markian or make standalone examples depend on it. If an external example is unavailable, show its prerequisites explicitly rather than leaving a broken runnable link.
+
+### Ownership and Acceptance
+
+W1 establishes the minimal example/index, W2 verifies packaged delivery, and each feature/extension package adds its example alongside the implementation. Keep the examples synchronized with public API declarations, configuration documentation, and asset/version changes in the same change. Documentation-only sketches do not satisfy this deliverable.
+
+Acceptance: a new user can serve a clean distributed package, open the index, run each standalone example without building or editing configuration, and find the corresponding source. Reuse the existing browser-test infrastructure for primary interactions, console/page errors, desktop/mobile overflow, instance isolation, and disabled behavior. Verify that core-only examples request no Mermaid or programming-language assets and that each optional example works with selected local/offline dependencies. External-host examples are verified in their owning integration suites, not counted as passing merely because the index link resolves.
