@@ -41,7 +41,8 @@ The target exposes `Markian.create(element, options)` and `Markian.createViewer(
 - Persist ordinary interoperable Markdown, not editor JSON or rendered HTML. Normalization is allowed, but meaningful whitespace, code, comments, and generated bodies must survive.
 - Use the agreed CommonMark/GFM subset and one documented import/export policy. Editor and viewer must share semantics and conformance fixtures, even when their DOM differs.
 - Store extension delimiters and metadata as invisible HTML comments. Generated bodies remain independently readable Markdown. Unregistered extensions must not erase their markers or execute providers.
-- Store Mermaid as ordinary fenced `mermaid` code, tags as ordinary text, and images as normal Markdown image syntax.
+- Store Mermaid as ordinary fenced `mermaid` code, mentions as ordinary text, and images as normal Markdown image syntax.
+- Templates use a `markdown` string with optional `{{selection}}` substitution, including HTML stencils such as `<kbd>{{selection}}</kbd>`. Substitute selected text literally with context-safe escaping, never expression evaluation or recursive expansion; reject unsupported substitution contexts. Empty selections leave the caret at the placeholder, and insertion is one active-view undo step.
 - Preserve unsupported content where possible or report it before replacing the loaded value. Never silently delete it to satisfy an engine schema.
 - Treat Markdown and provider output as untrusted input. Capture comment data before display sanitization; disposable sanitized HTML must not determine the saved representation.
 
@@ -63,7 +64,7 @@ Visual startup is the default. Standalone callers may opt into raw startup; curr
 
 Keep declarative configuration JSON-serializable. Hosts combine it with trusted JavaScript functions when creating an instance; never evaluate function strings from documents or UXON.
 
-General callbacks are flat `on<Subject><Action>` options, alphabetically grouped by subject: `onFullscreenEnter`, `onImageInsert`, `onImageSuggest`, `onLinkInspect`, `onLinkOpen`, `onLinkSuggest`, and `onPlaceholderRegenerate`. Tag-specific `onClick`, `onHover`, and `onSuggest` handlers belong directly on their `tags[]` entry. Do not introduce a nested `callbacks` object. The plan contains proposed configuration examples and result contracts.
+General callbacks are flat `on<Subject><Action>` options, alphabetically grouped by subject: `onFullscreenEnter`, `onImageInsert`, `onImageSuggest`, `onLinkInspect`, `onLinkOpen`, `onLinkSuggest`, and `onPlaceholderRegenerate`. Mention-specific `onClick`, `onHover`, and `onSuggest` handlers belong directly on their `tags[]` entry. Do not introduce a nested `callbacks` object. The plan contains proposed configuration examples and result contracts.
 
 Markian implements no AJAX/data transport, endpoint knowledge, credentials, or upload client. Callbacks can return local values or promises from host services. The library owns loading/error states, abort signals, and stale-result rejection; hosts own any actual request cancellation, authorization, and transport.
 

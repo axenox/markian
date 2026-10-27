@@ -15,7 +15,7 @@ Use the [architecture](Architectur.md) for ownership and security boundaries and
 | Fewer or differently grouped tools | Independent pinned/floating toolbar layouts referencing command IDs. | A compact comments field versus a technical documentation editor. |
 | A workflow-specific action | A registered command with supported modes and `onExecute`. | Insert a date or a standard review section. |
 | Repeated content | Markdown templates or allowed HTML selection stencils. | Test cases, meeting notes, and keyboard key notation. |
-| Recognizable domain references | Tag rules with local suggestion, details, and click handlers. | Ticket numbers or customer references stored as text. |
+| Mentions | Mention rules with local suggestion, details, and click handlers. | Ticket numbers or customer references stored as text. |
 | Application destinations and assets | Link/image callbacks with structured results. | Suggest documentation files or save pasted images beside a document. |
 | Embedded diagrams | Explicitly supplied Mermaid instance/adapter or configured loader. | Reuse the host's supported renderer rather than load another copy. |
 | Generated content or a special block | A trusted render/placeholder extension. | Documentation sections refreshed by an explicit host action. |
@@ -50,7 +50,9 @@ Icon names resolve through the supported icon registry. Declare only the modes t
 
 ## Templates and Safe HTML Stencils
 
-Use templates when the result is ordinary document content, not a new editing behavior. A Markdown template inserts its body; a stencil wraps escaped selected text in an allowed HTML element. Do not interpolate arbitrary HTML or introduce editor-only storage wrappers.
+Use templates when the result is ordinary document content, not a new editing behavior. Every template uses a `markdown` string. Include `{{selection}}` where the selected text should appear; for example, `<kbd>{{selection}}</kbd>` wraps it in an allowed HTML element without a separate wrapping object.
+
+Substitute selected text literally, escaping it for the supported Markdown or HTML text context rather than treating it as executable template content or raw HTML. Without a selection, substitute an empty string and place the caret at the placeholder position. A template without the placeholder inserts its fixed body, replacing the current selection when present. Apply insertion as one undoable command in the active view. Only `{{selection}}` is defined here: do not evaluate expressions or recursively expand placeholders in selected text. Reject placeholder locations outside supported text contexts, such as HTML attributes or link destinations, rather than interpolating them unsafely. Allowed-HTML and sanitization policies still apply to the template itself.
 
 Proposed options for test documentation:
 
@@ -68,7 +70,7 @@ const options = {
       id: 'kbd',
       label: 'Keyboard key',
       icon: 'keyboard',
-      wrapSelection: { tag: 'kbd' },
+      markdown: '<kbd>{{selection}}</kbd>',
     },
   ],
 };
@@ -76,9 +78,36 @@ const options = {
 
 The `templates` command opens the template menu; `template:<id>` exposes an individual template. HTML support depends on the allowed-element policy and the destination renderer. Do not promise styling or HTML support that other Markdown renderers do not provide.
 
-## Domain Tags
+## Allowed HTML Tags
 
-Tag rules add contextual behavior to ordinary text. Keep handlers on the rule so different tag types do not require one global type-switching callback.
+Control permitted raw HTML explicitly through `htmlTagsAllowed`, independently of templates. Configure an object whose keys are allowed HTML tag names and whose values are plain-text descriptions used as tooltips for the corresponding toolbar menu items. The object defines which supported HTML elements a document may use; templates only make content insertion convenient. This remains a proposed library option, not implemented prototype behavior.
+
+```javascript
+const options = {
+  htmlTagsAllowed: {
+    kbd: 'Keyboard input or key name',
+    sub: 'Subscript text',
+    sup: 'Superscript text',
+  },
+  toolbar: { pinned: ['bold', 'italic', 'htmlTags'] },
+};
+```
+
+The proposed `htmlTags` toolbar command opens a menu showing supported, allowed elements so users can discover the available markup. Each item's tooltip uses its configured description; make that description available to keyboard and touch users too, and never interpret it as HTML. Simple text-wrapping elements use the same safe selection-insertion logic as templates. Prefer this separate menu over automatically adding entries to the user's template collection. More complex elements need a supported insertion workflow rather than assuming every HTML tag can wrap text. Hiding or omitting the menu must not change the content policy.
+
+Apply these boundaries consistently:
+
+- The object's keys control raw HTML, not HTML generated from ordinary Markdown; descriptions are presentation metadata only. An explicit `htmlTagsAllowed: {}` permits no raw HTML elements but does not disable Markdown headings, links, or other native syntax. The omitted-option default must be documented when the API is finalized.
+- Allowing an element does not allow arbitrary attributes, styles, or URLs. A separate sanitization policy still applies. Reject unsafe or unsupported tag names with configuration errors rather than treating the allowlist as permission to execute arbitrary HTML.
+- Apply the same effective policy to import, paste, templates, raw-mode transitions, and viewer rendering. A template cannot grant permission to use an element excluded by the allowlist.
+- Disallowed existing content must not silently disappear from saved Markdown. Preserve it as inert source where supported, or report the incompatibility before replacing the value or leaving raw mode. Sanitized display output is not the saved document.
+- Hidden extension comments remain a separate preservation mechanism, not entries in the element allowlist. Their delimiters and payloads must survive without executing providers.
+
+Allowed HTML still has portability limits: other Markdown renderers may omit or style it differently. The menu exposes Markian's effective capabilities, not a guarantee of identical rendering elsewhere.
+
+## Mentions and hash-tags
+
+Mentions add contextual behavior to ordinary text, including references such as `@Name` and hash-tags such as `#32132`. Configure mention rules through the `tags` option. Keep handlers on the rule so different mention types do not require one global type-switching callback.
 
 Proposed ticket-note configuration; handler bodies are pseudocode:
 
@@ -162,7 +191,7 @@ Visual startup is the default and is required by current Power UI/Codiware migra
 | Use case | Combine |
 | --- | --- |
 | Technical documentation | Templates, safe keyboard stencils, relative link suggestions/heading inspection, Mermaid, and optional explicit generated-region refresh. |
-| Ticket or review notes | A compact toolbar, ticket tag rules, host navigation, and authorized contextual details. |
+| Ticket or review notes | A compact toolbar, ticket mention rules, host navigation, and authorized contextual details. |
 | Browser file editor | Visual startup, file-backed image insertion, document-relative URLs, host save/dirty-state handling, and optional layout integration. |
 | Embedded business form | Host model binding, permissions, validation, scoped theme, resize/lifecycle handling, and active-draft form values. |
 | Display-only article | Shared Markdown rendering, safe links/images, theme, and permitted render extensions without an editing engine. |

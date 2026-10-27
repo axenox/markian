@@ -140,17 +140,17 @@ A button in the toolbar, that will create a custom HTML element around the selec
 
 Toolbar button that opens a menu with templates to insert in the editor: e.g. templates for a typical test case. The templates should be part of the configuration of the widget
 
-### Tags, mentions
+### Mentions
 
-Ability to use Tags: e.g. “@Name” to mention someone or “#TC1234” to reference test case 1234 or similar. 
+Ability to use mentions: e.g. “@Name” to mention someone or “#TC1234” to reference test case 1234 or similar. 
 
-* First of all, these tags need to be highlighted (either colored text or colored background).
-* Different tags should have different styles and colors: e.g. #TC1234 should look different than #1234 (references to a test case vs. a ticket).
-* In the resulting markdown the tags should remain pure text – ideally no extra formatting. Tags being transformed into links are OK too, but the option to have no transformation, but just formatting would be nice too.
-* It would be great to have a dropdown menu suggesting existing tags. So if I start typing “@A” I will see all users starting with “A”. If I type “#TC” is will have an autosuggest for test case number while typing simply “#” will trigger an autosuggest for ticket numbers.
+* First of all, these mentions need to be highlighted (either colored text or colored background).
+* Different mention types should have different styles and colors: e.g. #TC1234 should look different than #1234 (references to a test case vs. a ticket).
+* In the resulting markdown the mentions should remain pure text – ideally no extra formatting. Mentions being transformed into links are OK too, but the option to have no transformation, but just formatting would be nice too.
+* It would be great to have a dropdown menu suggesting existing mentions. So if I start typing “@A” I will see all users starting with “A”. If I type “#TC” is will have an autosuggest for test case number while typing simply “#” will trigger an autosuggest for ticket numbers.
 * It would be great to be able to have a OnTagClickedEvent. 
-* it should be easy to add a new tag syntax
-* hovering over a tag should allow to pull additional information via Ajax - e.g. the status of a ticket or an HTML card for a mentioned person (like in outlook). In PowerUI there will be hidden action, that provide the endpoints, but the editor should work without power UI too. 
+* it should be easy to add a new mention syntax
+* hovering over a mention should allow to pull additional information via Ajax - e.g. the status of a ticket or an HTML card for a mentioned person (like in outlook). In PowerUI there will be hidden action, that provide the endpoints, but the editor should work without power UI too. 
 
 ### Code blocks
 
@@ -202,7 +202,7 @@ A custom configuration will be required in codiware inside the axenox.IDE app. F
 
 ### As Widget
 
-The `InputMarkdown` Widget already has tags, mentions, Stencils - they all must be supported. 
+The `InputMarkdown` Widget already has mentions and stencils - they all must be supported.
 ## Discussion topics
 
 ### Split vs WYSIWYG 

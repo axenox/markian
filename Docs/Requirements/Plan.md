@@ -104,9 +104,9 @@ Rules:
 
 ### 3.3 Configuration and Extensions
 
-Keep declarative settings JSON-serializable: modes, toolbar groups, feature flags, palettes, tab width, templates, matching rules, limits, locale, and URL base. Allow actual callback functions directly in the JavaScript configuration. General handlers are top-level `on<Subject><Action>` options, such as `onLinkInspect` and `onLinkSuggest`, so alphabetical sorting groups related handlers. Tag-specific handlers remain first-level `onSuggest`, `onHover`, and `onClick` options on each `tags[]` entry, beside its matching and storage rules. Do not nest either set under a `callbacks` object. JSON/UXON cannot contain functions: host adapters combine those declarative settings with trusted JavaScript callbacks before creating the instance. Named callback IDs resolved by a trusted host registry are an optional serialization bridge, not a requirement for standalone callers. Never evaluate function strings from UXON or document comments.
+Keep declarative settings JSON-serializable: modes, toolbar groups, feature flags, palettes, tab width, templates, matching rules, limits, locale, and URL base. Allow actual callback functions directly in the JavaScript configuration. General handlers are top-level `on<Subject><Action>` options, such as `onLinkInspect` and `onLinkSuggest`, so alphabetical sorting groups related handlers. Mention-specific handlers remain first-level `onSuggest`, `onHover`, and `onClick` options on each `tags[]` entry, beside its matching and storage rules. Do not nest either set under a `callbacks` object. JSON/UXON cannot contain functions: host adapters combine those declarative settings with trusted JavaScript callbacks before creating the instance. Named callback IDs resolved by a trusted host registry are an optional serialization bridge, not a requirement for standalone callers. Never evaluate function strings from UXON or document comments.
 
-Define typed/documented extension points for commands, render extensions, tag matchers, placeholder grammars, suggestions, link inspection, image insertion, and Mermaid adapters. Validate callback types, registered IDs, returned data, and malformed options with actionable errors. Built-in extensions follow the same API that third parties use; do not expose Milkdown or CodeMirror internals as the required host contract. In this plan, a data provider means a configured callback, not a built-in HTTP client.
+Define typed/documented extension points for commands, render extensions, mention matchers, placeholder grammars, suggestions, link inspection, image insertion, and Mermaid adapters. Validate callback types, registered IDs, returned data, and malformed options with actionable errors. Built-in extensions follow the same API that third parties use; do not expose Milkdown or CodeMirror internals as the required host contract. In this plan, a data provider means a configured callback, not a built-in HTTP client.
 
 Markian must not implement `fetch`, XMLHttpRequest, jQuery AJAX, upload requests, endpoint configuration, request headers, credentials, retries, or response-format knowledge for these features. Callbacks own any transport and can instead return in-memory, cached, computed, or worker-generated results. Hosts own authentication, authorization, CSRF headers, and endpoint access. Normal browser resource loading, such as configured script/CSS includes and image URLs, is distinct from this data-request boundary.
 
@@ -121,9 +121,9 @@ Callbacks accept a documented context containing the relevant query/value, docum
 | `onLinkOpen` | Delegate link navigation to the host without assuming a network request. |
 | `onLinkSuggest` | Return structured link destination suggestions for the supplied query. |
 | `onPlaceholderRegenerate` | Optionally return an authorized generated body after an explicit user action; never execute automatically on import. |
-| `tags[].onClick` | Delegate a tag-type-specific host action without assuming a network request. |
-| `tags[].onHover` | Return accessible details for that tag type, with its matching rule in context. Invoke for keyboard focus and touch details too. |
-| `tags[].onSuggest` | Return suggestions for that tag type, with its matching rule in context. |
+| `tags[].onClick` | Delegate a mention-type-specific host action without assuming a network request. |
+| `tags[].onHover` | Return accessible details for that mention type, with its matching rule in context. Invoke for keyboard focus and touch details too. |
+| `tags[].onSuggest` | Return suggestions for that mention type, with its matching rule in context. |
 
 For example, a standalone caller can supply suggestions entirely from local data, without registering an endpoint or using AJAX:
 
@@ -138,7 +138,7 @@ const options = {
 
 The same callback may return a promise supplied by the host's existing API service. Neither the callback name nor the library contract dictates how its result is produced. These callback names and result shapes must be finalized and covered by declarations during W0/W1.
 
-#### Example: Ticket Tags
+#### Example: Ticket Mentions
 
 Proposed configuration sketch, not the current prototype API. Highlight ticket references such as `#32132` while storing them as plain Markdown text. Callback bodies below are pseudocode; the host supplies their logic and any requests.
 
@@ -180,7 +180,9 @@ const editor = Markian.create(document.querySelector('#notes'), {
 
 #### Example: Templates and HTML Stencils
 
-The built-in `templates` command opens the configured menu; `template:<id>` exposes one template directly. Markdown templates insert document content. Safe HTML stencils wrap escaped selected text using an allowed element, without editor-only wrappers or arbitrary HTML interpolation.
+The built-in `templates` command opens the configured menu; `template:<id>` exposes one template directly. All templates use a `markdown` string, with optional `{{selection}}` substitution rather than a separate wrapping object. Safe HTML stencils use the same format, for example `<kbd>{{selection}}</kbd>`, without editor-only wrappers.
+
+Substitute the selected text literally with context-appropriate Markdown/HTML text escaping; do not evaluate expressions, recursively expand selected text, or interpolate raw HTML. With no selection, insert an empty string at the placeholder and place the caret there. Templates without a placeholder insert their fixed body, replacing any selection. Execute insertion as one undoable active-view command. Reject placeholders in unsupported contexts such as HTML attributes or link destinations, and apply the allowed-HTML policy to the template itself.
 
 ```javascript
 const editor = Markian.create(document.querySelector('#notes'), {
@@ -193,7 +195,7 @@ const editor = Markian.create(document.querySelector('#notes'), {
     },
     {
       id: 'kbd', label: 'Keyboard key', icon: 'keyboard',
-      wrapSelection: { tag: 'kbd' },
+      markdown: '<kbd>{{selection}}</kbd>',
     },
   ],
 });
@@ -315,6 +317,24 @@ Do not require both Composer routes in the same host by default. Asset URL confi
 
 Work-package IDs are used by the coverage and migration tables. Each package has explicit deliverables and an acceptance gate; complete adjacent packages incrementally rather than performing an untestable application-wide rewrite.
 
+Track completed work and remaining tasks below as implementation proceeds. The Done and ToDo columns are intentionally empty initially; an empty cell is not a completion claim.
+
+| WP | Description | Done | ToDo |
+| --- | --- | --- | --- |
+| W0 | Freeze Contracts and Compatibility Fixtures | | |
+| W1 | Extract the Instance-Based Library and Demo | | |
+| W2 | Establish Build, Distribution, and Packages | | |
+| W3 | Complete Markdown Import, Export, and Viewing | | |
+| W4 | Complete Editing Controls and Responsive UI | | |
+| W5 | Finish Tables and Clipboard | | |
+| W6 | Links, Images, and Repository Providers | | |
+| W7 | Production Mermaid, Code Workspaces, and Outlines | | |
+| W8 | Templates, Mentions, and Placeholders | | |
+| W9 | Security, Accessibility, and Release Hardening | | |
+| W10 | Integrate Markian in Codiware | | |
+| W11 | Integrate Markian in JEasyUIFacade | | |
+| W12 | Integrate Markian in UI5Facade | | |
+
 ### W0. Freeze Contracts and Compatibility Fixtures
 
 Deliver a versioned browser/device baseline, initial language/Mermaid version list, normalization policy, unsupported-content policy, and default limits. Confirm publishing access for Composer `axenox/markian` and npm `markian`; keep publication credentials outside source control.
@@ -403,17 +423,17 @@ Acceptance: multiple diagrams, theme changes, rapid edits, no-op Back, conflicti
 
 ### W8. Templates, Mentions, and Placeholders
 
-Implement Markdown templates/stencils and parameterized insertion menus. Add safe mapped HTML stencils, especially `<kbd>`, that serialize only the intended HTML element and escaped content. Preserve configured captions, hints, icons, and restricted presentation styles; do not serialize editor-only wrappers.
+Implement Markdown templates/stencils and parameterized insertion menus. Use `markdown` strings with optional literal `{{selection}}` substitution for both fixed templates and selection wrappers, including empty-selection caret placement and context-safe escaping. Add safe mapped HTML stencils, especially `<kbd>`, that serialize only the intended HTML element and escaped content. Preserve configured captions, hints, icons, and restricted presentation styles; do not serialize editor-only wrappers.
 
-Implement tag/mention rules with prefix priority, bounded matching, distinct styles, structured suggestions, click events, and accessible hover/focus/touch details. Exclude code, URLs, and other invalid contexts. Store plain text by default or ordinary links by explicit configuration. The Power UI preset must recognize existing `[@label]()` and linked mentions without converting them to visible private widget syntax. Host callbacks translate filter/display attributes, page limits, headers, and action metadata into any required requests; do not pass this backend-specific transport configuration into the standalone library.
+Implement mention rules with prefix priority, bounded matching, distinct styles, structured suggestions, click events, and accessible hover/focus/touch details. Exclude code, URLs, and other invalid contexts. Store plain text by default or ordinary links by explicit configuration. The Power UI preset must recognize existing `[@label]()` and linked mentions without converting them to visible private widget syntax. Host callbacks translate filter/display attributes, page limits, headers, and action metadata into any required requests; do not pass this backend-specific transport configuration into the standalone library.
 
-Keep each tag type's `onSuggest`, `onHover`, and `onClick` handlers directly on its configuration object. Dispatch to the matched rule directly, without a nested callback object or a required global tag-type switch. Use `onHover` for accessible focus/touch details as well as pointer hover. Scope pending suggestions/details to that rule and query; test distinct ticket/user handlers and stale results when the active tag type changes.
+Keep each mention type's `onSuggest`, `onHover`, and `onClick` handlers directly on its configuration object in `tags[]`. Dispatch to the matched rule directly, without a nested callback object or a required global mention-type switch. Use `onHover` for accessible focus/touch details as well as pointer hover. Scope pending suggestions/details to that rule and query; test distinct ticket/user handlers and stale results when the active mention type changes.
 
 Implement the actual DocsFacade placeholder grammar as an IDE-owned extension, not hard-coded ExFace behavior in Markian. Preserve paired `<!-- BEGIN ... -->` / `<!-- END ... -->` delimiters and their exact payloads, plus unrelated/unknown comments and print/image metadata. The prototype's `markian:placeholder` example is not a migration grammar.
 
 Show generated bodies in bordered regions with an Edit Tags action and a configurable insertion menu. Define protected-body editing and raw-mode override policies. Detect malformed/nested/unknown pairs without dropping their bodies. Authorized host regeneration is separate from viewing/editing markers; do not execute a provider just because a document was opened. After regeneration, the saved body must render independently without the provider.
 
-Acceptance: HTML stencils, existing mention forms, competing prefixes, provider failures, unknown placeholders, marker edits, body protection, regeneration permissions, and independent fallback rendering pass round-trip/browser tests.
+Acceptance: template selection substitution, empty-selection caret placement, literal/nonrecursive escaping, unsupported substitution contexts, single-step undo, HTML stencils, existing mention forms, competing prefixes, provider failures, unknown placeholders, marker edits, body protection, regeneration permissions, and independent fallback rendering pass round-trip/browser tests.
 
 ### W9. Security, Accessibility, and Release Hardening
 
@@ -426,6 +446,30 @@ Check ARIA, validation states, contrast, focus order/traps/restoration, task con
 Measure initialization, typing, large tables/diagrams, serialization, data-image history memory, and repeated disposal on representative documents before establishing performance budgets. This plan makes no unmeasured speed or memory claims. Use the host's required profiling process when optimizing integration code; remove temporary instrumentation before shipping.
 
 Acceptance: security/accessibility gates, documented compatibility limits, measured budgets, source and distribution suites, and clean installation tests pass before the first stable release.
+
+### W10. Integrate Markian in Codiware
+
+Implement the Codiware-owned adapter and pilot described in M2 after M0 package preparation and M1 document inventory. Start once W1-W3 and the pilot's required W4-W8 features are available; pass the applicable W9 gates before changing consumer defaults. Keep the existing editor descriptor and shell contract, visual startup, dirty/load/save semantics, active-view drafts, and Monaco alternative.
+
+Deliver Composer-ready assets, host-owned link/image callbacks, paste-to-file image insertion without binary fallback, relative-resource resolution/navigation, theme/fullscreen integration, and complete tab disposal. Keep standalone Codiware independent of ExFace. Coordinate IDE asset overrides under M4 without moving framework-specific logic into Codiware or Markian.
+
+Acceptance: M2's real tab/load/save/failure/rename/navigation scenarios pass in standalone and embedded deployments. Verify pasted image files and ordinary Markdown URLs after save/reopen, clean state only after successful writes, and recoverable pending work. Update Codiware documentation/configuration and demonstrate backend fallback without losing unsaved drafts or saved assets.
+
+### W11. Integrate Markian in JEasyUIFacade
+
+Implement the facade-owned migration described in M4, using the additive Core `MarkianTrait` and shared widget translation contract from M3. Depend on M0/M1 and the required W1-W9 parity subset, not on completion of the UI5 migration. Deliver the shared trait before either facade opts in; do not rename, redirect, or change `ToastUIEditorTrait`.
+
+Migrate asset injection, editor/value/change wiring, validation, prefill/live references, visual startup, and resizing/disposal in a facade-local opt-in release. Implement runtime read-only/disabled behavior explicitly. Review display-Markdown rendering separately, including server-rendered paths and M4's separate server security gate, rather than assuming UI5's viewer implementation applies.
+
+Acceptance: real jEasyUI forms cover get/set, explicit clearing, validation, live references, permission changes, hidden-container sizing, and teardown. Verify supported widget configuration and editor/viewer semantics, independent asset loading, and fallback to Toast UI. Test jEasyUI/Markian alongside UI5/Toast UI, and the reverse combination during rollout. Update facade documentation and add focused PHP coverage where feasible plus owning-app browser/BDT scenarios.
+
+### W12. Integrate Markian in UI5Facade
+
+Implement the UI5-owned migration described in M3 after additive delivery of Core's separate `MarkianTrait`, M0/M1 preparation, and the required W1-W9 parity subset. UI5 opts in independently of JEasyUIFacade; shared configuration translation belongs in the trait while UI5 retains model bindings, asset registration, validation, and overlay lifecycle ownership.
+
+Migrate input and display elements, preserving widget configuration, visual startup, value/change semantics, prefill/live references, and permission behavior. Use real viewer instances for display-only controls. Handle rerenders, preserve-area stale DOM, reused dialog IDs, explicit empty values, model echoes, pending drafts, fullscreen restoration, and listener disposal as specified in M3. Update BDT selectors to support documented roots for both backends during rollout.
+
+Acceptance: real UI5 form/dialog/prefill/validation workflows pass, including repeated rerenders, record switches, empty-value restoration, independent instances, and permission changes. Verify UI5/Markian with jEasyUI/Toast UI and unchanged legacy consumers after the additive Core release. Demonstrate facade-local rollback without losing drafts; update UI5 documentation and add focused PHP coverage where feasible plus browser/BDT lifecycle scenarios.
 
 ## 6. Existing Toast UI Features and Newly Identified Gaps
 
@@ -460,7 +504,7 @@ The following are features/behaviors found in the current integrations that were
 | Locale and command labels | Shared trait explicitly selects English; hosts provide translated messages. | The library needs configurable labels even if initial default remains English. | Locale dictionaries, safe host overrides, translated provider errors: W9/M2-M4. |
 | Teardown and hidden-tab sizing | Codiware disconnects observers/destroys; UI5 registers resize callbacks. | No reusable disposal/resize contract exists in the prototype. | Cancel all owned resources and remeasure without reloading Markdown: W1/M2-M4. |
 
-Do not misclassify unfinished old features as established parity: generic text stencils currently throw for unsupported types; mention click URLs include a TODO; runtime jEasyUI disabling is incomplete. Markian must implement the new requirements for templates and tag clicks, but those are extensions beyond the verified old implementation.
+Do not misclassify unfinished old features as established parity: generic text stencils currently throw for unsupported types; mention click URLs include a TODO; runtime jEasyUI disabling is incomplete. Markian must implement the new requirements for templates and mention clicks, but those are extensions beyond the verified old implementation.
 
 Do not remove `npm-asset/tui-image-editor` when removing Toast UI **Markdown** Editor. Codiware's separate image editor is another feature and remains out of scope.
 
@@ -571,13 +615,13 @@ Retiring the bundled integrations does not automatically authorize removing Core
 | Mermaid render/edit/pan/zoom; configurable renderer | W7 | Host-injected renderer, no global scans, SVG policy, Back commit, touch controls. |
 | Code language, Tab width, line numbers, expanded editing | W7 | Offline language bundle, local history, Tab escape, source-preserving expansion. |
 | HTML templates, `<kbd>`, configurable stencils/custom links | W3-W4/W8 | Portable HTML exports, parameter validation, host label/icon translation. |
-| Tags/mentions, multiple prefixes, suggestions/click/hover | W8-W9 | Plain/link export, existing empty-link mentions, accessible providers and context exclusions. |
+| Mentions, multiple prefixes, suggestions/click/hover | W8-W9 | Plain/link export, existing empty-link mentions, accessible providers and context exclusions. |
 | Generated placeholders, marker editor, insertion menu | W8/M4 | Real DocsFacade grammar, body policy, no automatic provider execution, re-import. |
 | TOC except heading on first line; desktop/mobile access | W3/W7 | Shared anchors, parsed outline, collapse/drawer and raw-scroller navigation. |
 | Security including HTML/JS/SVG, callbacks and providers | W9/M4 | Malicious corpus, CSP, bounded work, separate server-rendering security gate. |
 | Callback-only data integration; no library AJAX | W1/W6/W8/M2-M3 | Direct config functions, local/synchronous and promise results, exceptions/rejections, cancellation/stale-result handling, and no hidden data requests. |
-| Power UI widgets, Codiware, IDE and comments integration | M0-M5 | Adapter contracts and real host scenarios, parity table signed off per consumer. |
-| Additive Core `MarkianTrait`; independent facade migration | M0/M3-M5 | Legacy trait unchanged, facade-local opt-in, mixed Markian/Toast UI scenario, and no automatic backend change on Core upgrade. |
+| Power UI widgets, Codiware, IDE and comments integration | W10-W12/M0-M5 | Adapter contracts and real host scenarios, parity table signed off per consumer. |
+| Additive Core `MarkianTrait`; independent facade migration | W11-W12/M0/M3-M5 | Legacy trait unchanged, facade-local opt-in, mixed Markian/Toast UI scenario, and no automatic backend change on Core upgrade. |
 | Committed dist, asset delivery, Composer, commit builds | W2 | Tracked deterministic artifacts, required CI, package/archive/install tests. |
 
 ## 9. Test and Release Gates
@@ -590,7 +634,7 @@ Use existing Playwright tests as regression coverage, but split pure transformat
 | Library build/PR | Type/API checks, unit suite, source browser suite, packaged classic-script smoke suite, deterministic artifact parity including new files, licenses and package metadata. |
 | Packaging | `npm pack` archive install, Composer validation/install, no consumer build scripts, no Node on runtime host, correct stable URLs; published Asset Packagist install verification. |
 | Content compatibility | Import/edit/export/re-import and independent rendering for the fixture corpus, malformed and unknown metadata, intentional portability limits. |
-| Callback boundary | Local/synchronous and asynchronous fake callbacks for suggestions, inspection, images, tag details, and regeneration; exceptions, rejection, abort, and late results. With supplied assets and local data, fail unexpected data requests and verify no built-in endpoint/transport dependency. |
+| Callback boundary | Local/synchronous and asynchronous fake callbacks for suggestions, inspection, images, mention details, and regeneration; exceptions, rejection, abort, and late results. With supplied assets and local data, fail unexpected data requests and verify no built-in endpoint/transport dependency. |
 | Security | HTML/URL/SVG/clipboard/provider fixtures, PHP inline-script escaping, limits, CSP, lifecycle cancellation, server-output boundary tests. |
 | Accessibility/devices | Keyboard/screen reader, touch and mobile keyboards, IME, bidi, focus/overlay restoration, theme contrast. |
 | Host migration | Save/load/dirty/prefill/reset/live reference, dialog rerender, disabled/read-only, validation, image policy, relative navigation, iframe and multi-instance scenarios. |
@@ -606,9 +650,9 @@ Recommended dependency order:
 
 1. W0 contracts/corpus, then W1 extraction and W2 distribution together.
 2. W3 shared content/viewer/security foundations, then core W4 controls.
-3. W5-W8 advanced features in small tested increments; start M0/M1 and an opt-in M2 pilot once its required subset is ready.
+3. W5-W8 advanced features in small tested increments; start M0/M1 and the opt-in W10/M2 Codiware pilot once its required subset is ready.
 4. W9 hardening runs throughout, with its final gate before stable release.
-5. M3/M4 migrate each remaining consumer only when its parity subset is complete; M5 retirement follows real deployment validation.
+5. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Work-package numbering does not impose a dependency between the facades. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
 
 Confirm these before finalizing v1 estimates:
 

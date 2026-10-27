@@ -72,7 +72,7 @@ New patterns must be documented here and implemented through shared classes/comp
 
 ## Content and Specialized Views
 
-- Document links remain recognizable and preserve ordinary Markdown destinations. Tags may receive subtle highlighting, but their stored value remains text.
+- Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
 - Task checkboxes look and behave like checkboxes. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
 - Hidden comments and extension delimiters remain invisible in the normal document view. Do not render metadata as badges or private syntax without a specific approved interaction.
 - Raw mode uses CodeMirror, source-local selection/history, and its own outline. Keep the toolbar and surrounding frame consistent with visual mode rather than introducing a separate application aesthetic.
