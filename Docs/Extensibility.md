@@ -281,6 +281,8 @@ Extensions allow complex functionality to be added with a single file or functio
 
 Extensions must implement a predefined interface/contract. That contract remains stable over time. It may get new methods but older extensions should still work until the next major Markian version. 
 
+W0/W1 must define construction-time versus live contributions within this same public API. Resolve enabled factories and required construction assets, collect and validate schema/parser/serializer mappings, then construct engines and import initial content before readiness. Reject structural registration after that boundary; do not silently rebuild the editor. Live commands, controls, views, and renderers follow their documented lifecycle. Define how initialization awaits asynchronous contributions, rolls back failures, and handles destruction before completion; optional language loading may remain deferred. The interface list below is provisional and does not yet specify these signatures.
+
 - `init(markian)` - called for an enabled instance; uses the ordinary public instance API and returns a cleanup function for its owned additions.
 - `getHelp()` 
 - `getHelpForHotkeys()`
@@ -302,6 +304,8 @@ The mermaid view has a separate toolbar:
 - in future more buttons shall offer mermaid snippets
 
 ### Code extension
+
+Use a minimal slice of this extension as W1's first public-API proof-of-concept, then extend that same implementation in W14. One ordinary code fence, a target-aware toolbar command, a renderer, and an expanded CodeMirror view with undo/redo and Back are enough for the initial slice. Test draft projection, one-step commit, permissions, independent instances, asynchronous initialization rollback, and teardown without Mermaid or host services. This proves commands/renderers/views, not new-schema registration: code fences already exist in core, so a focused construction-time schema/parser/serializer test remains necessary. Templates and mentions stay core features using the shared public customization operations.
 
 This extension adds code highlighting and a separate code editor view. It also adds a toolbar button, that becomes enabled if the carret is inside a code block. The button opens this code block in the code editor view. 
 
