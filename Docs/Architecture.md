@@ -127,4 +127,6 @@ Host integrations use the public API. Core gains a separate `MarkianTrait`; the 
 
 Use the existing [package scripts](../package.json): `npm run dev`, `npm run build`, and `npm test`. Reuse focused cases in the browser suite for changed behavior. Add conformance, isolation, lifecycle, and distribution checks as those library responsibilities are implemented; do not report prototype checks as proof of unimplemented contracts.
 
+The library source is planned to move to strict TypeScript during W1, with a separate type check and generated declarations; the prototype is still JavaScript. Two development/test approaches are planned: the Vite dev server for VS Code work, and an Apache-served test bench that loads the built `dist` for DevMan agent handoffs (plan W18 and Chapter 12).
+
 Keep this document aligned with actual module ownership and approved boundaries. Mark planned versus implemented behavior explicitly as extraction proceeds. Update the plan when scope or sequencing changes, and the style guide when visual or interaction conventions change. Do not create a second competing architecture description.

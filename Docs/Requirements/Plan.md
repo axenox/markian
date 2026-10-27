@@ -11,6 +11,7 @@ Decisions for implementation:
 - Keep Milkdown/ProseMirror and its remark-based Markdown model for visual editing. The prototype has passed the initial UX gate; do not restart editor selection unless a concrete preservation or interaction blocker emerges.
 - Treat Milkdown as a replaceable wiring layer, not a foundation. Markian exists because Toast UI became unmaintained; ProseMirror, remark/mdast, and CodeMirror are the long-term foundations. Confine Milkdown to one internal engine adapter (W1), so leaving it would mean rewriting that adapter's Markdown bridge and plugin wiring and vendoring the MIT-licensed preset schemas, not the commands, views, sessions, extensions, or public API. Do not abstract over ProseMirror itself.
 - Keep CodeMirror for raw Markdown, expanded code editing, and Mermaid editing. Each view owns its toolbar, sidebar, selection, and scrolling behavior.
+- Write the library source in TypeScript with `strict` enabled, migrating prototype modules during W1 extraction. Milkdown, ProseMirror, CodeMirror, and Mermaid are TypeScript too, and the compiler is the main fast feedback loop for the AI agent maintaining the library (W18). Declarations are generated, not hand-written. Consumers still receive prebuilt JavaScript and need no TypeScript. Host-side snippets, such as facade code, remain plain JavaScript under their own conventions.
 - Start all migrated integrations in the regular WYSIWYG-like visual mode, including Power UI and Codiware. Keep an optional raw-start setting in the standalone library, but do not use it in the current integrations; users can still switch to raw mode after opening.
 - Persist ordinary Markdown with documented normalization, not editor JSON or rendered HTML. Preserve meaningful whitespace, invisible extension comments, and readable generated bodies.
 - Keep disabled/read-only editors with their nonmutating controls distinct from the separate W16 display viewer. The viewer supersedes the earlier editor-only product decision, not disabled-editor behavior. Host applications own their display-widget adapters and may use the viewer once delivered.
@@ -281,7 +282,7 @@ Remove `dist/` from the ignore rules and commit the complete required distributi
 
 Every source/dependency/configuration change that affects the build must include its resulting distribution in the same commit. Release tags point to commits already containing the verified build. GitHub release downloads may mirror those files, but must not be their only location. Do not use an npm lifecycle script or a Composer post-install script as the only way consumers obtain compiled assets.
 
-Retain one pinned lockfile and a documented Node/npm toolchain. Use a clean output directory and deterministic core/extension build configuration. Start with the existing Vite toolchain's library/Rollup-compatible output if it satisfies modular script-tag delivery and declared-asset tests; change bundlers only for a demonstrated build constraint. Include transitive license notices and an upgrade policy for security-sensitive dependencies.
+Retain one pinned lockfile and a documented Node/npm/TypeScript toolchain. Type checking (`tsc --noEmit`) is separate from the Vite build, which strips types without checking them. Use a clean output directory and deterministic core/extension build configuration. Start with the existing Vite toolchain's library/Rollup-compatible output if it satisfies modular script-tag delivery and declared-asset tests; change bundlers only for a demonstrated build constraint. Include transitive license notices and an upgrade policy for security-sensitive dependencies.
 
 ### 4.3 Build on Every Commit
 
@@ -290,14 +291,14 @@ Implement a versioned Git hook plus a cross-platform Node runner, installed by a
 The default hook policy is **build and verify**, not broad automatic staging:
 
 1. Check that the index and working tree agree for build inputs, including tracked source, the lockfile, package/build configuration, and build scripts. Refuse ambiguous partially staged build inputs; explain how to finish staging or postpone the unrelated edits. Never silently stage source files.
-2. Run the deterministic library build.
+2. Run the type check and the deterministic library build.
 3. Check that tracked, staged, unstaged, deleted, and newly generated distribution files match the exact build being committed. A plain `git diff -- dist` alone misses some of these states.
 4. If distribution changes are not staged, stop and ask the developer to review/stage them and retry. Rebuilding on the retry must be byte-identical. Never auto-stage the whole repository or modify unrelated user changes.
 5. Optionally provide an explicit `npm run build:stage` convenience command that stages only the reviewed distribution; it is not a substitute for input/index checks.
 
 Git hooks are not installed by cloning and can be bypassed with `--no-verify`, a GUI setting, or altered Git configuration. Therefore:
 
-- Add required GitHub Actions checks: `npm ci`, build, artifact parity, unit tests, browser smoke tests against **dist**, and packaging validation. Run source tests as appropriate too.
+- Add required GitHub Actions checks: `npm ci`, type check, build, artifact parity, unit tests, browser smoke tests against **dist**, and packaging validation. Run source tests as appropriate too.
 - Artifact parity must catch untracked output as well as changed/deleted tracked files, using a clean checkout and a structured status check scoped to `dist/`.
 - Protect the integration/release branches and require these checks; restrict unchecked direct pushes. Do not rely on a hook to protect a release.
 - If every individual commit in a merged history must be certified, run a lightweight artifact rebuild for each newly introduced commit, not just the PR head. Alternatively enforce squash merging and certify the final merge result. A head-only check must not be described as proof that all intermediate commits contain valid assets.
@@ -369,6 +370,7 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 | 16 | W12 | Integrate Markian in UI5Facade | | |
 | 17 | W15 | Deliver Core's DocsPlaceholders Extension | | |
 | 18 | W17 | Rich Paste from HTML, Word, and Excel | | |
+| 19 | W18 | Set Up the DevMan Maintenance Agent | | |
 
 ### W0. Freeze Contracts and Compatibility Fixtures
 
@@ -384,7 +386,7 @@ Acceptance: every requirement and each gap-table row maps to a work package and 
 
 ### W1. Extract the Instance-Based Library and Demo
 
-Separate the document controller, engines, mode views, command registry, toolbar/dialog components, provider manager, rendering pipeline, themes, and host adapters. Keep related logic together; do not invent a plugin layer for every small helper.
+Separate the document controller, engines, mode views, command registry, toolbar/dialog components, provider manager, rendering pipeline, themes, and host adapters. Keep related logic together; do not invent a plugin layer for every small helper. Write extracted modules in strict TypeScript and add the `typecheck` script; do not keep parallel JavaScript copies of migrated modules.
 
 Prepare W16's boundary now: shared render/policy/content-style modules must not import Milkdown/ProseMirror, CodeMirror, editor state, or toolbar/session code. Editor-specific schema/engine adapters depend on those modules, not the reverse. Establish a rendering-only import-graph check or minimal fixture during extraction; this does not require delivering the viewer API before W10.
 
@@ -573,6 +575,24 @@ Excel and spreadsheets: parse sanitized HTML tables with a TSV fallback. Use dis
 Bound clipboard size, node count, nesting depth, table dimensions, and conversion time. Over-limit content is rejected with a message or offered as plain text; it must not freeze the editor. Mention rules apply to pasted text as ordinary decorated text.
 
 Acceptance: an anonymized fixture corpus of captured clipboard payloads (HTML, plain text, and image items) from Word desktop and online, Outlook, Google Docs, typical web pages, Excel desktop and online, Google Sheets, and LibreOffice, captured in the agreed browsers. Converted Markdown matches the expected output, renders on GitHub and GitLab, and contains no style or Office debris, scripts, `file:` images, or HTML outside the active preset. The malicious-HTML corpus, single-step undo, Markdown parsing of pasted plain text, literal paste as plain text, read-only blocking, image callback success and failure, limits, and paste into existing tables pass. Real clipboard browser workflows cover representative Word and Excel pastes, not only synthetic events.
+
+### W18. Set Up the DevMan Maintenance Agent
+
+Owner: Markian for repository tooling; DevMan/Power UI for the agent configuration and the Apache test page. Depend on W1's TypeScript module layout, W2's build/verification scripts and committed `dist`, and Chapter 11's examples index. The package is listed last but may start once W2's gates pass; continuous agent maintenance needs it before the long feature tail rather than after it. Chapter 12 describes the resulting workflow.
+
+Deliver in the Markian repository:
+
+- Scripts `typecheck`, `test:unit`, `test:browser`, and a composite `verify` (type check, build, unit and browser tests, `dist` parity), usable without a long-running dev server.
+- A Playwright configuration whose base URL comes from an environment variable. With an external URL, tests run against the Apache-served packaged assets and no `webServer` starts; without it, the existing Vite dev server remains the VS Code default.
+- A test-bench entry page that loads `dist` through classic script/link tags and links the examples index and ticket scenario pages. Append the manifest version or hash to asset URLs so browsers never show a stale build.
+
+Deliver in DevMan/Power UI:
+
+- A Power UI facade route serving the Markian test bench and `dist` through Apache. Confirm that the `vendor/axenox/markian` path is reachable or proxied, needs no Node.js on the request path, and is limited to development/test installations.
+- The agent configuration: instructions that point to this repository's Copilot instructions, architecture, and plan; file access limited to `vendor/axenox/markian`; a command tool restricted to the allowlist in Chapter 12; the ticket handoff report format.
+- A decision whether the agent commits to a ticket branch or leaves reviewed changes uncommitted for the human. It never pushes and never bypasses hooks.
+
+Acceptance: dry-run tickets covering a documentation change, a bug fix with a focused test, and a UI change pass through the full cycle: the agent changes code, runs `verify`, writes the handoff report, and a human tests the result on the Apache page. Forbidden commands are rejected by the tool, not merely discouraged by instructions. A failing `verify` produces a failure report rather than a ready-to-test handoff. The tester sees the new build without clearing caches. The VS Code dev-server workflow keeps working unchanged.
 
 ## 6. Existing Toast UI Features and Newly Identified Gaps
 
@@ -774,6 +794,7 @@ Use existing Playwright tests as regression coverage, but split pure transformat
 | Host migration | Save/load/dirty/prefill/reset/live reference, dialog rerender, disabled/read-only, validation, image policy, relative navigation, iframe and multi-instance scenarios. |
 | Facade coexistence | Additive Core trait release leaves legacy consumers working; UI5/Markian and jEasyUI/Toast UI coexist with independent assets, values, events, and rollback selection. |
 | Examples | Chapter 11's index and links are valid; standalone examples run against packaged assets without a consumer build or framework. Browser checks cover each example's primary interaction, desktop/mobile layout, and optional-dependency isolation. External examples state prerequisites and run in their owning host's suite. |
+| Agent handoff | `verify` passes, the handoff report lists commands and results, the Apache test bench loads the new build, and no forbidden command or dependency change occurred. |
 | Performance | Measured startup/interaction/memory on agreed representative fixtures; documented budgets and no temporary instrumentation in shipping files. |
 | Stable release | All required work packages complete, parity decisions signed off, release notes and migration guide, matching npm/Composer/tag/manifest version, verified committed artifacts, rollback rehearsal. |
 
@@ -790,6 +811,7 @@ Recommended dependency order:
 5. After W10's Codiware integration, deliver W16's separate lightweight viewer using the rendering boundary established in W1-W3. Codiware integration must not wait for the viewer. Complete its size/dependency/security gates before display-widget adoption.
 6. Deliver the additive M3 Core trait, then W12/M3 UI5 and W11/M4 jEasyUI when each parity subset is complete, following M5's recommended rollout order without coupling facade releases. Their display-widget adapters use W16; disabled inputs remain editors. Deliver W15 in Core once its public API foundations are available, then enable it in the selected M4 hosts. Work-package numbering does not impose a dependency between the facades or optional extensions. Complete the remaining M4 consumers; M5 retirement follows real deployment validation.
 7. Deliver W17 rich paste last. Consumers that need Toast UI's Excel table paste before then follow the parity decision recorded under W0.
+8. Set up W18's DevMan agent once W2's build and verification gates pass, even though it is listed last.
 
 Confirm these before finalizing v1 estimates:
 
@@ -843,3 +865,40 @@ Mermaid and Code examples load only their declared optional assets. Core's DocsP
 W1 establishes the minimal example/index, W2 verifies packaged delivery, and each feature/extension package adds its example alongside the implementation. Keep the examples synchronized with public API declarations, configuration documentation, and asset/version changes in the same change. Documentation-only sketches do not satisfy this deliverable.
 
 Acceptance: a new user can serve a clean distributed package, open the index, run each standalone example without building or editing configuration, and find the corresponding source. Reuse the existing browser-test infrastructure for primary interactions, console/page errors, desktop/mobile overflow, instance isolation, and disabled behavior. Verify that core-only examples request no Mermaid or programming-language assets and that each optional example works with selected local/offline dependencies. External-host examples are verified in their owning integration suites, not counted as passing merely because the index link resolves.
+
+## 12. Development and Agent Maintenance Workflow
+
+An AI agent running in DevMan is planned to maintain Markian continuously: it receives a DevMan ticket, changes the code, and passes the ticket back to a human for testing. Humans also develop directly from VS Code. W18 sets this up; this chapter describes the target workflow, not existing tooling.
+
+### Two Development and Test Approaches
+
+| Approach | Used by | How changes become visible | What is tested |
+| --- | --- | --- | --- |
+| Vite dev server | Developers in VS Code | `npm run dev`; TypeScript is transformed on the fly, no explicit build | Source modules; fast iteration |
+| Apache test bench via a Power UI facade | DevMan agent handoff and human testers | `npm run build` produces `dist`, served by Apache | Packaged classic-script assets, as consumers load them |
+
+Both approaches stay supported. Browser tests run against either, selected by the configured base URL. Release and handoff decisions rely on the packaged assets, not only on the dev server.
+
+### Agent Ticket Lifecycle
+
+1. Start from a clean working tree; stop and report if unrelated changes are present, because the Apache test bench serves the same files.
+2. Read the ticket, the Copilot instructions, the architecture, and the relevant plan sections.
+3. Change source, tests, examples, and documentation as the instructions require. Never edit `dist` by hand.
+4. Run `npm run verify`. On failure, fix and rerun within an iteration limit, or report the failure.
+5. Write the handoff report and pass the ticket to a human.
+6. The human tests on the Apache test bench and accepts, rejects, or comments on the ticket.
+
+### Command Allowlist
+
+| Allowed | Forbidden |
+| --- | --- |
+| `npm run typecheck`, `npm run build`, `npm run test:unit`, `npm run test:browser`, `npm run verify` | `npm run dev`, `vite`, `vite preview`, or any other long-running server |
+| `npm ci` with an unchanged lockfile | `npm install <package>`, `npm update`, lockfile edits; dependency changes need human review |
+| Read-only Git commands (`status`, `diff`, `log`) | `git push`, `--no-verify`, history rewriting |
+| | Arbitrary `npx`/shell commands, edits in `node_modules`, network access beyond npm ci |
+
+The command tool enforces this list; instructions alone are not a security boundary. Credentials never enter the agent's context.
+
+### Handoff Report
+
+Each ticket handoff states: a short summary of the change, changed files, commands run with their results, the test-bench page or scenario to check and the expected behavior, documentation updated, and known limitations or open questions. Add or update an example or scenario page when a change has no testable page yet.

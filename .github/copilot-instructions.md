@@ -4,7 +4,7 @@ Markian is a framework-independent Markdown editor/viewer library in development
 
 ## Required Reading and Maintenance
 
-- Before planning or changing code, read [the architecture](../Docs/Architectur.md). For any UI or styling change, also read [the style guide](../Docs/Styleguide.md).
+- Before planning or changing code, read [the architecture](../Docs/Architecture.md). For any UI or styling change, also read [the style guide](../Docs/Styleguide.md).
 - Update the architecture in the same change whenever module responsibilities, ownership, lifecycle, public contracts, dependency boundaries, or distribution architecture change.
 - Update the style guide in the same change whenever reusable appearance, layout, controls, interaction patterns, themes, or responsive behavior change. Reuse shared classes/components rather than creating look-alike implementations.
 - Keep both documents continuously aligned with the implementation. Distinguish current behavior from approved future contracts; do not rewrite plans as completion claims.
@@ -23,18 +23,15 @@ Markian is a framework-independent Markdown editor/viewer library in development
 
 ## Coding guidelines
 
-- Use type-prefixed variable names. Examples:
-  - `oToolbar` for an object
-  - `aData` - for an array
-  - `bFlag` - for a boolean
-  - `iCount` - for a number
-  - `sName` - for a string
-  - `fValue` - for a floating-point number
-  - `fnCallback` - for a function
+- Write library source in TypeScript with `strict` enabled. Prototype modules are still JavaScript until W1 migrates them; migrate a module fully rather than keeping parallel JavaScript copies.
+- Avoid `any`. Use `unknown` and narrow it at boundaries such as host callbacks, configuration, and clipboard or provider data.
+- Use standard TypeScript naming: camelCase for variables and functions, PascalCase for types and classes. Do not use type-prefixed variable names; the types carry that information.
+- Public API types are exported and generate the published declarations. Consumers receive prebuilt JavaScript and never need TypeScript.
 
 ## Validation
 
 - Reuse [existing browser tests](../Tests/prototype.spec.js) and the scripts in [package.json](../package.json). Run focused checks for affected behavior, and `npm run build` for build/distribution changes. `npm test` runs Playwright; `npm run dev` starts the demo.
+- Two development/test approaches are planned (see the plan's Chapter 12): the Vite dev server for work in VS Code, and an Apache-served test bench loading the built `dist` for DevMan agent handoffs. When working as the DevMan agent, never start a dev server; build and verify instead, and use only allowlisted commands.
 - For UI changes, verify the affected interactions and light/dark desktop/mobile layouts, including focus, scrolling, overflow, and instance isolation where relevant. Follow the style guide's verification guidance.
 - For documentation-only changes, validate relative links and any code examples. Do not claim browser or production conformance from documentation checks.
 - Follow the plan's build-before-commit and distribution verification policy as tooling is implemented. Do not claim hooks or CI enforcement exist before they do. Never commit or create a branch unless requested.
