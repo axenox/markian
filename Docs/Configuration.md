@@ -24,7 +24,7 @@ const defaultConfiguration = {
   softbreaks: false,
   label: 'Markdown editor',
   toolbar: undefined,
-  floatingToolbar: ['bold', 'italic', 'code', 'strike', 'link'],
+  floatingToolbar: ['bold', 'italic', 'code', 'strike', 'link', 'clear'],
   toolbarPlacement: 'top',
   documentBase: undefined,
   allowTextColors: false,
@@ -58,7 +58,7 @@ their individual defaults are shown in the chapters below.
 | `softbreaks` | `false` | Render ordinary soft line breaks as hard visual breaks in Preview/Help; does not rewrite Markdown or fenced code. |
 | `label` | `'Markdown editor'` | Accessible name of the editor region. |
 | `toolbar` | Built-in layout below | Recursive toolbar entries. Explicit layouts are authoritative; extension buttons are not automatically inserted into a custom layout. |
-| `floatingToolbar` | `['bold', 'italic', 'code', 'strike', 'link']` | Prose-selection command IDs. Table and code-block contexts use their own controls; code blocks offer only Code expansion when available. |
+| `floatingToolbar` | `['bold', 'italic', 'code', 'strike', 'link', 'clear']` | Prose-selection command IDs, including Clear formatting. Table and code-block contexts use their own controls; code blocks offer only Code expansion when available. |
 | `toolbarPlacement` | `'top'` | `'top'` or `'bottom'`. At container widths of 480px or less, the toolbar moves below the work area. |
 | `documentBase` | Unset; browser document base for relative URLs | Base URL for document resources and provider context. Relative configured bases resolve against the browser document base. Does not rewrite stored destinations. |
 | `allowTextColors` | `false` | Enables the bounded hexadecimal text-color feature. Arbitrary CSS is not accepted. |

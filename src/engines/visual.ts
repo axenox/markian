@@ -45,6 +45,7 @@ export async function createVisual(
   let editor: Editor;
   let replacing = false;
   let finalNewline = false;
+  const renderedCodeBlocks = new WeakSet<Node>();
   const serialize = (node: ProseNode): string => {
     const markdown = editor.action(ctx => ctx.get(serializerCtx)(node));
     if (finalNewline) return markdown || '\n';
@@ -167,6 +168,22 @@ export async function createVisual(
       ...options,
       attributes: { class: 'markian-document', 'aria-label': 'Markdown document', role: 'textbox', 'aria-multiline': 'true' },
       editable: () => !readOnly(),
+      handleKeyDown(view, event) {
+        if (view.composing || !['Backspace', 'Delete'].includes(event.key) || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
+        const { state } = view;
+        if (!(state.selection instanceof TextSelection) || !state.selection.empty) return false;
+        const position = state.selection.$from;
+        const backward = event.key === 'Backspace';
+        if (position.parentOffset !== (backward ? 0 : position.parent.content.size) || position.depth === 0) return false;
+        const boundary = backward ? position.before() : position.after();
+        const adjacent = backward ? state.doc.resolve(boundary).nodeBefore : state.doc.resolve(boundary).nodeAfter;
+        if (!adjacent) return false;
+        const start = backward ? boundary - adjacent.nodeSize : boundary;
+        const dom = view.nodeDOM(start);
+        if (!dom || !renderedCodeBlocks.has(dom)) return false;
+        if (!readOnly()) view.dispatch(closeHistory(state.tr.delete(start, start + adjacent.nodeSize)).scrollIntoView());
+        return true;
+      },
       nodeViews: { ...options.nodeViews, code_block: (node, _view, getPos) => {
         const dom = element.ownerDocument.createElement('pre');
         const content = element.ownerDocument.createElement('code');
@@ -175,6 +192,7 @@ export async function createVisual(
         const position = getPos();
         const topLevel = position !== undefined && _view.state.doc.resolve(position).depth === 0;
         const dispose = renderCode?.(node.textContent, String(node.attrs.language ?? ''), dom, getPos, topLevel);
+        if (dispose) renderedCodeBlocks.add(dom);
         return dispose ? { dom, destroy: dispose, stopEvent: () => true, ignoreMutation: () => true }
           : { dom, contentDOM: content };
       } },

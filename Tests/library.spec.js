@@ -149,6 +149,10 @@ test('Mermaid optional core and disabled instances request no renderer assets', 
 
 test('Mermaid supplied renderer scopes IDs, sanitizes SVG and keeps instance themes independent', async ({ page }) => {
   const root = await mermaidFixture(page);
+  const commands = await root.locator('.markian-toolbar [data-command]').evaluateAll(elements => elements.map(element => element.dataset.command));
+  expect(commands.indexOf('mermaid:insert')).toBeGreaterThan(commands.indexOf('image'));
+  expect(commands.indexOf('mermaid:insert')).toBeGreaterThan(commands.indexOf('table:insert'));
+  expect(commands.indexOf('mermaid:insert')).toBeLessThan(commands.indexOf('rule'));
   await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(2);
   await expect(root.locator('.markian-diagram script, .markian-diagram foreignObject, .markian-diagram a')).toHaveCount(0);
   const ids = await root.locator('.markian-diagram [id]').evaluateAll(elements => elements.map(element => element.id));
@@ -160,6 +164,74 @@ test('Mermaid supplied renderer scopes IDs, sanitizes SVG and keeps instance the
   await page.evaluate(() => diagramEditor.execute('preview'));
   await expect(root.locator('.markian-view .markian-diagram[data-state="ready"]')).toHaveCount(2);
   expect(await page.evaluate(() => diagramEditor.get())).toBe(value);
+});
+
+test('Mermaid Backspace after a rendered diagram deletes the entire fence and supports undo', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await page.evaluate(() => diagramEditor.set('Before\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nAfter'));
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
+  const initial = await page.evaluate(() => diagramEditor.get());
+  const paragraph = root.locator('.markian-document > p').last();
+  await paragraph.click();
+  await page.keyboard.press('Home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press('Backspace');
+  await expect(root.locator('.markian-diagram')).toHaveCount(0);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe('Before\n\nAfter');
+  await page.keyboard.type('Still editable ');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe('Before\n\nStill editable After');
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
+});
+
+test('Mermaid Backspace from an empty following paragraph respects read-only state', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await page.evaluate(() => diagramEditor.set('Before\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nAfter'));
+  const paragraph = root.locator('.markian-document > p').last();
+  await paragraph.click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Shift+End');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press('Backspace');
+  await expect(paragraph).toBeEmpty();
+  const initial = await page.evaluate(() => diagramEditor.get());
+  await page.evaluate(() => diagramEditor.setReadOnly(true));
+  await page.keyboard.press('Backspace');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await page.evaluate(() => diagramEditor.setReadOnly(false));
+  await paragraph.click();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press('Backspace');
+  expect(await page.evaluate(() => diagramEditor.get())).not.toContain('```');
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+});
+
+test('Mermaid Delete before a rendered diagram removes the fence and respects read-only state', async ({ page }) => {
+  const root = await mermaidFixture(page);
+  await page.evaluate(() => diagramEditor.set('Before\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nAfter'));
+  const initial = await page.evaluate(() => diagramEditor.get());
+  const paragraph = root.locator('.markian-document > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.evaluate(() => diagramEditor.setReadOnly(true));
+  await page.keyboard.press('Delete');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await page.evaluate(() => diagramEditor.setReadOnly(false));
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press('Delete');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe('Before\n\nAfter');
+  await page.keyboard.type(' still editable');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe('Before still editable\n\nAfter');
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
 });
 
 test('Mermaid drafts save before Back, suspend for Help, and commit once with local history', async ({ page }) => {
@@ -651,6 +723,31 @@ test('recursive configured menus use independent bounded flyouts without expandi
   await page.keyboard.press('ArrowLeft');
   await expect(nested).not.toHaveAttribute('open');
   await expect(nested.locator('summary')).toBeFocused();
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`text floating toolbar clears selected formatting (${theme}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.evaluate(theme => editor.setTheme(theme), theme);
+  await page.evaluate(() => editor.set('**Formatted** text'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.markian-document strong').evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const clear = root.locator('.markian-floating').getByRole('button', { name: 'Clear formatting', exact: true });
+  await expect(clear).toBeVisible();
+  const bounds = await clear.boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+  await root.screenshot({ path: `.test-results/floating-clear-${theme}-${width}.png` });
+  await clear.click();
+  expect(await page.evaluate(() => editor.get())).toBe('Formatted text');
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe('**Formatted** text');
 });
 
 test('table actions have distinct icons and code expansion is caret-contextual only', async ({ page }) => {

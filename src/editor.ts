@@ -750,8 +750,10 @@ export class EditorInstance implements MarkianInstance {
       for (const extra of extras) {
         const command = this.commands.items().find(candidate => candidate.id === extra.command);
         const history = command?.icon === 'undo' || command?.icon === 'redo' ? entries.indexOf(command.icon) : -1;
+        const following = registered.slice(registered.indexOf(extra) + 1).find(item => entries.some(entry => (typeof entry === 'string' ? entry : entry.id) === item.id));
+        const ordered = following ? entries.findIndex(entry => (typeof entry === 'string' ? entry : entry.id) === following.id) : -1;
         const boundary = entries.findIndex(entry => typeof entry !== 'string' && entry.overflow);
-        entries.splice(history >= 0 ? history : boundary < 0 ? entries.length : boundary, 0, extra);
+        entries.splice(history >= 0 ? history : ordered >= 0 ? ordered : boundary < 0 ? entries.length : boundary, 0, extra);
       }
     }
     const render = (entry: ToolbarEntry): HTMLElement | null => {
@@ -946,7 +948,7 @@ export class EditorInstance implements MarkianInstance {
     if (visual) for (let depth = visual.state.selection.$from.depth; depth > 0; depth--) if (visual.state.selection.$from.node(depth).type.name === 'table') inTable = true;
     const inCode = visual?.state.selection.$from.parent.type.name === 'code_block' && this.commands.items().some(command => command.id === 'code:expand');
     if (!selection || (selection.empty && !inTable && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
-    const items = inCode ? ['code:expand'] : inTable ? ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'] : this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link'];
+    const items = inCode ? ['code:expand'] : inTable ? ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'] : this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
     for (const id of items) {
       const command = this.commands.items().find(item => item.id === id);
       if (!command || !command.views.includes(this.activeView)) continue;
