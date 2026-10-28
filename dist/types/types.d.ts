@@ -147,9 +147,6 @@ export interface EditorOptions {
     documentBase?: string;
     allowTextColors?: boolean;
     textColors?: readonly string[];
-    onImageResolve?(context: {
-        destination: string;
-    }): string;
     onLinkOpen?(context: ProviderContext & {
         destination: string;
     }): void | Promise<void>;

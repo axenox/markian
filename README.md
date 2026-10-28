@@ -16,8 +16,6 @@ Open <http://127.0.0.1:5177/> for the [editor workspace](Examples/editor-workspa
 
 Consumers need only a static HTTP server and the prebuilt assets. No npm, Node.js, compiler, import map, remote fonts, or sibling Core package is required at runtime.
 
-The demo server serves prebuilt JavaScript and CSS unchanged, without Vite transforms or inline development source maps. Network sizes therefore reflect the actual distribution files. Production hosts can additionally enable gzip or Brotli compression for smaller transfers.
-
 ## Composer Installation
 
 Install directly from Git by adding the repository to your application's Composer configuration:
@@ -50,44 +48,42 @@ The package installs to `vendor/axenox/markian`. Serve or copy its prebuilt `dis
 
 Await `ready` before commands, replacement, or view navigation. Initialization rejection restores the host. A preservation fallback to raw mode instead resolves readiness and reports an `error` event plus an inline diagnostic.
 
-### Host Stylesheets
+See the [complete configuration reference](Docs/Configuration.md) for all editor
+options, effective defaults, callbacks, toolbar settings, and bundled extension
+configuration.
 
-The document outline sidebar is shown by default beside the visual/source area, never over it. Set `sidebarVisible: false` in `Markian.create(host, options)` to start collapsed. The Document outline toolbar button still toggles it, and selecting a heading keeps it open. The sidebar is independently scrollable and capped at 40% of the work area on narrow containers. Preview and other specialized views hide it temporarily without changing the saved visibility choice or Markdown.
+### Outline Sidebar
 
-Keep loading `dist/markian.css` for the editor frame and controls. Two optional arrays customize presentation independently:
+The document outline is visible by default. Set `sidebarVisible: false` to start
+collapsed; the toolbar button remains available and its pressed state reflects
+visibility. The sidebar stays beside the document with independent scrolling,
+including on narrow screens. Heading navigation keeps it open without changing
+Markdown. Specialized views hide it temporarily and preserve the visibility choice
+when returning to the document.
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `markdownCssUrls` | `markdown-github.css` beside the loaded classic script | Replace the GitHub-like rendered-document typography in Visual, Preview, and Help. An explicit `[]` loads no content stylesheet. |
-| `themeCssUrls` | `[]` | Add host overrides on top of the base editor CSS: colors, control sizes, toolbar height, and other chrome. |
+### Configurable Stylesheets
+
+`markdownCssUrls` replaces the rendered-content stylesheet list. Omit it to load
+`dist/markdown-github.css` beside the classic script, or pass `[]` for no content
+stylesheet. Non-classic loading must provide this option explicitly.
+`themeCssUrls` appends editor-theme overrides after the content stylesheets and
+defaults to `[]`. Load the base `dist/markian.css` separately in either case.
 
 ```javascript
 const editor = Markian.create(host, {
   markdown: '# Notes',
-  markdownCssUrls: ['/assets/docs-markdown.css'],
+  markdownCssUrls: ['/assets/markdown.css'],
   themeCssUrls: ['/assets/editor-theme.css'],
 });
+await editor.ready;
 ```
 
-Omit `markdownCssUrls` to keep the packaged default. CSS URLs resolve against the host document base, must use HTTP(S), and load through ordinary stylesheet links, not AJAX. Lists retain their order: content first, then theme overrides; identical URLs within an instance load once. `ready` waits for all configured CSS. A load failure rejects readiness and restores the host; destruction removes owned links and cancels pending initialization. This does not unload independently loaded stylesheets or another editor's links. Allow the URLs in the host's CSP `style-src` policy. A non-classic loader without a script URL must supply `markdownCssUrls` explicitly.
-
-Use `.markian-document` for rendered Markdown and `.markian` for the editor shell. Stylesheets are trusted host assets in the page-wide CSS cascade, not sandboxed or automatically rewritten. Scope host rules to a host wrapper when different editors need different styling, and avoid global `body`, `button`, or heading selectors. The shipped default uses CSS `@scope` and an instance marker so it does not affect editors that select custom content CSS; supported browsers must implement `@scope`.
-
-For example, the theme stylesheet can contain:
-
-```css
-.my-app .markian {
-  --markian-accent: #176b8a;
-  --markian-toolbar-height: 32px;
-  --markian-toolbar-padding: 7px 4px 4px;
-  --markian-toolbar-button-width: 26px;
-  --markian-toolbar-button-height: 20px;
-  --markian-toolbar-icon-size: 14px;
-  --markian-toolbar-chevron-size: 8px;
-}
-```
-
-Toolbar tokens apply in desktop and compact layouts without resizing dropdown rows, dialog controls, or floating toolbars. Without overrides, buttons remain 32px/40px and toolbars 46px/50px respectively. The general `--markian-button-size` still supplies the fallback toolbar width/height; `--markian-icon-size` sets general main icons (20px by default), with `--markian-toolbar-icon-size` overriding only pinned icons. Keep the toolbar tall enough for the controls, vertical padding, and 1px divider. See the [sizing token reference](Docs/Styleguide.md) for all defaults. CSS configuration never changes Markdown, history, or content events. `setTheme()` still switches the instance's `data-theme` between light and dark; host rules may target that attribute.
+URLs must be HTTP(S), resolved relative to the document base. Stylesheets load in
+declaration order; readiness waits for loading, and failures reject readiness and
+restore the host. Instance-owned links are removed on destruction. Host CSS is
+trusted and page-wide: scope document rules to `.markian-document` inside a host
+wrapper, and theme rules to that wrapper or the editor root. Replacing content CSS
+does not disable the editor shell or its editing controls.
 
 | API | Current behavior |
 | --- | --- |

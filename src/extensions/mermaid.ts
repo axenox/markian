@@ -88,7 +88,12 @@ function bounded(source: string, characters: number, lines: number): void {
 
 function safeSvg(document: Document, source: string, prefix: string): SVGElement {
   if (source.length > 2_000_000) throw new Error('Rendered diagram exceeds the SVG limit.');
-  const clean = DOMPurify.sanitize(source, { USE_PROFILES: { svg: true, svgFilters: true }, FORBID_TAGS: ['foreignObject', 'a', 'image', 'style', 'animate', 'set'], FORBID_ATTR: ['style'], ALLOW_DATA_ATTR: false });
+  const input = new DOMParser().parseFromString(source, 'image/svg+xml');
+  for (const element of input.querySelectorAll<SVGElement>('[style]')) {
+    const anchor = element.style.getPropertyValue('text-anchor').trim();
+    if (['start', 'middle', 'end'].includes(anchor)) element.setAttribute('text-anchor', anchor);
+  }
+  const clean = DOMPurify.sanitize(new XMLSerializer().serializeToString(input.documentElement), { USE_PROFILES: { svg: true, svgFilters: true }, FORBID_TAGS: ['foreignObject', 'a', 'image', 'style', 'animate', 'set'], FORBID_ATTR: ['style'], ALLOW_DATA_ATTR: false });
   const parsed = new DOMParser().parseFromString(clean, 'image/svg+xml');
   if (parsed.querySelector('parsererror') || parsed.documentElement.localName !== 'svg' || parsed.querySelectorAll('*').length > 10000) throw new Error('Renderer returned invalid or oversized SVG.');
   const svg = document.importNode(parsed.documentElement, true) as unknown as SVGElement;
@@ -232,7 +237,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
       }, focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value) }));
       disposers.push(instance.getRenderers().insert({ id: 'mermaid', language: 'mermaid', visual: true, render: (code, element, context) => preview(() => code, element, context ? () => context.open('mermaid') : undefined) }));
       disposers.push(instance.getCommands().insert({ id: 'mermaid:insert', label: 'Insert diagram', icon: 'diagram', views: ['visual'], mutates: true, run: () => instance.insertCodeBlock('flowchart LR\n  A[Start] --> B[Finish]', 'mermaid') }));
-      disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'raw'));
+      disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'rule'));
       for (const id of ['undo', 'redo', 'indent', 'outdent'] as const) {
         disposers.push(instance.getCommands().insert({ id: `mermaid:${id}`, label: { undo: 'Undo', redo: 'Redo', indent: 'Indent', outdent: 'Outdent' }[id], icon: id, mutates: true, views: ['mermaid'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
         disposers.push(instance.getToolbar().insert({ id: `mermaid:${id}`, command: `mermaid:${id}` }, 'raw'));

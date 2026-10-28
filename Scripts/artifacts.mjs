@@ -28,7 +28,7 @@ async function collect(directory) {
 await collect('dist');
 await writeFile('dist/manifest.json', JSON.stringify({
   name: pkg.name, version: pkg.version, format: 'classic-script', sourceMaps: false,
-  core: { script: 'markian.min.js', stylesheet: 'markian.css', markdownStylesheet: 'markdown-github.css', types: 'types/index.d.ts' },
+  core: { script: 'markian.min.js', stylesheet: 'markian.css', contentStylesheet: 'markdown-github.css', types: 'types/index.d.ts' },
   extensions: {
     code: { script: 'extensions/code.min.js', global: 'MarkianCode.codeExtension', requires: pkg.version, dependencies: [] },
     mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,

@@ -10,24 +10,9 @@ The implementation is in [style.css](../src/style.css), with engine-independent 
 
 The public root is `[data-markian]` with `data-theme`, `data-view`, and (after a permission change) `data-readonly`. `.markian-document` is the content styling hook; do not depend on Milkdown DOM. All library selectors are scoped under `.markian` or the explicit content hook; demo page styles are separate and no fonts are requested remotely. Current variables use the `--markian-` prefix: `surface`, `text`, `muted`, `line`, `accent`, `soft`, `code`, `font`, and `mono`. The unprefixed prototype tokens below are historical reference, not the current customization API.
 
-Hosts configure `markdownCssUrls` for rendered content and `themeCssUrls` for editor chrome overrides. Omitted content URLs load the separately packaged GitHub-like `dist/markdown-github.css`; an explicit list replaces it, including `[]` for no content CSS. Theme URLs default to `[]` and layer after the content list and the host-loaded base editor CSS. Keep host selectors scoped to a wrapper and `.markian-document` or `.markian`; ordinary external stylesheets are not isolated by the library. Default typography uses CSS `@scope` with a default-only instance marker and therefore does not leak into custom-styled editors. Content padding, including compact padding, belongs to the content stylesheet, not the shell.
-
-Theme styles may set the following supported sizing tokens on the instance root, targeting `data-theme` where needed. No child-selector overrides are needed for toolbar sizing.
-
-| Token | Default | Scope |
-| --- | --- | --- |
-| `--markian-button-size` | 32px desktop / 40px compact | General square icon controls; toolbar dimensions fall back to this. |
-| `--markian-icon-size` | 20px | Main command icons, including menu rows; excludes chevrons. |
-| `--markian-toolbar-height` | 46px desktop / 50px compact | Pinned toolbar height. |
-| `--markian-toolbar-padding` | `5px 8px` | Pinned toolbar CSS padding shorthand. |
-| `--markian-toolbar-button-width` | General button size | Direct toolbar command buttons and menu summaries only. |
-| `--markian-toolbar-button-height` | General button size | Direct toolbar command buttons and menu summaries only. |
-| `--markian-toolbar-icon-size` | General icon size | Main icons in direct toolbar controls only. |
-| `--markian-toolbar-chevron-size` | 10px | Pinned menu disclosure cue; submenu arrows remain independent. |
-
-Explicit overrides apply in both desktop and compact layouts. Toolbar-only tokens do not resize dropdown rows, dialog controls, or floating toolbars. General icon controls reset inherited button padding and prevent SVG compression; menu rows retain their own padding. Hosts must keep toolbar height sufficient for button height, vertical padding, and the 1px divider, and verify focus, overflow, and compact touch usability after changing sizes. Styling does not change Markdown or content history.
-
 ### Global layout
+
+Hosts configure `markdownCssUrls` for rendered content and `themeCssUrls` for editor chrome overrides. Omitted content URLs load the separately packaged `dist/markdown-github.css`; an explicit list replaces it, including `[]` for no content stylesheet. Theme URLs default to `[]` and follow content stylesheets in the cascade. Load base `markian.css` separately. Scope host rules to a wrapper and `.markian-document` or `.markian`: these are ordinary external stylesheets, not isolated CSS. The packaged content stylesheet uses a default-only instance marker so its typography does not leak into custom-styled instances. Readiness waits for the configured stylesheets, and destruction removes their instance-owned links.
 
 The editor consists of 
 - toolbar
@@ -45,11 +30,12 @@ Toolbar buttons depend on the view. The mermaid toolbar shows different buttons 
 - one or more view-specific groups
 - overflow-button - only visible of the width was not enough to show all buttons
 - search button - opens an anchored search/replace panel
-- full-screen button - always the rightmost toolbar control
+- full-screen button
+- outline button - rightmost in the default layout
 
 Toolbar items are buttons. They can either execute a command or show a dropdown with more buttons. 
 
-The default layout is Undo, Redo, separator, Headings, Formatting (bold/italic/strike), Lists (ordered/bullets/tasks), Indent, Outdent, separator, Inline code, Code block, Quote, Link, Image, Table, Horizontal rule, separator, View mode (Visual/Source/Preview), Clear formatting, Copy, Help, More, Search, Outline, Maximize. Search, Outline (where available), and Maximize stay outside overflow and align to the right, with Outline immediately before Maximize and Maximize last. Secondary views retain the same relative control order, including extension-owned Undo/Redo in the history position. Views with Back begin with Back and a separator and omit the View mode menu. Headings provides H1-H6; the legacy H2 toggle remains available for custom configurations. Outline uses a right-sidebar icon. Table actions have distinct row/column insertion/deletion icons. Expand code appears only in the floating toolbar when the caret is in a code block, including read-only inspection, rather than in the pinned toolbar.
+The default layout is Undo, Redo, separator, Headings, Formatting (bold/italic/strike), Lists (ordered/bullets/tasks), Indent, Outdent, separator, Inline code, Code block, Quote, Link, Image, Table, Horizontal rule, separator, View mode (Visual/Source/Preview), Clear formatting, Copy, Help, More, Search, Maximize, Outline. Search, Maximize, and Outline stay outside overflow and retain their declared order, with Outline last. Fixed controls must not be reordered independently of the toolbar declaration. Secondary views retain the same relative control order, including extension-owned Undo/Redo in the history position. Views with Back begin with Back and a separator and omit the View mode menu. Headings provides H1-H6; the legacy H2 toggle remains available for custom configurations. Outline uses a right-sidebar icon. Table actions have distinct row/column insertion/deletion icons. Expand code appears only in the floating toolbar when the caret is in a code block, including read-only inspection, rather than in the pinned toolbar.
 
 Menus share `.markian-menu` / `.markian-menu-items`, native details/summary disclosure, native popover surfaces, and arrow/Home/End/Escape navigation. Home/End stay inside the active disclosure; Escape closes it and restores focus to its summary, retaining an open parent menu. Right/Left enters/leaves a submenu. Pinned group buttons have a small dropdown cue. Submenus open beside the parent as independent flyouts, flipping left and clamping to the viewport when necessary; they never expand inside a parent's scrolling surface. On very narrow viewports a clamped flyout may partially overlap its parent, but each surface has just one scrollbar. Bottom toolbars open their first-level menus upward. Overflow uses full-width icon-and-label rows with submenu chevrons. Outside clicks and toolbar command activation dismiss the open disclosures. Pinned and floating layouts are independently configurable; pointer interaction preserves engine selection. Use the same recursive layout entries for host configuration and registered groups, not custom per-group rendering code.
 
@@ -132,7 +118,7 @@ Search and destination dialogs are compact `.markian-panel` surfaces in instance
 
 Table caret/touch controls use `.markian-floating` and the same commands as context/overflow menus, without requiring right-click. Tasks render actual checkboxes, disabled when editing is forbidden. Opt-in colors use compact labeled hex swatches, not text pills; arbitrary style controls are not supported.
 
-The `.markian-outline` sidebar uses parsed headings and `aria-current="location"`; it excludes the title beginning on line 1. It is shown by default, with `sidebarVisible: false` opting into collapsed startup. The toggle shows/hides the sidebar without changing Markdown, and heading navigation keeps it open. Document and outline are adjacent flex areas with independent scrolling, never overlapping: the outline uses 200px capped at 40% of the available work width, including compact layouts. Collapsing it returns the full width to the document. Navigation scrolls the active visual/source surface, never the outer page. Specialized views hide the outline and restore the user's visibility choice on return. Pending image panels offer Cancel; failure panels offer Retry and Remove pending image. Both themes reuse these same classes.
+The `.markian-outline` sidebar uses parsed headings and `aria-current="location"`; it excludes the title beginning on line 1 and starts with a compact "Outline" heading. It is visible by default; `sidebarVisible: false` starts collapsed. Its toolbar toggle reflects visibility through `aria-pressed` and the shared pressed styling. Document and outline are adjacent independently scrolling areas, including narrow layouts, never an overlapping drawer. Heading navigation keeps the sidebar open and scrolls the active visual/source surface, never the outer page. Specialized views hide the document outline without losing its visibility choice. Presentation changes do not change Markdown. Pending image panels offer Cancel; failure panels offer Retry and Remove pending image. Both themes reuse these same classes.
 
 - Document links remain recognizable and preserve ordinary Markdown destinations. Mentions may receive subtle highlighting, but their stored value remains text.
 - Task checkboxes use 16px native controls aligned with the first text line, a clear gap before the text, and consistent item spacing in editing and Preview. List-type changes apply to all selected items and remove obsolete task markers when switching to bullets or numbering. Table controls are contextual and compact; editing a cell must not unexpectedly open a different surface.
@@ -144,8 +130,6 @@ The `.markian-outline` sidebar uses parsed headings and `aria-current="location"
 - Diagram previews must expose useful loading and syntax-error states without replacing editable source. Pan/zoom/reset controls affect only presentation.
 - W13 ships its styling separately in `dist/extensions/mermaid.css`. `.markian-mermaid` uses two equal constrained columns above 600px of container width and stacked, independently bounded source/preview rows below that width. Diagram controls reuse `.markian-floating` and `.markian-button`, with Edit, Zoom in/out, Reset, and Retry icons. The toolbar floats at the top right on hover/focus without reserving layout space; touch devices and error states keep it visible. Insert diagram uses the MDI `sitemap-outline` icon. The focusable preview supports arrows, plus/minus and Home, as well as dragging and Ctrl/Cmd-wheel. Loading/error messages remain outside the pannable surface; missing host configuration shows an error instead of a diagram or source preview. SVG node labels remain centered and scoped token-based shapes remain legible without accepting renderer-supplied CSS. Default diagrams have no extra card wrapper. Read-only inspection retains diagram controls while source mutations and history controls are blocked. The separate example provides theme/read-only controls without adding Mermaid to the main workspace.
 - Images retain alternative text and show bounded pending/error presentation. Temporary upload state must not look like confirmed persisted content.
-
-The sidebar starts with a compact semantic heading named "Outline", styled independently from document headings. Outline entries use normal line height at 12px with 2px vertical padding, avoiding excessive scrolling in long documents. Retain horizontal heading indentation, wrapping, and active/hover feedback; do not apply the document's paragraph spacing to outline controls.
 
 ## Example Pages
 

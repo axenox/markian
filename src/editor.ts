@@ -71,7 +71,7 @@ export class EditorInstance implements MarkianInstance {
   private imageRetry?: HTMLElement;
   private listeners = new Map<EventName, Set<(event: EditorEvent) => void>>();
   private cleanups: Disposer[] = [];
-  private cssUrls: string[];
+  private cssUrls: readonly string[];
   private lastValue: string;
   private commands = new Items<CommandDefinition>(() => this.refreshToolbar(), () => this.alive());
   private builtinToolbarIds = new Set<string>();
@@ -330,7 +330,7 @@ export class EditorInstance implements MarkianInstance {
         if (!target) throw new Error('Only top-level code blocks support editing sessions.');
         this.openView(id, target);
       } } : undefined);
-    }, this.options.onImageResolve ? destination => this.options.onImageResolve!({ destination }) : undefined);
+    });
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
     this.initialized = true;
@@ -826,12 +826,8 @@ export class EditorInstance implements MarkianInstance {
       }
       const control = render(entry);
       if (!control) continue;
-      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search', 'outline'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
+      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
       this.toolbar.append(control);
-    }
-    for (const id of ['search', 'outline', 'fullscreen']) {
-      const control = this.toolbar.querySelector<HTMLElement>(`:scope > [data-command="${id}"]`);
-      if (control) this.toolbar.append(control);
     }
     this.layoutToolbar();
     this.positionPanels();
@@ -1054,11 +1050,11 @@ export class EditorInstance implements MarkianInstance {
     if (this.frames.length || this.outlineRevision === this.revision && this.outline.childElementCount) return;
     this.outlineRevision = this.revision;
     this.outline.replaceChildren();
+    this.outlineTargets = [];
     const title = this.host.ownerDocument.createElement('h2');
     title.className = 'markian-outline-title';
     title.textContent = 'Outline';
     this.outline.append(title);
-    this.outlineTargets = [];
     const entries = headings(this.get());
     const visualHeadings = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
     entries.forEach((entry, index) => {
@@ -1193,13 +1189,9 @@ export class EditorInstance implements MarkianInstance {
       mount: ({ element }) => {
         element.classList.add('markian-document');
         element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors);
-        for (const image of element.querySelectorAll('img[src]')) {
+        if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';
-          if (!safeUrl(source, true)) continue;
-          const resolved = this.options.onImageResolve?.({ destination: source }) ?? source;
-          image.setAttribute('src', safeUrl(resolved, true)
-            ? this.options.documentBase ? new URL(resolved, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href : resolved
-            : '');
+          if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);
         }
         const disposers: Disposer[] = [];
         if (id === 'preview') for (const code of element.querySelectorAll('pre > code')) {

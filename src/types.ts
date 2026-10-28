@@ -125,7 +125,6 @@ export interface EditorOptions {
   documentBase?: string;
   allowTextColors?: boolean;
   textColors?: readonly string[];
-  onImageResolve?(context: { destination: string }): string;
   onLinkOpen?(context: ProviderContext & { destination: string }): void | Promise<void>;
   onLinkSuggest?(context: ProviderContext): readonly DestinationSuggestion[] | Promise<readonly DestinationSuggestion[]>;
   onImageSuggest?(context: ProviderContext): readonly DestinationSuggestion[] | Promise<readonly DestinationSuggestion[]>;

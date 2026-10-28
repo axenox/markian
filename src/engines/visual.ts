@@ -41,7 +41,6 @@ export async function createVisual(
   documentBase?: string,
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
-  resolveImage?: (destination: string) => string,
 ): Promise<VisualEngine> {
   let editor: Editor;
   let replacing = false;
@@ -245,11 +244,7 @@ export async function createVisual(
     }, ['input', { type: 'checkbox', checked: node.attrs.checked ? 'checked' : null, disabled: readOnly() ? 'disabled' : null, contenteditable: 'false', 'aria-label': 'Toggle task' }], ['div', 0]],
   }))).use(imageSchema.extendSchema(previous => ctx => ({
     ...previous(ctx),
-    toDOM: node => {
-      const source = String(node.attrs.src);
-      const resolved = resolveImage && safeUrl(source, true) ? resolveImage(source) : source;
-      return ['img', { ...node.attrs, src: !safeUrl(resolved, true) ? '' : documentBase ? new URL(resolved, new URL(documentBase, element.ownerDocument.baseURI)).href : resolved }];
-    },
+    toDOM: node => ['img', { ...node.attrs, src: documentBase && safeUrl(String(node.attrs.src), true) ? new URL(String(node.attrs.src), new URL(documentBase, element.ownerDocument.baseURI)).href : node.attrs.src }],
   }))).use(htmlSchema.extendSchema(previous => ctx => ({
     ...previous(ctx),
     toDOM: node => ['span', { class: 'markian-opaque', hidden: /^\s*<!--/.test(String(node.attrs.value)), contenteditable: 'false' }, String(node.attrs.value)],

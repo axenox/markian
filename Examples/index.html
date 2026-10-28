@@ -1,21 +1,9 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>Markian | Examples</title>
-		<link rel="stylesheet" href="demo.css">
-	</head>
-	<body class="demo-index">
-		<main>
-			<h1>Markian examples</h1>
-			<nav aria-label="Examples">
-				<ul>
-					<li><a href="minimal-editor.html">Minimal editor</a></li>
-					<li><a href="editor-workspace.html">Editor workspace</a></li>
-					<li><a href="mermaid-diagrams.html">Mermaid diagrams</a></li>
-				</ul>
-			</nav>
-		</main>
-	</body>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Markian examples</title><link rel="stylesheet" href="demo.css"><link rel="stylesheet" href="../dist/markian.css"></head>
+<body><header><a class="brand" href="./index.html" aria-label="Markian examples"><span class="brand-symbol" aria-hidden="true">m.</span>markian<span class="workspace-label">Examples</span></a></header>
+<main><section><h1>Minimal editor</h1><p><a href="mermaid.html">Mermaid example</a></p><form id="notes"><div style="height:440px"><textarea id="example" name="notes"># A note
+
+Plain Markdown, ready to edit.</textarea></div><p><button type="reset">Reset</button><button type="button" id="destroy">Destroy</button></p></form><pre id="submitted"></pre></section></main>
+<script src="../dist/markian.min.js"></script><script src="minimal.js"></script></body>
 </html>

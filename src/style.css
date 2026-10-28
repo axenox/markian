@@ -34,7 +34,7 @@
 }
 .markian *, .markian *::before, .markian *::after { box-sizing: border-box; }
 .markian [hidden] { display: none !important; }
-.markian-toolbar { display: flex; position: relative; z-index: 4; flex: 0 0 var(--markian-toolbar-height, 46px); gap: 2px; align-items: center; padding: var(--markian-toolbar-padding, 5px 8px); border-bottom: 1px solid var(--markian-line); }
+.markian-toolbar { display: flex; position: relative; z-index: 4; flex: 0 0 var(--markian-toolbar-height, 40px); gap: 2px; align-items: center; padding: var(--markian-toolbar-padding, 4px 6px); border-bottom: 1px solid var(--markian-line); }
 .markian-toolbar > [data-command='search'], .markian-toolbar:not(:has(> [data-command='search'])) > [data-command='outline'], .markian-toolbar:not(:has(> [data-command='search'], > [data-command='outline'])) > [data-command='fullscreen'] { margin-left: auto; }
 .markian-button { display: inline-flex; align-items: center; justify-content: center; width: var(--markian-button-size, 32px); height: var(--markian-button-size, 32px); flex: 0 0 auto; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
 .markian-button svg { flex: 0 0 var(--markian-icon-size, 20px); width: var(--markian-icon-size, 20px); height: var(--markian-icon-size, 20px); fill: currentColor; }
@@ -58,13 +58,13 @@
 .markian-button[aria-pressed='true'] { background: var(--markian-soft); color: var(--markian-accent); }
 .markian-separator { flex: 0 0 1px; align-self: stretch; margin: 5px 5px; background: var(--markian-line); }
 .markian-toolbar > .markian-button > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-chevron { display: none; }
-.markian-toolbar > .markian-menu:not(.markian-overflow) > summary > .markian-menu-chevron { display: block; position: absolute; right: 0; bottom: 1px; width: var(--markian-toolbar-chevron-size, 10px); height: var(--markian-toolbar-chevron-size, 10px); transform: rotate(90deg); }
+.markian-toolbar > .markian-menu:not(.markian-overflow) > summary > .markian-menu-chevron { display: block; position: absolute; right: 0; bottom: 1px; width: var(--markian-toolbar-chevron-size, 8px); height: var(--markian-toolbar-chevron-size, 8px); transform: rotate(90deg); }
 .markian-menu { position: relative; flex: 0 0 auto; }
 .markian-menu > summary { display: flex; position: relative; align-items: center; justify-content: center; width: var(--markian-button-size, 32px); height: var(--markian-button-size, 32px); padding: 0; border-radius: 4px; cursor: pointer; list-style: none; }
 .markian-menu > summary::-webkit-details-marker { display: none; }
 .markian-menu > summary svg { flex: 0 0 var(--markian-icon-size, 20px); width: var(--markian-icon-size, 20px); height: var(--markian-icon-size, 20px); fill: currentColor; }
-.markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary { width: var(--markian-toolbar-button-width, var(--markian-button-size, 32px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 32px)); }
-.markian-toolbar > .markian-button > svg:not(.markian-menu-chevron), .markian-toolbar > .markian-menu > summary > svg:not(.markian-menu-chevron) { flex-basis: var(--markian-toolbar-icon-size, var(--markian-icon-size, 20px)); width: var(--markian-toolbar-icon-size, var(--markian-icon-size, 20px)); height: var(--markian-toolbar-icon-size, var(--markian-icon-size, 20px)); }
+.markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary { width: var(--markian-toolbar-button-width, var(--markian-button-size, 28px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 28px)); }
+.markian-toolbar > .markian-button > svg:not(.markian-menu-chevron), .markian-toolbar > .markian-menu > summary > svg:not(.markian-menu-chevron) { flex-basis: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); width: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); height: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); }
 .markian-menu[open] > summary, .markian-menu > summary:hover { background: var(--markian-soft); }
 .markian-menu-items { position: fixed; inset: auto; margin: 0; z-index: 8; display: flex; flex-direction: column; width: max-content; min-width: 180px; max-width: 320px; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--markian-line); border-radius: 4px; color: var(--markian-text); background: var(--markian-surface); box-shadow: 0 4px 12px #0002; }
 .markian-menu-items[popover]:not(:popover-open) { display: none; }
