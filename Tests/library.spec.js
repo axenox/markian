@@ -7,7 +7,7 @@ const browserErrors = new WeakMap();
 const corpus = JSON.parse(readFileSync(new URL('./Fixtures/compatibility.json', import.meta.url), 'utf8'));
 
 test('prebuilt demo assets are served unchanged without development source maps', async ({ request }) => {
-  for (const asset of ['markian.min.js', 'markian.css', 'extensions/code.min.js', 'extensions/mermaid.min.js', 'extensions/mermaid.css']) {
+  for (const asset of ['markian.min.js', 'markian.css', 'markdown-github.css', 'extensions/code.min.js', 'extensions/mermaid.min.js', 'extensions/mermaid.css']) {
     const response = await request.get(`/dist/${asset}?asset-check`);
     expect(response.ok()).toBe(true);
     expect(await response.body()).toEqual(readFileSync(new URL(`../dist/${asset}`, import.meta.url)));
@@ -35,6 +35,100 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForURL('**/Examples/editor-workspace.html');
   await page.evaluate(async () => { await Promise.all([window.editor.ready, window.secondary.ready]); });
+});
+
+test('configured CSS URLs replace content styles and overlay the editor theme', async ({ page }) => {
+  await page.route('**/host-markdown.css', route => route.fulfill({ contentType: 'text/css', body: '.host-styled .markian-document { font-size: 19px; } .host-styled .markian-document h1 { font-size: 31px; }' }));
+  await page.route('**/host-theme.css', route => route.fulfill({ contentType: 'text/css', body: '.host-styled.markian { --markian-accent: rgb(170, 20, 40); --markian-button-size: 38px; --markian-toolbar-height: 54px; }' }));
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.height = '440px';
+    document.querySelector('main').prepend(host);
+    window.styledEditor = Markian.create(host, { markdown: '# Host styles\n\nText.', markdownCssUrls: ['/host-markdown.css'], themeCssUrls: ['/host-theme.css'] });
+    styledEditor.element.classList.add('host-styled');
+    await styledEditor.ready;
+  });
+  const root = page.locator('.host-styled');
+  await expect(root.locator('.markian-document')).toHaveCSS('font-size', '19px');
+  await expect(root.locator('.markian-document h1')).toHaveCSS('font-size', '31px');
+  await expect(root.locator('.markian-document')).toHaveCSS('padding-top', '0px');
+  await expect(root.locator('.markian-button').first()).toHaveCSS('width', '38px');
+  await expect(root.locator('.markian-toolbar')).toHaveCSS('flex-basis', '54px');
+  await expect(page.locator('[data-markian-markdown-default]').first().locator('.markian-document')).toHaveCSS('font-size', '15px');
+  await page.screenshot({ path: '.test-results/host-css-desktop.png' });
+  await page.evaluate(() => styledEditor.execute('preview'));
+  await expect(root.locator('.markian-view h1')).toHaveCSS('font-size', '31px');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(root.locator('.markian-view.markian-document')).toHaveCSS('font-size', '19px');
+  await expect(root.locator('.markian-view.markian-document')).toHaveCSS('padding-top', '0px');
+  await expect(root.locator('.markian-toolbar')).toHaveCSS('flex-basis', '54px');
+  await page.screenshot({ path: '.test-results/host-css-mobile.png' });
+  await page.evaluate(() => styledEditor.destroy());
+  await expect(page.locator('link[href$="host-theme.css"], link[href$="host-markdown.css"]')).toHaveCount(0);
+});
+
+test('toolbar theme tokens isolate compact controls from menus, dialogs, and other instances', async ({ page }) => {
+  await page.route('**/toolbar-theme.css', route => route.fulfill({ contentType: 'text/css', body: '.toolbar-styled.markian { --markian-toolbar-height: 32px; --markian-toolbar-padding: 7px 4px 4px; --markian-toolbar-button-width: 26px; --markian-toolbar-button-height: 20px; --markian-toolbar-icon-size: 14px; --markian-toolbar-chevron-size: 8px; }' }));
+  await page.addStyleTag({ content: 'button { padding: 4px 10px; }' });
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.cssText = 'height: 440px; width: 900px; max-width: 100%';
+    document.querySelector('main').prepend(host);
+    window.toolbarEditor = Markian.create(host, { markdown: '# Toolbar theme', themeCssUrls: ['/toolbar-theme.css'] });
+    toolbarEditor.element.classList.add('toolbar-styled');
+    await toolbarEditor.ready;
+  });
+  const root = page.locator('.toolbar-styled');
+  const toolbar = root.locator('.markian-toolbar');
+  const undo = toolbar.getByRole('button', { name: 'Undo', exact: true });
+  const headings = toolbar.locator('summary[aria-label="Headings"]');
+  for (const control of [undo, headings]) {
+    await expect(control).toHaveCSS('width', '26px');
+    await expect(control).toHaveCSS('height', '20px');
+    await expect(control.locator('svg:not(.markian-menu-chevron)')).toHaveCSS('width', '14px');
+    await expect(control.locator('svg:not(.markian-menu-chevron)')).toHaveCSS('height', '14px');
+  }
+  await expect(undo).toHaveCSS('padding', '0px');
+  await expect(toolbar).toHaveCSS('height', '32px');
+  await expect(toolbar).toHaveCSS('padding', '7px 4px 4px');
+  await expect(headings.locator('.markian-menu-chevron')).toHaveCSS('width', '8px');
+  await headings.click();
+  const heading = root.getByRole('button', { name: 'Heading 1', exact: true });
+  await expect(heading).toHaveCSS('min-height', '32px');
+  await expect(heading.locator('svg')).toHaveCSS('width', '20px');
+  await page.keyboard.press('Escape');
+  await toolbar.getByRole('button', { name: 'Find and replace', exact: true }).click();
+  await expect(root.getByRole('button', { name: 'Close search', exact: true })).toHaveCSS('height', '32px');
+  await root.getByRole('button', { name: 'Close search', exact: true }).click();
+  await page.screenshot({ path: '.test-results/toolbar-theme-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(toolbar).toHaveCSS('height', '32px');
+  await expect(undo).toHaveCSS('width', '26px');
+  await expect(undo).toHaveCSS('height', '20px');
+  await expect(undo.locator('svg')).toHaveCSS('width', '14px');
+  expect(await toolbar.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => getComputedStyle(editor.element.querySelector('.markian-toolbar > .markian-button')).width)).toBe('40px');
+  expect(await page.evaluate(() => getComputedStyle(editor.element.querySelector('.markian-toolbar > .markian-button svg')).width)).toBe('20px');
+  await page.screenshot({ path: '.test-results/toolbar-theme-mobile.png' });
+  await page.evaluate(() => toolbarEditor.destroy());
+});
+
+test('CSS URL validation and load failure restore the host', async ({ page }) => {
+  await page.route('**/missing-theme.css', route => route.fulfill({ status: 404, body: '' }));
+  const result = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    let validation = '';
+    try { Markian.create(host, { markdown: '', themeCssUrls: ['javascript:alert(1)'] }); } catch (error) { validation = error.message; }
+    const instance = Markian.create(host, { markdown: '', markdownCssUrls: [], themeCssUrls: ['/missing-theme.css'] });
+    let failure = '';
+    try { await instance.ready; } catch (error) { failure = error.message; }
+    return { validation, failure, restored: !host.hidden, removed: !instance.element.isConnected };
+  });
+  expect(result.validation).toContain('HTTP(S)');
+  expect(result.failure).toContain('Unable to load Markian stylesheet');
+  expect(result.restored).toBe(true);
+  expect(result.removed).toBe(true);
 });
 
 async function mermaidFixture(page, kind = 'supplied') {
@@ -428,10 +522,11 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
   await expect(root).toHaveAttribute('data-view', 'visual');
   await page.setViewportSize({ width: 390, height: 900 });
   await expect(root.locator('.markian-overflow')).toBeVisible();
-  for (const id of ['fullscreen', 'search']) {
+  for (const id of ['fullscreen', 'outline', 'search']) {
     await expect(root.locator(`.markian-toolbar > [data-command="${id}"]`)).toBeVisible();
     await expect(root.locator(`.markian-overflow [data-command="${id}"]`)).toHaveCount(0);
   }
+  expect(await root.locator('.markian-toolbar > [data-command]').evaluateAll(buttons => buttons.slice(-3).map(button => button.dataset.command))).toEqual(['search', 'outline', 'fullscreen']);
 });
 
 test('secondary toolbars share main control order and keep Back separate', async ({ page }) => {
@@ -447,7 +542,8 @@ test('secondary toolbars share main control order and keep Back separate', async
     await expect(toolbar.locator(':scope > :nth-child(2)')).toHaveAttribute('role', 'separator');
     await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(0);
     const commands = await toolbar.locator(':scope > [data-command]').evaluateAll(buttons => buttons.map(button => button.dataset.command));
-    expect(commands.slice(-2)).toEqual(['search', 'fullscreen']);
+    if (view === 'source') expect(commands.slice(-3)).toEqual(['search', 'outline', 'fullscreen']);
+    else expect(commands.slice(-2)).toEqual(['search', 'fullscreen']);
     if (view === 'code:expand') expect(commands.slice(0, 2)).toEqual(['code:undo', 'code:redo']);
     const search = await toolbar.locator('[data-command="search"]').boundingBox();
     const maximize = await toolbar.locator('[data-command="fullscreen"]').boundingBox();
@@ -1167,10 +1263,70 @@ test('image callbacks block saving until completion and reject stale results', a
   expect(result.current).toBe('New document');
 });
 
+test('outline sidebar defaults visible beside the document and supports hidden startup', async ({ page }) => {
+  await page.evaluate(() => {
+    editor.set('# Title\n\n## First section\n\nText.\n\n## Last section\n\nMore text.');
+    window.sidebarChanges = 0;
+    editor.on('change', () => sidebarChanges++);
+  });
+  const root = page.locator('[data-markian]').first();
+  const outline = root.getByRole('navigation', { name: 'Document outline' });
+  const assertBeside = async pane => {
+    const contentBox = await pane.boundingBox();
+    const outlineBox = await outline.boundingBox();
+    expect(contentBox.width).toBeGreaterThan(0);
+    expect(outlineBox.width).toBeGreaterThan(0);
+    expect(contentBox.x + contentBox.width).toBeLessThanOrEqual(outlineBox.x + 1);
+    expect(Math.abs(contentBox.y - outlineBox.y)).toBeLessThan(1);
+  };
+  await expect(outline).toBeVisible();
+  await expect(outline.getByRole('heading', { name: 'Outline', exact: true })).toBeVisible();
+  await expect(outline.getByRole('button').first()).toHaveCSS('line-height', 'normal');
+  await expect(outline.getByRole('button').first()).toHaveCSS('padding-top', '2px');
+  await expect(outline.getByRole('button').first()).toHaveCSS('padding-bottom', '2px');
+  expect((await outline.getByRole('button').first().boundingBox()).height).toBeLessThan(24);
+  await expect(root.locator('[data-command="outline"]').first()).toHaveAttribute('aria-pressed', 'true');
+  await assertBeside(root.locator('.markian-visual'));
+  const expandedWidth = (await root.locator('.markian-visual').boundingBox()).width;
+  await outline.getByRole('button', { name: 'Last section', exact: true }).click();
+  await expect(outline).toBeVisible();
+  await page.evaluate(() => editor.execute('outline'));
+  await expect(outline).toBeHidden();
+  expect((await root.locator('.markian-visual').boundingBox()).width).toBeGreaterThan(expandedWidth);
+  await page.evaluate(async () => { await editor.execute('outline'); editor.setMode('raw'); });
+  await assertBeside(root.locator('.markian-source'));
+  await page.evaluate(() => editor.execute('preview'));
+  await expect(outline).toBeHidden();
+  await page.evaluate(() => editor.back());
+  await expect(outline).toBeVisible();
+  await assertBeside(root.locator('.markian-source'));
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.height = '300px';
+    document.querySelector('main').append(host);
+    window.hiddenSidebarEditor = Markian.create(host, { markdown: '# Hidden\n\n## Section', sidebarVisible: false });
+    hiddenSidebarEditor.element.classList.add('hidden-sidebar-test');
+    await hiddenSidebarEditor.ready;
+  });
+  await expect(page.locator('.hidden-sidebar-test .markian-outline')).toBeHidden();
+  await expect(outline).toBeVisible();
+  await page.evaluate(() => hiddenSidebarEditor.execute('outline'));
+  await expect(page.locator('.hidden-sidebar-test .markian-outline')).toBeVisible();
+  expect(await page.evaluate(() => sidebarChanges)).toBe(0);
+  await page.screenshot({ path: '.test-results/outline-sidebar-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertBeside(root.locator('.markian-source'));
+  await page.screenshot({ path: '.test-results/outline-sidebar-mobile.png' });
+  expect(await page.evaluate(() => {
+    const host = document.createElement('div');
+    try { Markian.create(host, { markdown: '', sidebarVisible: 'yes' }); } catch (error) { return error.message; }
+  })).toContain('sidebarVisible must be a boolean');
+  await page.evaluate(() => hiddenSidebarEditor.destroy());
+});
+
 test('raw outline uses parsed Setext/ATX headings and its own scroller', async ({ page }) => {
   await page.evaluate(() => { editor.set('# Title\n\n' + Array(100).fill('paragraph\n').join('\n') + '\nSection\n-------\n\n## Last'); editor.setMode('raw'); });
   const root = page.locator('[data-markian]').first();
-  await page.evaluate(() => editor.execute('outline'));
   const outline = root.getByRole('navigation', { name: 'Document outline' });
   await expect(outline.getByRole('button')).toHaveCount(2);
   await outline.getByRole('button', { name: 'Last', exact: true }).click();

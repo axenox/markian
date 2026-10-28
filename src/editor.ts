@@ -9,6 +9,7 @@ import { defaultToolbar, validateToolbar } from './ui/toolbar';
 import { searchPanel, destinationPanel } from './ui/panels';
 import { installEditing } from './editing';
 import { StaticSearch } from './ui/static-search';
+import { loadStylesheets, stylesheetUrls } from './styles';
 import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
@@ -70,6 +71,7 @@ export class EditorInstance implements MarkianInstance {
   private imageRetry?: HTMLElement;
   private listeners = new Map<EventName, Set<(event: EditorEvent) => void>>();
   private cleanups: Disposer[] = [];
+  private cssUrls: string[];
   private lastValue: string;
   private commands = new Items<CommandDefinition>(() => this.refreshToolbar(), () => this.alive());
   private builtinToolbarIds = new Set<string>();
@@ -83,8 +85,9 @@ export class EditorInstance implements MarkianInstance {
 
   constructor(private host: HTMLElement, private options: EditorOptions, private factories: ReadonlyMap<string, ExtensionFactory>) {
     validateMarkdown(options.markdown);
+    this.cssUrls = stylesheetUrls(options, host.ownerDocument);
     for (const [name, callback] of Object.entries(options)) if (name.startsWith('on') && callback !== undefined && typeof callback !== 'function') throw new TypeError(`${name} must be a callback function.`);
-    for (const name of ['readOnly', 'disabled', 'softbreaks', 'allowTextColors'] as const) if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
+    for (const name of ['readOnly', 'disabled', 'softbreaks', 'allowTextColors', 'sidebarVisible'] as const) if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
     if (options.toolbar !== undefined) validateToolbar(options.toolbar);
     if (options.floatingToolbar !== undefined && (!Array.isArray(options.floatingToolbar) || options.floatingToolbar.some(id => typeof id !== 'string'))) throw new TypeError('floatingToolbar must be an array of command IDs.');
     if (options.textColors && (!Array.isArray(options.textColors) || options.textColors.length < 5 || options.textColors.length > 10 || options.textColors.some(color => typeof color !== 'string' || !/^#[a-f0-9]{6}$/i.test(color)) || new Set(options.textColors.map(color => color.toLowerCase())).size !== options.textColors.length)) throw new TypeError('Text colors require 5-10 unique hexadecimal #rrggbb swatches.');
@@ -99,6 +102,7 @@ export class EditorInstance implements MarkianInstance {
     const document = host.ownerDocument;
     this.element = document.createElement('section');
     this.element.className = 'markian';
+    this.element.classList.toggle('markian-outline-open', options.sidebarVisible ?? true);
     this.element.setAttribute('aria-label', options.label ?? 'Markdown editor');
     this.element.dataset.markian = '';
     this.toolbar = document.createElement('div');
@@ -288,6 +292,8 @@ export class EditorInstance implements MarkianInstance {
   private usable(): void { this.alive(); if (!this.initialized) throw new Error('Await editor.ready before using this operation.'); }
 
   private async initialize(): Promise<void> {
+    await loadStylesheets(this.element, this.cssUrls, this.lifetime.signal, dispose => this.cleanups.push(dispose));
+    this.alive();
     for (const [id, entry] of Object.entries(this.options.extensions ?? {})) {
       if (!entry || entry.enabled !== true) continue;
       const factory = this.factories.get(id);
@@ -324,7 +330,7 @@ export class EditorInstance implements MarkianInstance {
         if (!target) throw new Error('Only top-level code blocks support editing sessions.');
         this.openView(id, target);
       } } : undefined);
-    });
+    }, this.options.onImageResolve ? destination => this.options.onImageResolve!({ destination }) : undefined);
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
     this.initialized = true;
@@ -820,10 +826,10 @@ export class EditorInstance implements MarkianInstance {
       }
       const control = render(entry);
       if (!control) continue;
-      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
+      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search', 'outline'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
       this.toolbar.append(control);
     }
-    for (const id of ['search', 'fullscreen']) {
+    for (const id of ['search', 'outline', 'fullscreen']) {
       const control = this.toolbar.querySelector<HTMLElement>(`:scope > [data-command="${id}"]`);
       if (control) this.toolbar.append(control);
     }
@@ -1048,6 +1054,10 @@ export class EditorInstance implements MarkianInstance {
     if (this.frames.length || this.outlineRevision === this.revision && this.outline.childElementCount) return;
     this.outlineRevision = this.revision;
     this.outline.replaceChildren();
+    const title = this.host.ownerDocument.createElement('h2');
+    title.className = 'markian-outline-title';
+    title.textContent = 'Outline';
+    this.outline.append(title);
     this.outlineTargets = [];
     const entries = headings(this.get());
     const visualHeadings = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
@@ -1070,12 +1080,11 @@ export class EditorInstance implements MarkianInstance {
           this.visualElement.scrollTo({ top: rendered.offsetTop - this.visualElement.offsetTop, behavior: 'instant' });
           this.visual!.view.focus();
         }
-        this.element.classList.remove('markian-outline-open');
       });
       this.outline.append(button);
       this.outlineTargets.push({ button, rendered, line: entry.line });
     });
-    this.element.dataset.hasOutline = String(this.outline.childElementCount > 0);
+    this.element.dataset.hasOutline = String(this.outlineTargets.length > 0);
     this.updateCurrentSection();
   }
 
@@ -1099,7 +1108,7 @@ export class EditorInstance implements MarkianInstance {
     const add = (id: string, label: string, icon: string, mutates: boolean, views: string[], run: CommandDefinition['run']) => {
       this.commands.insert({ id, label, icon, mutates, views, run,
         enabled: id === 'undo' || id === 'redo' ? () => this.mode === 'raw' || (id === 'undo' ? undo : redo)(this.visual!.view.state) : undefined,
-        active: ['bold', 'italic', 'code'].includes(id) ? () => {
+        active: id === 'outline' ? () => this.element.classList.contains('markian-outline-open') : ['bold', 'italic', 'code'].includes(id) ? () => {
           if (this.activeView !== 'visual') return false;
           const state = this.visual!.view.state;
           const mark = state.schema.marks[{ bold: 'strong', italic: 'emphasis', code: 'inlineCode' }[id]!];
@@ -1167,7 +1176,7 @@ export class EditorInstance implements MarkianInstance {
     add('copy', 'Copy Markdown', 'copy', false, allViews, async () => { await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(this.get()); });
     add('fullscreen', 'Maximize', 'fullscreen', false, allViews, () => this.toggleFullscreen());
     add('search', 'Find and replace', 'search', false, allViews, () => this.openSearch());
-    add('outline', 'Document outline', 'outline', false, ['visual', 'raw'], () => { this.element.classList.toggle('markian-outline-open'); });
+    add('outline', 'Document outline', 'outline', false, ['visual', 'raw'], () => { this.element.classList.toggle('markian-outline-open'); this.resize(); });
     this.commands.insert({ id: 'link:open', label: 'Open link', icon: 'link', views: ['visual'],
       enabled: () => Boolean(this.visual!.view.state.selection.$from.marks().some(mark => mark.type.name === 'link')),
       run: async () => {
@@ -1184,9 +1193,13 @@ export class EditorInstance implements MarkianInstance {
       mount: ({ element }) => {
         element.classList.add('markian-document');
         element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors);
-        if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
+        for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';
-          if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);
+          if (!safeUrl(source, true)) continue;
+          const resolved = this.options.onImageResolve?.({ destination: source }) ?? source;
+          image.setAttribute('src', safeUrl(resolved, true)
+            ? this.options.documentBase ? new URL(resolved, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href : resolved
+            : '');
         }
         const disposers: Disposer[] = [];
         if (id === 'preview') for (const code of element.querySelectorAll('pre > code')) {

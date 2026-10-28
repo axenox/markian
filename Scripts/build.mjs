@@ -1,4 +1,5 @@
 import { build } from 'vite';
+import { copyFile } from 'node:fs/promises';
 
 for (const [entry, name, fileName, emptyOutDir] of [
   ['src/browser.ts', 'Markian', 'markian.min.js', true],
@@ -15,3 +16,4 @@ for (const [entry, name, fileName, emptyOutDir] of [
     },
   });
 }
+await copyFile('src/render/content.css', 'dist/markdown-github.css');

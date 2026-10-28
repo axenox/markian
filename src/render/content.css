@@ -1,3 +1,4 @@
+@scope ([data-markian-markdown-default]) {
 .markian-document { padding: 28px 36px; font-family: var(--markian-font, 'Segoe UI', sans-serif); font-size: 15px; line-height: 1.7; color: var(--markian-text, #262c2b); overflow-wrap: anywhere; letter-spacing: 0; }
 .markian-document > :first-child { margin-top: 0; }
 .markian-document h1 { font-size: 28px; line-height: 1.25; }
@@ -36,3 +37,7 @@
 .markian-document .contains-task-list { padding-left: 24px; }
 .markian-document .task-list-item { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
 .markian-document .task-list-item > input[type='checkbox'], .markian-document .task-list-item > p > input[type='checkbox'] { width: 16px; height: 16px; margin: 0 8px 0 -24px; vertical-align: -3px; accent-color: var(--markian-accent, #227761); }
+@container (max-width: 480px) {
+	.markian-document { padding: 18px; }
+}
+}

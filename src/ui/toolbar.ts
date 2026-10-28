@@ -9,8 +9,8 @@ export const defaultToolbar: readonly ToolbarEntry[] = [
   'code', 'codeblock', 'quotes', 'link', 'image', 'table', 'rule', 
   { id: 'insert-divider', separator: true },
   { id: 'modes', label: 'View mode', icon: 'preview', menu: ['visual', 'source', 'preview'] },
-  'outline', 'clear', 'copy', 'help',
-  { id: 'more', overflow: true }, 'search', 'fullscreen',
+  'clear', 'copy', 'help',
+  { id: 'more', overflow: true }, 'search', 'fullscreen', 'outline',
 ];
 
 export function validateToolbar(entries: readonly ToolbarEntry[], depth = 0, ids = new Set<string>()): void {

@@ -111,7 +111,10 @@ export interface ImageResult { destination: string; alt?: string; }
 export interface EditorOptions {
   markdown: string;
   initialMode?: Mode;
+  sidebarVisible?: boolean;
   theme?: Theme;
+  markdownCssUrls?: readonly string[];
+  themeCssUrls?: readonly string[];
   readOnly?: boolean;
   disabled?: boolean;
   softbreaks?: boolean;
@@ -122,6 +125,7 @@ export interface EditorOptions {
   documentBase?: string;
   allowTextColors?: boolean;
   textColors?: readonly string[];
+  onImageResolve?(context: { destination: string }): string;
   onLinkOpen?(context: ProviderContext & { destination: string }): void | Promise<void>;
   onLinkSuggest?(context: ProviderContext): readonly DestinationSuggestion[] | Promise<readonly DestinationSuggestion[]>;
   onImageSuggest?(context: ProviderContext): readonly DestinationSuggestion[] | Promise<readonly DestinationSuggestion[]>;

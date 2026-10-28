@@ -6,6 +6,7 @@
   "core": {
     "script": "markian.min.js",
     "stylesheet": "markian.css",
+    "markdownStylesheet": "markdown-github.css",
     "types": "types/index.d.ts"
   },
   "extensions": {
@@ -45,13 +46,17 @@
       "sha256": "5824f783b383ed69c5133059b3d28504446a7d91f77c422fa852947623359afa",
       "bytes": 55837
     },
+    "markdown-github.css": {
+      "sha256": "4332421799c0e9ab12bf44e60eb480c1b1611815cbc898e99248a914ea16e813",
+      "bytes": 3845
+    },
     "markian.css": {
-      "sha256": "90d520d2d4d49c629962c2148d23d8701deb6b511008f89f53f39a2b6a6ff51d",
-      "bytes": 13169
+      "sha256": "b6eafc1ff4b5ad8d3ebf9ac12f9e474bfa6ca2f2daef902644ce6f450673b8dd",
+      "bytes": 11434
     },
     "markian.min.js": {
-      "sha256": "196d23b8127c04ad03c4c5685c5389bf3d65b830ca26a3f8a25900733b268367",
-      "bytes": 908439
+      "sha256": "276430c41378570d911441b68dbcf4ad7f8b406de96bc5cf0d210fc5a9e7fccf",
+      "bytes": 910309
     },
     "THIRD_PARTY_NOTICES.txt": {
       "sha256": "faeea697f6486c46a940ed44b6eedd93cdd5c0c8c3aff9ee4639eae09f1aa6b5",
@@ -66,8 +71,8 @@
       "bytes": 355
     },
     "types/editor.d.ts": {
-      "sha256": "52a9a7f2deb00d8dc104064ee9e262cb8d35426defc2ba51ad9ea5b81d26d769",
-      "bytes": 3995
+      "sha256": "a66ee5b7b187d764b1306b6afa8fbda2e12418b34c54155738babb6fe9b23145",
+      "bytes": 4016
     },
     "types/engines/prose.d.ts": {
       "sha256": "ad2ef054a44f2c0a301dc8dbfbd50ee8f03f5ce21d55d568a59204419a496da9",
@@ -78,8 +83,8 @@
       "bytes": 678
     },
     "types/engines/visual.d.ts": {
-      "sha256": "bf981c96cea317ddf5141a423f22505fa8a93cc9394db6f0f6d9aa30b94ed6a9",
-      "bytes": 966
+      "sha256": "7feb366d52dbe4370bc6c9930a4a4a8bb9a370e5d8d8f8d2d7ed5c7d0634af24",
+      "bytes": 1014
     },
     "types/extensions/code.d.ts": {
       "sha256": "d63456d2f10a25cfc77059acd40246e8e62df17ded0a4ea51f324e385916e218",
@@ -109,9 +114,13 @@
       "sha256": "bcf1ddd07090e3b8d7bced045b2e62d573c65d9e2c534c29f2bba82508a1cf96",
       "bytes": 166
     },
+    "types/styles.d.ts": {
+      "sha256": "f4e70b2b60de9a8b2c6d4cc3a7183e61385704c9982d1baec5cd0fc5d0f4648b",
+      "bytes": 308
+    },
     "types/types.d.ts": {
-      "sha256": "94de6553a3c77271bce9d67d920a76b3bcad83e5bf6e5cdca5832f31b03d6db0",
-      "bytes": 6250
+      "sha256": "203fe208a8e206791f847fc14085e5decfe37e1913712923f29ce68998ba03be",
+      "bytes": 6435
     },
     "types/ui/controls.d.ts": {
       "sha256": "2237e2eab3d1de379a71d19cd7c06417e335a1beaa52b4a085622563e8b0e66a",

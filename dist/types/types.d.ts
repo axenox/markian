@@ -133,7 +133,10 @@ export interface ImageResult {
 export interface EditorOptions {
     markdown: string;
     initialMode?: Mode;
+    sidebarVisible?: boolean;
     theme?: Theme;
+    markdownCssUrls?: readonly string[];
+    themeCssUrls?: readonly string[];
     readOnly?: boolean;
     disabled?: boolean;
     softbreaks?: boolean;
@@ -144,6 +147,9 @@ export interface EditorOptions {
     documentBase?: string;
     allowTextColors?: boolean;
     textColors?: readonly string[];
+    onImageResolve?(context: {
+        destination: string;
+    }): string;
     onLinkOpen?(context: ProviderContext & {
         destination: string;
     }): void | Promise<void>;

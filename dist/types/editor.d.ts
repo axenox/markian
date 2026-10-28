@@ -47,6 +47,7 @@ export declare class EditorInstance implements MarkianInstance {
     private imageRetry?;
     private listeners;
     private cleanups;
+    private cssUrls;
     private lastValue;
     private commands;
     private builtinToolbarIds;
