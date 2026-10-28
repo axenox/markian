@@ -16,6 +16,8 @@ Open <http://127.0.0.1:5177/> for the [editor workspace](Examples/editor-workspa
 
 Consumers need only a static HTTP server and the prebuilt assets. No npm, Node.js, compiler, import map, remote fonts, or sibling Core package is required at runtime.
 
+The demo server serves prebuilt JavaScript and CSS unchanged, without Vite transforms or inline development source maps. Network sizes therefore reflect the actual distribution files. Production hosts can additionally enable gzip or Brotli compression for smaller transfers.
+
 ## Composer Installation
 
 Install directly from Git by adding the repository to your application's Composer configuration:

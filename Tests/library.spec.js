@@ -6,6 +6,14 @@ import { equivalentMarkdown } from '../src/render/markdown';
 const browserErrors = new WeakMap();
 const corpus = JSON.parse(readFileSync(new URL('./Fixtures/compatibility.json', import.meta.url), 'utf8'));
 
+test('prebuilt demo assets are served unchanged without development source maps', async ({ request }) => {
+  for (const asset of ['markian.min.js', 'markian.css', 'extensions/code.min.js', 'extensions/mermaid.min.js', 'extensions/mermaid.css']) {
+    const response = await request.get(`/dist/${asset}?asset-check`);
+    expect(response.ok()).toBe(true);
+    expect(await response.body()).toEqual(readFileSync(new URL(`../dist/${asset}`, import.meta.url)));
+  }
+});
+
 async function revealCommand(root, id) {
   const command = root.locator(`[data-command="${id}"]`).first();
   const menus = await command.evaluate(element => {
