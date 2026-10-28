@@ -2,6 +2,94 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { equivalentMarkdown, headings, renderMarkdown, safeUrl, validateMarkdown } from '../src/render/markdown';
 import { findMatches } from '../src/search';
+import { defaultToolbar, ToolbarItems, validateToolbar } from '../src/ui/toolbar';
+import type { ToolbarEntry } from '../src/types';
+
+test('toolbar containers validate types, alignment, nesting and legacy migration', () => {
+  assert.doesNotThrow(() => validateToolbar(defaultToolbar));
+  assert.doesNotThrow(() => validateToolbar([
+    { id: 'tools', type: 'menu', align: 'opposite', items: [
+      { id: 'section', type: 'group', items: ['copy', 'help'] },
+    ] },
+  ]));
+  const invalid = [
+    [{ id: 'tools', type: 'collapse', items: [] }],
+    [{ id: 'tools', type: 'group', align: 'right', items: [] }],
+    [{ id: 'tools', type: 'menu' }],
+    [{ id: 'tools', items: [] }],
+    [{ id: 'tools', type: 'group', command: 'copy', items: [] }],
+    [{ id: 'copy', align: 'opposite' }],
+    [{ id: 'tools', type: 'group', items: [{ id: 'nested', type: 'group', align: 'opposite', items: [] }] }],
+    [{ id: 'same', type: 'group', items: [{ id: 'same', command: 'copy' }] }],
+    [{ id: 'old', menu: ['copy'] }],
+    [{ id: 'old', separator: true }],
+    [{ id: 'old', overflow: true }],
+    [{ id: 'old', fixed: true }],
+  ];
+  for (const entries of invalid) assert.throws(() => validateToolbar(entries as unknown as ToolbarEntry[]), TypeError);
+});
+
+test('toolbar insertion uses explicit groups, local before IDs and the last default inline group', () => {
+  const original = JSON.stringify(defaultToolbar);
+  const toolbar = new ToolbarItems(() => defaultToolbar);
+  const childIds = (group: string) => {
+    const container = toolbar.layout().find(entry => typeof entry !== 'string' && entry.id === group);
+    return typeof container === 'object' ? container.items?.map(entry => typeof entry === 'string' ? entry : entry.id) : undefined;
+  };
+  const dispose = toolbar.insert({ id: 'diagram', command: 'help' }, 'insert', 'rule');
+  toolbar.insert({ id: 'last-insert', command: 'copy' }, 'insert');
+  toolbar.insert({ id: 'default-end', command: 'help' });
+  toolbar.insert({ id: 'default-before', command: 'help' }, undefined, 'copy');
+  assert.deepEqual(childIds('insert')?.slice(-3), ['diagram', 'rule', 'last-insert']);
+  assert.deepEqual(childIds('document')?.slice(-4), ['default-before', 'copy', 'help', 'default-end']);
+  assert.deepEqual(childIds('utilities'), ['search', 'fullscreen', 'outline']);
+  assert.throws(() => toolbar.insert({ id: 'wrong', command: 'help' }, 'history', 'rule'), /Unknown toolbar ordering target/);
+  assert.equal(toolbar.items().some(item => item.id === 'wrong'), false);
+  assert.throws(() => toolbar.insert({ id: 'diagram', command: 'help' }, 'insert'), /Duplicate/);
+  dispose();
+  dispose();
+  assert.equal(childIds('insert')?.includes('diagram'), false);
+  assert.equal(toolbar.items().some(item => item.id === 'diagram'), false);
+  assert.equal(JSON.stringify(defaultToolbar), original);
+});
+
+test('toolbar insertion resolves nested and registered containers without changing their definitions', () => {
+  const menu = { id: 'menu', type: 'menu', items: [{ id: 'section', type: 'group', items: ['copy'] }] } as const;
+  const base: ToolbarEntry[] = [
+    { id: 'first', type: 'group', items: ['help'] },
+    { id: 'last', type: 'group', align: 'default', items: ['copy'] },
+    'menu',
+    { id: 'right', type: 'group', align: 'opposite', items: ['fullscreen'] },
+  ];
+  const toolbar = new ToolbarItems(() => base);
+  toolbar.register(menu);
+  toolbar.insert({ id: 'nested', command: 'help' }, 'section');
+  toolbar.insert({ id: 'menu-end', command: 'help' }, 'menu');
+  toolbar.insert({ id: 'fallback', command: 'help' });
+  const layout = toolbar.layout();
+  const last = layout[1];
+  assert.deepEqual(typeof last === 'object' ? last.items : undefined, ['copy', { id: 'fallback', command: 'help' }]);
+  const projectedMenu = layout[2];
+  assert.deepEqual(typeof projectedMenu === 'object' ? projectedMenu.items : undefined, [
+    { id: 'section', type: 'group', items: ['copy', { id: 'nested', command: 'help' }] },
+    { id: 'menu-end', command: 'help' },
+  ]);
+  assert.deepEqual(menu.items, [{ id: 'section', type: 'group', items: ['copy'] }]);
+  assert.equal(base[2], 'menu');
+});
+
+test('explicit toolbar references retain their placement and absent groups stay opt-in', () => {
+  const toolbar = new ToolbarItems(() => [
+    { id: 'host', type: 'group', items: ['extension', 'help'] },
+  ]);
+  toolbar.insert({ id: 'extension', command: 'copy' }, 'insert', 'rule');
+  toolbar.insert({ id: 'available', command: 'copy' }, 'missing');
+  assert.equal(toolbar.items().length, 2);
+  assert.deepEqual(toolbar.layout(), [{ id: 'host', type: 'group', items: ['extension', 'help'] }]);
+  const floating = new ToolbarItems(() => []);
+  floating.insert({ id: 'available', command: 'copy' });
+  assert.deepEqual(floating.layout(), []);
+});
 
 test('ordinary GFM and unknown comments survive semantic comparison', () => {
   const source = '# Notes\n\n<!-- BEGIN sample -->\n\n3. Three\n4. Four\n\n<!-- END sample -->\n\n```mermaid\ngraph LR\n A-->B\n```\n';

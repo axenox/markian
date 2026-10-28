@@ -1,14 +1,14 @@
 import { closeHistory, setBlockType, wrapIn, wrapInList, liftListItem, sinkListItem, addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, setCellAttr, TextSelection } from './engines/prose';
 import type { Command, EditorView, ProseNode, Transaction } from './engines/prose';
 import type { SourceEditor } from './engines/source';
-import type { CommandDefinition, EditorOptions, MarkianInstance } from './types';
+import type { CommandDefinition, EditorOptions, MarkianInstance, ToolbarItem } from './types';
 import { defaultColors } from './render/colors';
 import { quoteMarker } from './render/markdown';
 
-export function installEditing(instance: MarkianInstance, visual: () => EditorView, raw: () => SourceEditor, options: EditorOptions, destination: (image: boolean) => void): void {
+export function installEditing(instance: MarkianInstance, visual: () => EditorView, raw: () => SourceEditor, options: EditorOptions, destination: (image: boolean) => void, registerToolbar: (item: ToolbarItem) => void): void {
   const add = (definition: CommandDefinition, pinned = false) => {
     instance.getCommands().insert(definition);
-    if (pinned) instance.getToolbar().insert({ id: definition.id, command: definition.id }, 'raw');
+    if (pinned) registerToolbar({ id: definition.id, command: definition.id });
   };
   const run = (command: Command) => {
     const view = visual();
@@ -44,7 +44,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       },
     });
     add({ id: 'colors', label: 'Text color', icon: 'color', views: ['visual', 'raw'], run: () => {} });
-    instance.getToolbar().insert({ id: 'colors', command: 'colors', menu: palette.map(color => `color:${color.toLowerCase()}`) }, 'raw');
+    instance.getToolbar().insert({ id: 'colors', type: 'menu', items: palette.map(color => `color:${color.toLowerCase()}`) }, 'format');
   }
   const sourceLines = (transform: (line: string) => string) => {
     const view = raw().view;
@@ -89,7 +89,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     },
   });
   add({ id: 'headings', label: 'Headings', icon: 'heading', views: ['visual', 'raw'], run: () => {} });
-  instance.getToolbar().insert({ id: 'headings', command: 'headings', menu: [1, 2, 3, 4, 5, 6].map(level => `heading:${level}`) }, 'raw');
+  registerToolbar({ id: 'headings', type: 'menu', items: [1, 2, 3, 4, 5, 6].map(level => `heading:${level}`) });
   add({ id: 'strike', label: 'Strikethrough', icon: 'strike', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') {
       const { from, to } = raw().view.state.selection.main;
@@ -203,7 +203,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     },
   });
   add({ id: 'quotes', label: 'Quote', icon: 'quote', views: ['visual', 'raw'], run: () => {} });
-  instance.getToolbar().insert({ id: 'quotes', command: 'quotes', menu: ['quote', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'] }, 'raw');
+  registerToolbar({ id: 'quotes', type: 'menu', items: ['quote', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'] });
   for (const image of [false, true]) add({ id: image ? 'image' : 'link', label: image ? 'Insert image' : 'Edit link', icon: image ? 'image' : 'link', views: ['visual', 'raw'], mutates: true, run: () => destination(image) }, true);
   add({ id: 'unlink', label: 'Remove link', icon: 'unlink', views: ['visual'], mutates: true, run: () => {
     const view = visual();
@@ -309,6 +309,6 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     };
     return command;
   });
-  instance.getToolbar().insert({ id: 'table', command: 'table', menu: ['table:insert', ...tableCommands.map(([id]) => `table:${id}`)] }, 'raw');
+  registerToolbar({ id: 'table', type: 'menu', items: ['table:insert', ...tableCommands.map(([id]) => `table:${id}`)] });
   if (options.documentBase) new URL(options.documentBase, instance.element.ownerDocument.baseURI);
 }

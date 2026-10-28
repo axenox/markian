@@ -101,7 +101,7 @@ does not disable the editor shell or its editing controls.
 
 Textarea hosts retain their name/form association. Values track active drafts synchronously; native form reset loads `defaultValue` and resets history. Pending/failed image insertion prevents native form submission until resolved or explicitly removed; submission is not automatically retried. Disabled editing does not change native textarea disabled/submission semantics.
 
-`getCommands()`, `getToolbar()`, `getViews()`, `getRenderers()`, `getHelp()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. Applications and extensions use the same methods. Help entries contain `{ id, markdown }`. `insertCodeBlock(value, language)` inserts one undoable fenced block at the visual selection and enforces permissions. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
+`getCommands()`, `getViews()`, `getRenderers()`, `getHelp()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. `getToolbar()` instead uses `insert(item, group?, beforeId?)` for group-local placement, described below. Applications and extensions use the same methods. Help entries contain `{ id, markdown }`. `insertCodeBlock(value, language)` inserts one undoable fenced block at the visual selection and enforces permissions. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
 
 ## Optional Code Slice
 
@@ -160,24 +160,27 @@ Controls include H1-H6, word-at-caret inline formatting, lists/tasks, indentatio
 
 Visual typing recognizes backtick-delimited inline code. You can also type two backticks, move Left between them, and type the content; Right Arrow or a closing backtick returns to ordinary text without invisible characters. Start a paragraph with three or more backticks or tildes, optionally followed by a language such as `javascript` or `c++`, and press Space or Enter to create a code block. Fences remain literal until submitted, and backticks inside existing code blocks remain literal.
 
-`toolbar` is an ordered layout of registered toolbar IDs, command IDs, or inline `ToolbarItem` objects. Existing string arrays remain supported, now in the supplied order. `menu` accepts the same entries recursively, so any available command can be placed in any group. Objects have a unique `id`, optional `label`/`icon`, and either a `command`, a `menu`, `separator: true`, or `overflow: true`. An overflow boundary keeps every following item pinned; `fixed: true` also pins an individual item. Without a boundary, More is inserted before Maximize/Search, which remain fixed. Unknown commands, recursive menus, and malformed layouts are rejected.
+`toolbar` is an ordered layout of registered toolbar IDs, command IDs, or inline `ToolbarItem` objects. Containers have a unique `id`, `type: 'group'` (inline) or `type: 'menu'` (dropdown), and recursive `items`. Top-level containers accept `align: 'default'` (left, the default) or `align: 'opposite'` (right, outside overflow). Order is preserved within each side. Separators come from nonempty group boundaries, not explicit items. More appears automatically before opposite containers, or at the end. No command is specially aligned by name. Bare string arrays remain supported. Unknown commands, recursive containers, and malformed layouts are rejected.
 
 ```javascript
 const editor = Markian.create(host, {
   markdown: '',
   toolbar: [
-    'undo', 'redo',
-    { id: 'divider', separator: true },
-    { id: 'format', label: 'Formatting', icon: 'bold', menu: [
+    { id: 'history', type: 'group', items: ['undo', 'redo'] },
+    { id: 'format', type: 'menu', label: 'Formatting', icon: 'bold', items: [
       'bold', 'italic', 'strike',
-      { id: 'insert', label: 'Insert', icon: 'image', menu: ['image', 'link'] },
+      { id: 'insert', type: 'menu', label: 'Insert', icon: 'image', items: ['image', 'link'] },
     ] },
-    { id: 'more', overflow: true }, 'fullscreen', 'search',
+    { id: 'utilities', type: 'group', align: 'opposite', items: ['fullscreen', 'search'] },
   ],
 });
 ```
 
-The [default layout](src/ui/toolbar.ts) groups headings, inline formatting, lists, and Visual/Source/Preview modes. The outline uses a right-sidebar icon; table actions use distinct row/column insertion/deletion icons. With the default layout, extra registry toolbar contributions are included before More. Explicit layouts place those contributions by ID. `floatingToolbar` independently selects command IDs; an empty pinned list enables a floating-only layout. `toolbarPlacement: 'bottom'` overrides desktop placement; compact containers use bottom controls by default. Table caret/touch controls share registered commands, while code expansion is code-caret-contextual. Custom commands can use `views: ['*']`, `enabled(instance)`, and `active(instance)`.
+The [default layout](src/ui/toolbar.ts) puts every item in history, formatting, insertion, document, or opposite-aligned utility groups. The outline uses a right-sidebar icon; table actions use distinct row/column insertion/deletion icons. Contributions use `editor.getToolbar().insert(item, group?, beforeId?)`. An explicit group ID targets that menu or inline group; omitting `beforeId` appends to it. Omitting the group uses the last top-level default-aligned inline group (`document` in the default layout), never a menu or opposite-aligned group. The optional `beforeId` must name a direct child of the target group. The returned function removes the owned registration and live placement without changing the configured arrays.
+
+For example, Mermaid registers its button with `editor.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'insert', 'rule')`. Its history and indentation controls likewise target named groups explicitly. Custom layouts can receive live additions to their own named groups. An existing reference to the item's ID takes precedence over automatic placement. If the requested group is absent, or no default inline group exists, the item remains registered but no group is created; a custom layout can opt in by referencing its ID. `floatingToolbar` independently selects command IDs; an empty pinned list enables a floating-only layout. `toolbarPlacement: 'bottom'` overrides desktop placement; compact containers use bottom controls by default. Table caret/touch controls share registered commands, while code expansion is code-caret-contextual. Custom commands can use `views: ['*']`, `enabled(instance)`, and `active(instance)`.
+
+For older configurations, replace `menu` with `type: 'menu'` and `items`, use inline groups instead of separator entries, and move fixed controls into an opposite-aligned group. The old `separator`, `overflow`, and `fixed` fields are rejected. A future responsive group type could collapse into a menu; only `menu` and `group` are implemented today.
 
 Menus and transient panels use the native Popover API in supported modern browsers. Submenus are separate flyouts, flip left when needed, and clamp to the viewport without creating nested scrollbars. Right/Left opens/closes nested menus; Home/End stays within the current menu. Link, Image/file, and Search panels point to their visible toolbar button with a speech-bubble tip. Commands invoked from More point to More after it closes; bottom toolbars open panels upward. Providers, focus, permission checks, and outside dismissal remain instance-local.
 

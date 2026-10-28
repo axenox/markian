@@ -636,6 +636,104 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
   expect(await endCommands()).toEqual(['search', 'fullscreen', 'outline']);
 });
 
+test('configured toolbar groups derive separators and align arbitrary controls outside overflow', async ({ page }, testInfo) => {
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Grouped toolbar',
+      toolbar: [
+        { id: 'right', type: 'group', align: 'opposite', items: ['copy', 'help'] },
+        { id: 'history', type: 'group', align: 'default', items: ['undo', 'redo'] },
+        { id: 'empty', type: 'group', items: [] },
+        { id: 'format', type: 'group', items: ['bold', 'italic', 'strike', 'code', 'indent', 'outdent', 'rule', 'image', 'link', 'clear'] },
+        { id: 'menu', type: 'menu', align: 'opposite', label: 'Tools', icon: 'more', items: [
+          { id: 'first', type: 'group', items: ['search'] },
+          { id: 'second', type: 'group', items: ['fullscreen'] },
+        ] },
+      ],
+    });
+    await editor.ready;
+  });
+  const root = page.locator('[data-markian]').first();
+  const toolbar = root.locator('.markian-toolbar');
+  await expect(toolbar.locator(':scope > [role="separator"]:not([hidden])')).toHaveCount(3);
+  await expect(toolbar.locator(':scope > :first-child')).toHaveAttribute('data-command', 'undo');
+  for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => editor.setTheme(theme), theme);
+    if (width === 390) await expect(toolbar.locator('.markian-overflow')).toBeVisible();
+    const copy = toolbar.locator(':scope > [data-command="copy"]');
+    const help = toolbar.locator(':scope > [data-command="help"]');
+    const tools = toolbar.locator(':scope > [data-toolbar-item="menu"]');
+    await expect(copy).toBeVisible();
+    await expect(help).toBeVisible();
+    await expect(tools).toBeVisible();
+    await expect(toolbar.locator('.markian-overflow [data-command="copy"], .markian-overflow [data-command="help"]')).toHaveCount(0);
+    const bounds = await toolbar.boundingBox();
+    const last = await tools.boundingBox();
+    expect(bounds.x + bounds.width - last.x - last.width).toBeLessThan(16);
+    expect((await help.boundingBox()).x).toBeGreaterThan((await copy.boundingBox()).x);
+    await tools.locator('summary').click();
+    await expect(tools.locator('[role="separator"]')).toHaveCount(1);
+    await tools.locator('[data-command="search"]').focus();
+    await page.keyboard.press('End');
+    await expect(tools.locator('[data-command="fullscreen"]')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(tools.locator('summary')).toBeFocused();
+    await root.screenshot({ path: testInfo.outputPath(`toolbar-groups-${width}.png`) });
+  }
+});
+
+test('default-aligned groups let utility commands overflow without an opposite group', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Default alignment',
+      toolbar: [
+        { id: 'format', type: 'group', items: ['bold', 'italic', 'strike', 'code', 'indent', 'outdent', 'rule', 'image', 'link'] },
+        { id: 'utilities', type: 'group', items: ['search', 'fullscreen'] },
+      ],
+    });
+    await editor.ready;
+  });
+  const toolbar = page.locator('[data-markian]').first().locator('.markian-toolbar');
+  await expect(toolbar.locator(':scope > [data-command="search"], :scope > [data-command="fullscreen"]')).toHaveCount(0);
+  await expect(toolbar.locator(':scope > .markian-overflow')).toBeVisible();
+  await toolbar.locator('.markian-overflow > summary').click();
+  for (const command of ['search', 'fullscreen']) await expect(toolbar.locator(`.markian-overflow [data-command="${command}"]`)).toBeVisible();
+  await expect(toolbar.locator('.markian-overflow .markian-menu-items > :last-child')).toHaveAttribute('data-command', 'fullscreen');
+});
+
+test('toolbar insertion targets named groups with local ordering and removable ownership', async ({ page }) => {
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Live toolbar placement',
+      toolbar: [
+        { id: 'first', type: 'group', items: ['bold', 'italic'] },
+        { id: 'last', type: 'group', items: ['strike'] },
+        { id: 'right', type: 'group', align: 'opposite', items: ['fullscreen'] },
+      ],
+    });
+    await editor.ready;
+    window.toolbarCleanup = [
+      editor.getToolbar().insert({ id: 'custom:copy', command: 'copy', label: 'Group copy' }, 'first', 'italic'),
+      editor.getToolbar().insert({ id: 'custom:help', command: 'help', label: 'Group help' }, 'first'),
+      editor.getToolbar().insert({ id: 'custom:search', command: 'search', label: 'Default search' }),
+      editor.getToolbar().insert({ id: 'custom:clear', command: 'clear', label: 'Default before' }, undefined, 'strike'),
+    ];
+  });
+  const root = page.locator('[data-markian]').first();
+  const labels = () => root.locator('.markian-toolbar > button').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')));
+  expect(await labels()).toEqual(['Bold', 'Group copy', 'Italic', 'Group help', 'Default before', 'Strikethrough', 'Default search', 'Maximize']);
+  await root.getByRole('button', { name: 'Group help', exact: true }).click();
+  await expect(root).toHaveAttribute('data-view', 'help');
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.evaluate(() => { window.toolbarCleanup.reverse().forEach(dispose => dispose()); });
+  expect(await labels()).toEqual(['Bold', 'Italic', 'Strikethrough', 'Maximize']);
+});
+
 test('secondary toolbars share main control order and keep Back separate', async ({ page }) => {
   const root = page.locator('[data-markian]').first();
   const toolbar = root.locator('.markian-toolbar');
@@ -698,9 +796,9 @@ test('recursive configured menus use independent bounded flyouts without expandi
     editor.destroy();
     window.editor = Markian.create(document.querySelector('#editor'), {
       markdown: 'Configurable',
-      toolbar: [{ id: 'tools', label: 'Tools', icon: 'more', menu: [
-        'image', { id: 'nested', label: 'Nested', icon: 'table', menu: ['table:insert', 'link', 'help'] },
-      ] }, { id: 'boundary', overflow: true }, 'fullscreen', 'search'],
+      toolbar: [{ id: 'tools', type: 'menu', label: 'Tools', icon: 'more', items: [
+        'image', { id: 'nested', type: 'menu', label: 'Nested', icon: 'table', items: ['table:insert', 'link', 'help'] },
+      ] }, { id: 'utilities', type: 'group', align: 'opposite', items: ['fullscreen', 'search'] }],
     });
     await editor.ready;
   });
@@ -775,7 +873,7 @@ for (const width of [1440, 390]) for (const theme of ['light', 'dark']) test(`pa
     editor.destroy();
     window.editor = Markian.create(document.querySelector('#editor'), {
       markdown: 'Panel anchors', theme,
-      toolbar: ['image', 'link', { id: 'boundary', overflow: true }, 'fullscreen', 'search'],
+      toolbar: [{ id: 'insert', type: 'group', items: ['image', 'link'] }, { id: 'utilities', type: 'group', align: 'opposite', items: ['fullscreen', 'search'] }],
     });
     await editor.ready;
   }, theme);

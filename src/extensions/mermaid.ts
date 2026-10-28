@@ -237,10 +237,10 @@ export const mermaidExtension: ExtensionFactory = () => ({
       }, focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value) }));
       disposers.push(instance.getRenderers().insert({ id: 'mermaid', language: 'mermaid', visual: true, render: (code, element, context) => preview(() => code, element, context ? () => context.open('mermaid') : undefined) }));
       disposers.push(instance.getCommands().insert({ id: 'mermaid:insert', label: 'Insert diagram', icon: 'diagram', views: ['visual'], mutates: true, run: () => instance.insertCodeBlock('flowchart LR\n  A[Start] --> B[Finish]', 'mermaid') }));
-      disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'rule'));
+      disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'insert', 'rule'));
       for (const id of ['undo', 'redo', 'indent', 'outdent'] as const) {
         disposers.push(instance.getCommands().insert({ id: `mermaid:${id}`, label: { undo: 'Undo', redo: 'Redo', indent: 'Indent', outdent: 'Outdent' }[id], icon: id, mutates: true, views: ['mermaid'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
-        disposers.push(instance.getToolbar().insert({ id: `mermaid:${id}`, command: `mermaid:${id}` }, 'raw'));
+        disposers.push(instance.getToolbar().insert({ id: `mermaid:${id}`, command: `mermaid:${id}` }, id === 'undo' || id === 'redo' ? 'history' : 'format', id));
       }
       disposers.push(instance.getHelp().insert({ id: 'mermaid', markdown: '\n## Mermaid diagrams\n\nUse Insert diagram or Edit diagram to open the code/preview workspace. Back applies the draft as one document edit. Source drafts are included in saved Markdown before Back. Undo/redo and indentation affect the diagram session. Press Escape then Tab to leave source Tab handling. Diagram arrow keys pan, plus/minus zoom, and Home resets; pointer dragging and zoom buttons also work when read-only. Syntax errors retain the ordinary Mermaid fence.\n' }));
     } catch (error) { observer.disconnect(); disposers.reverse().forEach(dispose => dispose()); throw error; }

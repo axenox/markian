@@ -5,7 +5,7 @@ import { redo, undo, closeHistory, toggleMark, setBlockType, TextSelection } fro
 import { parseMarkdown, renderMarkdown, validateMarkdown, safeUrl, headings } from './render/markdown';
 import { findMatches } from './search';
 import { commandButton } from './ui/controls';
-import { defaultToolbar, validateToolbar } from './ui/toolbar';
+import { defaultToolbar, ToolbarItems, validateToolbar } from './ui/toolbar';
 import { searchPanel, destinationPanel } from './ui/panels';
 import { installEditing } from './editing';
 import { StaticSearch } from './ui/static-search';
@@ -74,8 +74,7 @@ export class EditorInstance implements MarkianInstance {
   private cssUrls: readonly string[];
   private lastValue: string;
   private commands = new Items<CommandDefinition>(() => this.refreshToolbar(), () => this.alive());
-  private builtinToolbarIds = new Set<string>();
-  private toolbarItems = new Items<ToolbarItem>(() => this.refreshToolbar(), () => this.alive());
+  private toolbarItems = new ToolbarItems(() => this.options.toolbar ?? defaultToolbar, () => this.refreshToolbar(), () => this.alive());
   private views = new Items<ViewDefinition>(() => {}, () => this.alive());
   private renderers = new Items<RendererDefinition>(() => {}, () => this.alive());
   private structures = new Items<StructuralNode>(() => {}, () => {
@@ -137,7 +136,6 @@ export class EditorInstance implements MarkianInstance {
     host.hidden = true;
     this.setTheme(options.theme ?? 'light');
     this.installCommands();
-    this.builtinToolbarIds = new Set(this.toolbarItems.items().map(item => item.id));
     this.listen(this.element, 'focusin', () => this.emit('focus', 'user'));
     this.listen(this.element, 'focusout', event => {
       if (!this.element.contains((event as FocusEvent).relatedTarget as Node | null)) this.emit('blur', 'user');
@@ -310,10 +308,10 @@ export class EditorInstance implements MarkianInstance {
         const item = typeof entry === 'string' ? this.toolbarItems.items().find(item => item.id === entry) ?? { id: entry, command: entry } : entry;
         if (path.includes(item.id)) throw new Error(`Recursive toolbar menu: ${item.id}`);
         if (item.command && !this.commands.items().some(command => command.id === item.command)) throw new Error(`Unknown toolbar command: ${item.command}`);
-        if (item.menu) checkToolbar(item.menu, [...path, item.id]);
+        if (item.items) checkToolbar(item.items, [...path, item.id]);
       }
     };
-    checkToolbar(this.options.toolbar ?? defaultToolbar);
+    checkToolbar(this.toolbarItems.layout());
     for (const id of this.options.floatingToolbar ?? []) if (!this.commands.items().some(item => item.id === id)) throw new Error(`Unknown floating command: ${id}`);
     const visual = await createVisual(this.visualElement, this.structures.items(), () => this.readOnly, value => {
       this.source = value;
@@ -744,37 +742,40 @@ export class EditorInstance implements MarkianInstance {
       this.toolbar.append(back, divider);
     }
     const registered = this.toolbarItems.items();
-    const entries = [...(this.options.toolbar ?? defaultToolbar)];
-    if (!this.options.toolbar) {
-      const extras = registered.filter(item => !this.builtinToolbarIds.has(item.id) || item.id === 'colors');
-      for (const extra of extras) {
-        const command = this.commands.items().find(candidate => candidate.id === extra.command);
-        const history = command?.icon === 'undo' || command?.icon === 'redo' ? entries.indexOf(command.icon) : -1;
-        const following = registered.slice(registered.indexOf(extra) + 1).find(item => entries.some(entry => (typeof entry === 'string' ? entry : entry.id) === item.id));
-        const ordered = following ? entries.findIndex(entry => (typeof entry === 'string' ? entry : entry.id) === following.id) : -1;
-        const boundary = entries.findIndex(entry => typeof entry !== 'string' && entry.overflow);
-        entries.splice(history >= 0 ? history : ordered >= 0 ? ordered : boundary < 0 ? entries.length : boundary, 0, extra);
+    const entries = this.toolbarItems.layout();
+    const separator = () => {
+      const divider = this.host.ownerDocument.createElement('span');
+      divider.className = 'markian-separator';
+      divider.setAttribute('role', 'separator');
+      divider.setAttribute('aria-orientation', 'vertical');
+      return divider;
+    };
+    const renderEntries = (items: readonly ToolbarEntry[]): HTMLElement[] => {
+      const controls: HTMLElement[] = [];
+      let previousGroup = false;
+      for (const entry of items) {
+        const item = typeof entry === 'string' ? registered.find(candidate => candidate.id === entry) : entry;
+        const group = item?.type === 'group';
+        const children = group ? renderEntries(item.items ?? []) : [render(entry)].filter((control): control is HTMLElement => control !== null);
+        if (!children.length) continue;
+        if (controls.length && (group || previousGroup)) controls.push(separator());
+        controls.push(...children);
+        previousGroup = group;
       }
-    }
+      return controls;
+    };
     const render = (entry: ToolbarEntry): HTMLElement | null => {
       const item = typeof entry === 'string' ? registered.find(candidate => candidate.id === entry) ?? { id: entry, command: entry } : entry;
       if (hasBack && item.id === 'modes') return null;
-      if (item.separator) {
-        const divider = this.host.ownerDocument.createElement('span');
-        divider.className = 'markian-separator';
-        divider.setAttribute('role', 'separator');
-        divider.setAttribute('aria-orientation', 'vertical');
-        return divider;
-      }
-      const command = this.commands.items().find(candidate => candidate.id === item.command);
-      if (command && !command.views.includes('*') && !command.views.includes(this.activeView) && !item.menu) return null;
-      if (!command && !item.menu) {
+      const command = this.commands.items().find(candidate => candidate.id === (item.command ?? item.id));
+      if (command && !command.views.includes('*') && !command.views.includes(this.activeView) && !item.items) return null;
+      if (!command && !item.items) {
         if (this.initialized) throw new Error(`Unknown toolbar command: ${item.command ?? item.id}`);
         return null;
       }
-      if (item.menu) {
-        const children = item.menu.map(render).filter((child): child is HTMLElement => child !== null);
-        if (!children.some(child => !child.classList.contains('markian-separator'))) return null;
+      if (item.type === 'menu') {
+        const children = renderEntries(item.items ?? []);
+        if (!children.length) return null;
         const label = item.label ?? command?.label ?? item.id;
         const menu = this.host.ownerDocument.createElement('details');
         menu.className = 'markian-menu';
@@ -816,20 +817,19 @@ export class EditorInstance implements MarkianInstance {
       }
       return button;
     };
-    let fixed = false;
-    for (const entry of entries) {
-      if (typeof entry !== 'string' && entry.overflow) {
-        fixed = true;
-        const marker = this.host.ownerDocument.createElement('span');
-        marker.dataset.overflowBoundary = '';
-        marker.hidden = true;
-        this.toolbar.append(marker);
-        continue;
-      }
-      const control = render(entry);
-      if (!control) continue;
-      if (fixed || typeof entry !== 'string' && entry.fixed || ['fullscreen', 'search'].includes(control.dataset.command ?? '')) control.dataset.fixed = 'true';
-      this.toolbar.append(control);
+    const opposite = entries.filter(entry => typeof entry !== 'string' && entry.align === 'opposite');
+    this.toolbar.append(...renderEntries(entries.filter(entry => !opposite.includes(entry))));
+    const oppositeControls = renderEntries(opposite);
+    if (oppositeControls.length) {
+      const marker = this.host.ownerDocument.createElement('span');
+      marker.dataset.overflowBoundary = '';
+      marker.hidden = true;
+      this.toolbar.append(marker);
+      const divider = this.toolbar.children.length > 1 ? separator() : null;
+      const controls = divider ? [divider, ...oppositeControls] : oppositeControls;
+      controls[0].dataset.oppositeStart = '';
+      for (const control of controls) control.dataset.fixed = 'true';
+      this.toolbar.append(...controls);
     }
     this.layoutToolbar();
     this.positionPanels();
@@ -902,8 +902,7 @@ export class EditorInstance implements MarkianInstance {
     const boundary = this.toolbar.querySelector<HTMLElement>('[data-overflow-boundary]');
     const width = (control: HTMLElement) => {
       const style = this.host.ownerDocument.defaultView!.getComputedStyle(control);
-      const endControl = ['search', 'fullscreen'].includes(control.dataset.command ?? '');
-      return control.getBoundingClientRect().width + (endControl ? 0 : parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0) + 2;
+      return control.getBoundingClientRect().width + (control.dataset.oppositeStart !== undefined ? 0 : parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0) + 2;
     };
     const budget = available - 16;
     if (controls.reduce((total, control) => total + width(control), 0) <= budget) { this.trimSeparators(this.toolbar); return; }
@@ -926,7 +925,7 @@ export class EditorInstance implements MarkianInstance {
     }
     overflow.append(summary, choices);
     this.installMenu(overflow);
-    this.toolbar.insertBefore(overflow, boundary ?? fixed.find(control => control.dataset.command === 'fullscreen') ?? null);
+    this.toolbar.insertBefore(overflow, boundary ?? null);
     this.trimSeparators(this.toolbar);
     this.trimSeparators(choices);
   }
@@ -1120,7 +1119,7 @@ export class EditorInstance implements MarkianInstance {
           return state.selection.empty ? Boolean(mark.isInSet(state.storedMarks ?? state.selection.$from.marks())) : state.doc.rangeHasMark(state.selection.from, state.selection.to, mark);
         } : undefined,
       });
-      this.toolbarItems.insert({ id, command: id });
+      this.toolbarItems.register({ id, command: id });
     };
     for (const id of ['undo', 'redo']) add(id, id === 'undo' ? 'Undo' : 'Redo', id, true, ['visual', 'raw'], () => {
       if (this.mode === 'raw') this.raw![id as 'undo' | 'redo']();
@@ -1191,8 +1190,8 @@ export class EditorInstance implements MarkianInstance {
         else this.host.ownerDocument.defaultView?.open(new URL(destination, this.options.documentBase ? new URL(this.options.documentBase, this.host.ownerDocument.baseURI) : this.host.ownerDocument.baseURI).href, '_blank', 'noopener,noreferrer');
       },
     });
-    this.toolbarItems.insert({ id: 'link:open', command: 'link:open' }, 'raw');
-    installEditing(this, () => this.visual!.view, () => this.raw!, this.options, image => this.openDestination(image));
+    this.toolbarItems.register({ id: 'link:open', command: 'link:open' });
+    installEditing(this, () => this.visual!.view, () => this.raw!, this.options, image => this.openDestination(image), item => this.toolbarItems.register(item));
     for (const id of ['help', 'preview']) this.views.insert({
       id,
       mount: ({ element }) => {

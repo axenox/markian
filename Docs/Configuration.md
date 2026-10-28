@@ -77,34 +77,87 @@ This is the built-in layout used when `toolbar` is omitted:
 
 ```json
 [
-  "undo", "redo", { "id": "history-divider", "separator": true },
-  "headings",
-  { "id": "formatting", "label": "Formatting", "icon": "bold", "menu": ["bold", "italic", "strike"] },
-  { "id": "lists", "label": "Lists", "icon": "lists", "menu": ["ordered", "bullet", "task"] },
-  "indent", "outdent", { "id": "format-divider", "separator": true },
-  "code", "codeblock", "quotes", "link", "image", "table", "rule",
-  { "id": "insert-divider", "separator": true },
-  { "id": "modes", "label": "View mode", "icon": "preview", "menu": ["visual", "source", "preview"] },
-  "clear", "copy", "help",
-  { "id": "more", "overflow": true }, "search", "fullscreen", "outline"
+  { "id": "history", "type": "group", "items": ["undo", "redo"] },
+  { "id": "format", "type": "group", "items": [
+    "headings",
+    { "id": "formatting", "type": "menu", "label": "Formatting", "icon": "bold", "items": ["bold", "italic", "strike"] },
+    { "id": "lists", "type": "menu", "label": "Lists", "icon": "lists", "items": ["ordered", "bullet", "task"] },
+    "indent", "outdent"
+  ] },
+  { "id": "insert", "type": "group", "items": ["code", "codeblock", "quotes", "link", "image", "table", "rule"] },
+  { "id": "document", "type": "group", "items": [
+    { "id": "modes", "type": "menu", "label": "View mode", "icon": "preview", "items": ["visual", "source", "preview"] },
+    "clear", "copy", "help"
+  ] },
+  { "id": "utilities", "type": "group", "align": "opposite", "items": ["search", "fullscreen", "outline"] }
 ]
 ```
 
 A string selects a registered toolbar item or command. An object supports every
-field below. Menus are recursive, with at most eight submenu levels and 200
-entries per array. The overflow boundary is top-level and unique. Items after it
-stay pinned in declaration order. Search and Fullscreen are also kept pinned.
+field below. Both container types use `items`, with at most eight nesting levels
+and 200 entries per array. A `group` presents its items inline; a `menu` presents
+them behind a disclosure button. Separators are generated at nonempty group
+boundaries, including grouped sections inside menus. Empty or view-inapplicable
+groups produce no separators. Bare command entries remain supported as shorthand.
+
+Top-level containers accept `align`. Default-aligned containers appear on the left;
+opposite-aligned containers appear on the right, retaining declaration order within
+each side. Opposite containers stay outside More; other controls overflow in order
+when space is insufficient. More is automatic and appears before the opposite
+containers, or at the end when none are configured. No command receives special
+alignment or pinning based on its name. Nested alignment is rejected.
+
+Migration: replace `menu: [...]` with `type: 'menu', items: [...]`, wrap inline
+sections in `type: 'group', items: [...]`, and collect formerly fixed controls in
+an `align: 'opposite'` container. Remove explicit `separator`, `overflow`, and
+`fixed` entries/properties; these legacy fields are rejected. Only `menu` and
+`group` are implemented types. Responsive collapsing containers remain a possible
+future type, not a current option.
 
 | Option | Default | Behavior |
 | --- | --- | --- |
 | `toolbar[].id` | Required | Unique nonempty item ID. |
-| `toolbar[].command` | Item ID | Command to execute when no separate command is specified. |
+| `toolbar[].command` | Item ID | Command to execute for a leaf item; containers cannot specify it. |
 | `toolbar[].label` | Command label | Accessible/menu label override. |
 | `toolbar[].icon` | Command icon | Registered icon ID override. |
-| `toolbar[].menu` | Unset | Array of strings or nested toolbar objects. |
-| `toolbar[].separator` | `false` | Render a separator instead of a command; cannot also contain a command or menu. |
-| `toolbar[].overflow` | `false` | Define the top-level overflow boundary; cannot also contain a command or menu. |
-| `toolbar[].fixed` | `false` | Keep this item outside the overflow menu. |
+| `toolbar[].type` | Unset (command item) | `'menu'` for a disclosure or `'group'` for inline items. Required for containers. |
+| `toolbar[].items` | Unset | Required array of strings or nested toolbar objects for either container type. |
+| `toolbar[].align` | `'default'` | Top-level containers only: `'default'` (left, overflowable) or `'opposite'` (right, pinned). |
+
+### Live Toolbar Insertion
+
+Hosts and extensions use the same `editor.getToolbar().insert(item, group?, beforeId?)`
+method. This returns an idempotent disposer and does not edit the configured arrays.
+Other registries retain their separate `insert(item, beforeId?)` signature.
+
+```javascript
+const remove = editor.getToolbar().insert(
+  { id: 'custom:help', command: 'help' },
+  'insert',
+  'rule'
+);
+// Later, remove only this registration and its placement.
+remove();
+```
+
+| Argument | Default | Behavior |
+| --- | --- | --- |
+| `item` | Required | Toolbar item definition with a unique registration ID. |
+| `group` | Last top-level default-aligned inline group | Named menu or inline group receiving the item. The default layout falls back to `document`; omitted `align` means `'default'`. Menus and opposite-aligned groups are excluded from fallback selection. |
+| `beforeId` | Append | ID of a direct child in the target container. An ID from another group is rejected. Pass `undefined` as the second argument to use the default group with an explicit ordering target. |
+
+Append calls retain insertion order. Existing references to an item's ID in a host
+layout retain their configured placement instead of being duplicated or moved.
+If the group is absent, the item remains registered but no container is created;
+this keeps custom and floating-only layouts authoritative. A custom layout may
+include that registered ID explicitly. Named groups that do exist in a custom
+layout receive live additions normally. Removing an addition removes only its
+owned registration/placement; it does not restore an old copy of the layout.
+
+Mermaid uses the `insert` group before `rule`. Code and Mermaid history controls
+target `history` before `undo`/`redo`; Mermaid indentation controls target `format`
+before `indent`/`outdent`. Positioning is explicit, not inferred from icons or
+the order of unrelated registry entries.
 
 ## Bundled Extensions
 

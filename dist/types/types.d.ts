@@ -33,10 +33,9 @@ export interface ToolbarItem {
     command?: string;
     label?: string;
     icon?: string;
-    menu?: readonly ToolbarEntry[];
-    separator?: boolean;
-    overflow?: boolean;
-    fixed?: boolean;
+    type?: 'menu' | 'group';
+    items?: readonly ToolbarEntry[];
+    align?: 'default' | 'opposite';
 }
 export interface SearchOptions {
     query: string;
@@ -52,6 +51,10 @@ export interface Registry<T extends {
 }> {
     insert(item: T, before?: string): Disposer;
     items(): readonly T[];
+}
+export interface ToolbarRegistry {
+    insert(item: ToolbarItem, group?: string, beforeId?: string): Disposer;
+    items(): readonly ToolbarItem[];
 }
 export interface StructuralNode {
     id: string;
@@ -183,7 +186,7 @@ export interface MarkianInstance {
     setDisabled(value: boolean): void;
     on(event: EventName, callback: (event: EditorEvent) => void): Disposer;
     getCommands(): Registry<CommandDefinition>;
-    getToolbar(): Registry<ToolbarItem>;
+    getToolbar(): ToolbarRegistry;
     getViews(): Registry<ViewDefinition>;
     getRenderers(): Registry<RendererDefinition>;
     getSchema(): Registry<StructuralNode>;

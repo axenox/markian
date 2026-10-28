@@ -35,28 +35,28 @@
   },
   "assets": {
     "extensions/code.min.js": {
-      "sha256": "6887df2d5e947499103fa81301471c3561d3fd065574fc01fb92d4546c25eabe",
-      "bytes": 1206
+      "sha256": "a879e054696092cf4aa2692ffa0c423d6ef4c6c998f4cd25bccea1935c2bdcdd",
+      "bytes": 1212
     },
     "extensions/mermaid.css": {
       "sha256": "e9c00992e24af57b7bda1c70078266e6daef6ed183d6c65903c0b2a859a8d768",
       "bytes": 3142
     },
     "extensions/mermaid.min.js": {
-      "sha256": "90f44c54bcf4ed461e0772cbe8c7fba89379d691cdc0472450c8953a4f8823a6",
-      "bytes": 56117
+      "sha256": "93395dfe6ac4e9027cb277cf2d8f2d079f9d336460c1b3d11d997bdecedc39d9",
+      "bytes": 56164
     },
     "markdown-github.css": {
       "sha256": "4332421799c0e9ab12bf44e60eb480c1b1611815cbc898e99248a914ea16e813",
       "bytes": 3845
     },
     "markian.css": {
-      "sha256": "575541068270e8a4bf4867f644574d30a730c0de00304a90e18286bb2b8f019c",
-      "bytes": 11675
+      "sha256": "716c7f46d1cec714b2808f19fe734da0f2a4da0ea3d0fa0d108aa89d505bbdc6",
+      "bytes": 11495
     },
     "markian.min.js": {
-      "sha256": "49896e94eaca5775fea1d28a988fc780c40b5a8332e7e052094fe50be53b29c8",
-      "bytes": 911046
+      "sha256": "27d1cbadd9a11159c9786b198fd35af673b6beed7a042e02fb5f2c5b87542ba8",
+      "bytes": 912380
     },
     "THIRD_PARTY_NOTICES.txt": {
       "sha256": "faeea697f6486c46a940ed44b6eedd93cdd5c0c8c3aff9ee4639eae09f1aa6b5",
@@ -67,12 +67,12 @@
       "bytes": 84
     },
     "types/editing.d.ts": {
-      "sha256": "419b0995bd673496d7c05b8e1cdff7acb0fb6fd15b67019bfd808c8ce5b22c5e",
-      "bytes": 355
+      "sha256": "a821ea73693ae4631ce6a8b72df3bec26d6f5913c457feb3561048e3795fcaf3",
+      "bytes": 414
     },
     "types/editor.d.ts": {
-      "sha256": "a66ee5b7b187d764b1306b6afa8fbda2e12418b34c54155738babb6fe9b23145",
-      "bytes": 4016
+      "sha256": "4a0dfe1bfb8a39652ba0afeb7d0ee0eb10974ed82ae1d07ec71159b61059db17",
+      "bytes": 4011
     },
     "types/engines/prose.d.ts": {
       "sha256": "ad2ef054a44f2c0a301dc8dbfbd50ee8f03f5ce21d55d568a59204419a496da9",
@@ -119,8 +119,8 @@
       "bytes": 308
     },
     "types/types.d.ts": {
-      "sha256": "0ffa2ed91f4b403ba7a3a1a7cd32e38a88596da56b24342ecc185f9b1e6f916b",
-      "bytes": 6359
+      "sha256": "776f1e048a8e6a1315f6364683d9f4a6f0cea739de10ff00e5bac60275e8847d",
+      "bytes": 6499
     },
     "types/ui/controls.d.ts": {
       "sha256": "2237e2eab3d1de379a71d19cd7c06417e335a1beaa52b4a085622563e8b0e66a",
@@ -135,8 +135,8 @@
       "bytes": 327
     },
     "types/ui/toolbar.d.ts": {
-      "sha256": "14377b16e416d0f873117d1c67b5123bbb68af14f459866561ed6e474049d1bf",
-      "bytes": 224
+      "sha256": "5d6a75f9204973ff8c6b36d05de4ff3be4bb0a22d61fe8c7b70e07b8e37d8d26",
+      "bytes": 746
     }
   }
 }

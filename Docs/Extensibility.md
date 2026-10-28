@@ -253,21 +253,26 @@ This boundary is public API versus private internals, not imperative calls versu
 
 An extension-added view owns main-work-area presentation and its toolbar actions, not a separate editor value. The editor retains the complete Markdown document; editing sessions modify that document or a target such as one code block. A view may use such a session or modify nothing, as Help does. Switching to Help preserves the suspended session's draft, selection, and history, while `get()` still includes its pending edits in the complete document. Back restores that presentation without committing; leaving the block editor through its own Back action applies the block update. Use dedicated views for substantial tasks rather than large dialogs, expose only actions supported by the visible task, and follow the [shared view conventions](Styleguide.md#views). These rules apply equally to host-created and extension-created views.
 
-Conceptual extension initialization, assuming its command has already been registered through the public API; exact method signatures remain to be finalized:
+Current toolbar insertion, assuming its command has already been registered through the public API (the other proposed APIs in this guide retain their stated status):
 
 ```javascript
 const extension = {
   init(markian) {
-    const toolbarItem = markian.getToolbar().insert({
-      id: 'mermaid.insert',
-      command: 'mermaid.insert',
-      before: 'fullscreen',
-    });
+    const removeToolbarItem = markian.getToolbar().insert({
+      id: 'mermaid:insert',
+      command: 'mermaid:insert',
+    }, 'insert', 'rule');
 
-    return () => toolbarItem.remove();
+    return () => removeToolbarItem();
   },
 };
 ```
+
+The toolbar signature is `insert(item, group?, beforeId?)`. A named group/menu
+receives the item before a direct child ID, or at its end when `beforeId` is
+omitted. With no group, use the last top-level default-aligned inline group.
+Existing host references to the item ID retain their placement; absent groups
+are not created. See the [implemented insertion contract](Configuration.md#live-toolbar-insertion).
 
 Apply the following rules equally to applications and extensions:
 

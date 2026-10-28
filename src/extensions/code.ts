@@ -27,7 +27,7 @@ export const codeExtension: ExtensionFactory = () => ({
     }));
     for (const id of ['undo', 'redo'] as const) {
       disposers.push(instance.getCommands().insert({ id: `code:${id}`, label: id === 'undo' ? 'Undo' : 'Redo', icon: id, mutates: true, views: ['code'], run: () => { source?.[id](); } }));
-      disposers.push(instance.getToolbar().insert({ id: `code:${id}`, command: `code:${id}` }, 'raw'));
+      disposers.push(instance.getToolbar().insert({ id: `code:${id}`, command: `code:${id}` }, 'history', id));
     }
     disposers.push(instance.getRenderers().insert({
       id: 'code:plain', language: 'text',

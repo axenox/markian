@@ -1,5 +1,6 @@
 import { Items } from './registry';
-import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
+import { ToolbarItems } from './ui/toolbar';
+import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ViewDefinition, SearchOptions, SearchMatch } from './types';
 export declare class EditorInstance implements MarkianInstance {
     private host;
     private options;
@@ -50,7 +51,6 @@ export declare class EditorInstance implements MarkianInstance {
     private cssUrls;
     private lastValue;
     private commands;
-    private builtinToolbarIds;
     private toolbarItems;
     private views;
     private renderers;
@@ -59,7 +59,7 @@ export declare class EditorInstance implements MarkianInstance {
     get activeView(): string;
     get readOnly(): boolean;
     getCommands(): Items<CommandDefinition>;
-    getToolbar(): Items<ToolbarItem>;
+    getToolbar(): ToolbarItems;
     getViews(): Items<ViewDefinition>;
     getRenderers(): Items<RendererDefinition>;
     getSchema(): Items<StructuralNode>;
