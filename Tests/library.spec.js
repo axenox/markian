@@ -346,6 +346,64 @@ test('Mermaid host URL loading retries failures, deduplicates instances and reje
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(1);
 });
 
+for (const ending of ['', '\n']) test(`visual editing and undo preserve ${ending ? 'a final newline' : 'no final newline'}`, async ({ page }) => {
+  const original = '# Heading\n\nParagraph' + ending;
+  await page.evaluate(value => editor.set(value), original);
+  const paragraph = page.locator('[data-markian] .ProseMirror p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  expect(await page.evaluate(() => editor.get())).toBe('# Heading\n\nParagraph!' + ending);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(original);
+  await page.evaluate(() => editor.execute('redo'));
+  expect(await page.evaluate(() => editor.get())).toBe('# Heading\n\nParagraph!' + ending);
+  const replacementEnding = ending ? '' : '\n';
+  const replacement = '# Replacement\n\nNew paragraph' + replacementEnding;
+  await page.evaluate(value => editor.set(value), replacement);
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  expect(await page.evaluate(() => editor.get())).toBe('# Replacement\n\nNew paragraph!' + replacementEnding);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(replacement);
+  await page.evaluate(() => editor.setMode('raw'));
+  await page.locator('[data-markian] .cm-content').click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press(replacementEnding ? 'Backspace' : 'Enter');
+  expect(await page.evaluate(() => editor.get())).toBe('# Replacement\n\nNew paragraph' + ending);
+  await page.evaluate(() => editor.setMode('visual'));
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  expect(await page.evaluate(() => editor.get())).toBe('# Replacement\n\nNew paragraph!' + ending);
+});
+
+for (const ending of ['', '\n']) test(`visual editing and undo preserve ${ending ? 'a newline-only document' : 'an empty document'}`, async ({ page }) => {
+  await page.evaluate(value => editor.set(value), ending);
+  await page.locator('[data-markian] .ProseMirror').first().click();
+  await page.keyboard.type('New document');
+  expect(await page.evaluate(() => editor.get())).toBe('New document' + ending);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(ending);
+});
+
+test('visual list normalization uses hyphens without changing ordered lists or code', async ({ page }) => {
+  await page.evaluate(() => editor.set('* First\n  * Nested\n* [ ] Task\n\n3. Ordered\n4. Next\n\n```text\n* literal\n```\n'));
+  const root = page.locator('[data-markian]').first();
+  await expect(root.locator('.ProseMirror')).toBeVisible();
+  await root.locator('.ProseMirror p').first().click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' edited');
+  const markdown = await page.evaluate(() => editor.get());
+  expect(markdown).toMatch(/^- First edited$/m);
+  expect(markdown).toMatch(/^ +- Nested$/m);
+  expect(markdown).toMatch(/^- \[ \] Task$/m);
+  expect(markdown).toMatch(/^3\. Ordered$/m);
+  expect(markdown).toContain('```text\n* literal\n```');
+  expect(equivalentMarkdown(markdown, '* First edited\n  * Nested\n* [ ] Task\n\n3. Ordered\n4. Next\n\n```text\n* literal\n```\n')).toBe(true);
+});
+
 for (const command of ['bullet', 'ordered', 'task']) test(`toolbar ${command} list continues on Enter and exits an empty item`, async ({ page }) => {
   await page.evaluate(() => editor.set('First item'));
   const root = page.locator('[data-markian]').first();

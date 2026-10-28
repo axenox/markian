@@ -44,6 +44,12 @@ export async function createVisual(
 ): Promise<VisualEngine> {
   let editor: Editor;
   let replacing = false;
+  let finalNewline = false;
+  const serialize = (node: ProseNode): string => {
+    const markdown = editor.action(ctx => ctx.get(serializerCtx)(node));
+    if (finalNewline) return markdown || '\n';
+    return markdown.endsWith('\n') ? markdown.slice(0, -1) : markdown;
+  };
   let query: SearchOptions = { query: '' };
   const searchKey = new PluginKey<DecorationSet>('markian-search');
   const matches = (doc: ProseNode): SearchMatch[] => {
@@ -152,6 +158,7 @@ export async function createVisual(
   editor = Editor.make().config(ctx => {
     ctx.set(rootCtx, element);
     ctx.set(defaultValueCtx, '');
+    ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, bullet: '-' as const }));
     if (allowTextColors) ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, handlers: { ...options.handlers,
       textColor: (node: TextColor, _parent: unknown, state: MarkdownState, info: Info) => `<span style="color:${node.color}">${state.containerPhrasing(node, info)}</span>`,
     } }));
@@ -175,7 +182,7 @@ export async function createVisual(
         const view = ctx.get(editorViewCtx);
         const result = view.state.applyTransaction(transaction);
         view.updateState(result.state);
-        if (!replacing && result.transactions.some(item => item.docChanged)) changed(ctx.get(serializerCtx)(view.state.doc));
+        if (!replacing && result.transactions.some(item => item.docChanged)) changed(serialize(view.state.doc));
         selectionChanged();
       },
       handleDOMEvents: {
@@ -251,7 +258,6 @@ export async function createVisual(
   })));
   try { await editor.create(); } catch (error) { await editor.destroy(); throw error; }
   const view = editor.action(ctx => ctx.get(editorViewCtx));
-  const serialize = (node: ProseNode): string => editor.action(ctx => ctx.get(serializerCtx)(node));
   const parse = (markdown: string): ProseNode => {
     parseMarkdown(markdown);
     const node = editor.action(ctx => ctx.get(parserCtx)(markdown));
@@ -268,6 +274,7 @@ export async function createVisual(
         if (reset) view.updateState(EditorState.create({ schema: view.state.schema, doc, plugins: view.state.plugins }));
         else view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, doc.content));
       } finally { replacing = false; }
+      finalNewline = /[\r\n]$/.test(markdown);
     },
     setReadOnly: () => {
       view.setProps({ editable: () => !readOnly() });

@@ -64,6 +64,8 @@ The target exposes `Markian.create(element, options)` for editor instances, incl
 
 ## Markdown Contract
 
+- Final-newline presence follows the document accepted by the visual engine, independently of the host. Both edit notifications and explicit serialization use the same wrapper: when input lacked a final newline, remove only the serializer's added final LF, never trim trailing whitespace. Successful document replacement updates this policy; validation alone does not. Undo/redo of visual content retains the accepted input's newline convention. Raw-source editing continues to preserve its literal buffer.
+- Visual serialization normalizes unordered and task-list markers to `-`, matching existing Toast UI-authored documents and avoiding marker-only Git diffs. The shared Milkdown remark serializer owns this choice, including nested lists; ordered-list numbering and code-fence contents are not rewritten by a text replacement.
 - Persist ordinary interoperable Markdown, not editor JSON or rendered HTML. Normalization is allowed, but meaningful whitespace, code, comments, and generated bodies must survive.
 - Use the agreed CommonMark/GFM subset and one documented policy. Editor, Preview, and planned viewer share semantics/security fixtures and pure rendering policies, not necessarily identical DOM. Host display-widget adapters verify their own binding/lifecycle behavior.
 - Store extension delimiters and metadata as invisible HTML comments. Generated bodies remain independently readable Markdown. Unregistered extensions must not erase their markers or execute providers.
