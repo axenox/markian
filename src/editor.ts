@@ -58,7 +58,7 @@ export class EditorInstance implements MarkianInstance {
   private destination?: { element: HTMLElement; dispose: Disposer };
   private queries = new Map<string, SearchOptions>();
   private outlineRevision = -1;
-  private outlineTargets: { button: HTMLButtonElement; rendered?: HTMLElement; line: number }[] = [];
+  private outlineTargets: { button: HTMLButtonElement; headingIndex: number; line: number }[] = [];
   private frames: Frame[] = [];
   private sources = new Set<SourceHandle>();
   private sourceElements = new Map<SourceHandle, HTMLElement>();
@@ -1072,13 +1072,16 @@ export class EditorInstance implements MarkianInstance {
           const line = this.raw!.view.state.doc.line(entry.line);
           this.raw!.select(line.from);
           this.raw!.focus();
-        } else if (rendered) {
-          this.visualElement.scrollTo({ top: rendered.offsetTop - this.visualElement.offsetTop, behavior: 'instant' });
+        } else {
+          const heading = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6')[index];
+          if (!heading) return;
           this.visual!.view.focus();
+          const top = this.visualElement.scrollTop + heading.getBoundingClientRect().top - this.visualElement.getBoundingClientRect().top;
+          this.visualElement.scrollTo({ top, behavior: 'instant' });
         }
       });
       this.outline.append(button);
-      this.outlineTargets.push({ button, rendered, line: entry.line });
+      this.outlineTargets.push({ button, headingIndex: index, line: entry.line });
     });
     this.element.dataset.hasOutline = String(this.outlineTargets.length > 0);
     this.updateCurrentSection();
@@ -1092,7 +1095,11 @@ export class EditorInstance implements MarkianInstance {
       for (const target of this.outlineTargets) if (target.line <= visible) active = target;
     } else {
       const top = this.visualElement.getBoundingClientRect().top + 24;
-      for (const target of this.outlineTargets) if (target.rendered && target.rendered.getBoundingClientRect().top <= top) active = target;
+      const renderedHeadings = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+      for (const target of this.outlineTargets) {
+        const rendered = renderedHeadings[target.headingIndex];
+        if (rendered && rendered.getBoundingClientRect().top <= top) active = target;
+      }
     }
     for (const target of this.outlineTargets) {
       if (target === active) target.button.setAttribute('aria-current', 'location');

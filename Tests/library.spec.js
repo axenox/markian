@@ -1326,6 +1326,26 @@ for (const width of [1440, 390]) test(`outline sidebar defaults visible and its 
   expect(await page.evaluate(() => editor.get())).toBe(before);
 });
 
+test('visual outline scrolls live headings after DOM replacement inside positioned content', async ({ page }) => {
+  const markdown = '# Title\n\n## First\n\n' + Array(80).fill('Paragraph').join('\n\n') + '\n\n## Target\n\n' + Array(30).fill('Following paragraph').join('\n\n');
+  await page.evaluate(value => editor.set(value), markdown);
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror').evaluate(element => {
+    element.style.position = 'relative';
+    const heading = [...element.querySelectorAll('h2')].find(node => node.textContent === 'Target');
+    heading.replaceWith(heading.cloneNode(true));
+  });
+  await root.getByRole('navigation', { name: 'Document outline' }).getByRole('button', { name: 'Target', exact: true }).click();
+  await expect.poll(() => root.locator('.markian-visual').evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const distance = await root.locator('.markian-visual').evaluate(element => {
+    const heading = [...element.querySelectorAll('h2')].find(node => node.textContent === 'Target');
+    return heading.getBoundingClientRect().top - element.getBoundingClientRect().top;
+  });
+  expect(Math.abs(distance)).toBeLessThan(2);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+});
+
 test('outline sidebar honors hidden startup and validates its configuration', async ({ page }) => {
   await page.evaluate(async () => {
     const host = document.createElement('div');
