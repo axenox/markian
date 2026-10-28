@@ -75,8 +75,9 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
   panel.className = 'markian-panel markian-destination';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', image ? 'Image' : 'Link');
-  const destination = field(document, panel, image ? 'Image destination' : 'Link destination');
-  const label = field(document, panel, image ? 'Alternative text' : 'Link text');
+  const destination = field(document, panel, image ? 'Image URL' : 'Link destination');
+  const file = image ? field(document, panel, 'Upload new image', 'file') : undefined;
+  const label = field(document, panel, image ? 'Tooltip (alternative text)' : 'Link text');
   const headingLabel = document.createElement('label');
   headingLabel.textContent = 'Target heading';
   const heading = document.createElement('select');
@@ -94,12 +95,23 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
   const selected = raw ? raw.view.state.selection.main : visual.state.selection;
   let from = selected.from;
   let to = selected.to;
-  const link = !raw && selected.from === selected.to ? visual.state.selection.$from.marks().find(mark => mark.type.name === 'link') : undefined;
-  if (link) {
-    const parent = visual.state.selection.$from;
-    parent.parent.forEach((node, offset) => {
-      if (link.isInSet(node.marks)) { from = Math.min(from, parent.start() + offset); to = Math.max(to, parent.start() + offset + node.nodeSize); }
+  const visualSelection = visual.state.selection;
+  const marks = visualSelection.empty ? visualSelection.$from.marks() : visualSelection.$from.nodeAfter?.marks ?? [];
+  let link = !raw ? marks.find(mark => mark.type.name === 'link') : undefined;
+  if (link && !visualSelection.empty) {
+    const candidate = link;
+    if (!visualSelection.$from.sameParent(visualSelection.$to)) link = undefined;
+    else visual.state.doc.nodesBetween(from, to, node => {
+      if (node.isInline && !candidate.isInSet(node.marks)) link = undefined;
     });
+  }
+  if (link) {
+    if (visualSelection.empty) {
+      const parent = visualSelection.$from;
+      parent.parent.forEach((node, offset) => {
+        if (link!.isInSet(node.marks)) { from = Math.min(from, parent.start() + offset); to = Math.max(to, parent.start() + offset + node.nodeSize); }
+      });
+    }
     destination.value = String(link.attrs.href);
   }
   label.value = raw ? raw.view.state.sliceDoc(from, to) : visual.state.doc.textBetween(from, to);
@@ -117,7 +129,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
     heading.replaceChildren(new Option('None', ''));
     const provider = image ? options.onImageSuggest : options.onLinkSuggest;
     if (!provider && (image || !options.onLinkInspect)) return;
-    status.textContent = 'Loading';
+    status.textContent = 'Searching documents...';
     try {
       const results = provider ? await provider(context(request.signal)) : [];
       if (request.signal.aborted || !current()) return;
@@ -145,7 +157,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
         if (typeof item.id !== 'string' || typeof item.label !== 'string') throw new TypeError('Invalid target heading.');
         heading.append(new Option(item.label, item.id));
       }
-      status.textContent = result.status;
+      status.textContent = result.status === 'missing' ? 'No exact match' : result.status;
     } catch (error) { if (!request.signal.aborted && current()) showError(error); }
   };
   destination.addEventListener('input', () => { pending?.abort(); clearTimeout(timer); timer = setTimeout(() => { void lookup(); }, 180); });
@@ -169,14 +181,16 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
       } else if (image) visual.dispatch(closeHistory(visual.state.tr.replaceRangeWith(from, to, visual.state.schema.nodes.image.create({ src: url, alt: label.value }))));
       else {
         const text = label.value || url;
-        const transaction = closeHistory(visual.state.tr.replaceWith(from, to, visual.state.schema.text(text, [visual.state.schema.marks.link.create({ href: url })])));
+        const mark = visual.state.schema.marks.link.create({ href: url });
+        const transaction = closeHistory(text === visual.state.doc.textBetween(from, to)
+          ? visual.state.tr.addMark(from, to, mark)
+          : visual.state.tr.replaceWith(from, to, visual.state.schema.text(text, [mark])));
         visual.dispatch(transaction.setSelection(TextSelection.near(transaction.doc.resolve(from + text.length))));
       }
       close();
     } catch (error) { showError(error); }
   });
-  if (image) {
-    const file = field(document, panel, 'Image file', 'file');
+  if (file) {
     file.accept = 'image/png,image/jpeg,image/gif,image/webp';
     file.addEventListener('change', () => { const blob = file.files?.[0]; if (blob) { close(); void instance.insertImage(blob).catch(() => {}); } });
   }

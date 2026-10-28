@@ -559,7 +559,19 @@ for (const width of [1440, 390]) test(`popup labels, anchoring and outside dismi
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Get Markdown', exact: true })).toBeFocused();
   await page.evaluate(() => editor.execute('image'));
-  await expect(root.getByRole('dialog', { name: 'Image', exact: true }).getByLabel('Image file')).toBeVisible();
+  const image = root.getByRole('dialog', { name: 'Image', exact: true });
+  await expect(image.getByLabel('Upload new image')).toBeVisible();
+  const fields = image.locator('input');
+  expect(await fields.evaluateAll(inputs => inputs.map(input => input.getAttribute('aria-label')))).toEqual([
+    'Image URL', 'Upload new image', 'Tooltip (alternative text)',
+  ]);
+  const layout = await fields.evaluateAll(inputs => inputs.map(input => ({
+    height: input.getBoundingClientRect().height,
+    top: input.parentElement.getBoundingClientRect().top,
+    bottom: input.parentElement.getBoundingClientRect().bottom,
+  })));
+  expect(layout.map(field => field.height)).toEqual([34, 34, 34]);
+  expect(layout[1].top - layout[0].bottom).toBeCloseTo(layout[2].top - layout[1].bottom, 1);
   await page.getByRole('heading', { name: 'Disabled instance', exact: true }).click();
   await expect(root.getByRole('dialog', { name: 'Image', exact: true })).toHaveCount(0);
   await page.evaluate(() => editor.execute('search'));
@@ -848,6 +860,36 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`text floati
   expect(await page.evaluate(() => editor.get())).toBe('**Formatted** text');
 });
 
+for (const { name, markdown, destination } of [
+  { name: 'selected link', markdown: '[Link text](guide.md#target)', destination: 'guide.md#target' },
+  { name: 'formatted link', markdown: '[Linked **text**](guide.md#target)', destination: 'guide.md#target' },
+  { name: 'mixed text', markdown: '[Link text](guide.md) after', destination: '' },
+  { name: 'different links', markdown: '[First](first.md) [Second](second.md)', destination: '' },
+]) test(`floating link properties resolve ${name}`, async ({ page }) => {
+  await page.evaluate(markdown => editor.set(markdown), markdown);
+  const before = await page.evaluate(() => editor.get());
+  const root = page.locator('[data-markian]').first();
+  const paragraph = root.locator('.ProseMirror p').first();
+  const label = await paragraph.textContent();
+  await paragraph.evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  const link = root.locator('.markian-floating').getByRole('button', { name: 'Edit link', exact: true });
+  await expect(link).toBeVisible();
+  await link.click();
+  const panel = root.getByRole('dialog', { name: 'Link', exact: true });
+  await expect(panel.getByRole('textbox', { name: 'Link destination' })).toHaveValue(destination);
+  await expect(panel.getByRole('textbox', { name: 'Link text' })).toHaveValue(label);
+  if (destination) await panel.getByRole('button', { name: 'Apply link', exact: true }).click();
+  else await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => editor.get())).toBe(before);
+});
+
 test('table actions have distinct icons and code expansion is caret-contextual only', async ({ page }) => {
   const root = page.locator('[data-markian]').first();
   await page.evaluate(async () => { editor.set('Start'); await editor.execute('table:insert'); });
@@ -933,6 +975,48 @@ test('classic-script startup is visual, independent, and free of optional depend
   expect(result.after).toBe(result.initial);
   expect(result.theme).toBe('dark');
   expect(result.requests.some(url => /mermaid|language-pack|googleapis|exface/.test(url))).toBe(false);
+});
+
+test('public heading inspection populates link destination headings', async ({ page }) => {
+  const markdown = '# Guide\n\n## Shared\n\n## Shared\n\n```markdown\n# Not a heading\n```';
+  expect(await page.evaluate(markdown => Markian.headings(markdown), markdown)).toEqual([
+    { id: 'guide', label: 'Guide', depth: 1, line: 1 },
+    { id: 'shared', label: 'Shared', depth: 2, line: 3 },
+    { id: 'shared-1', label: 'Shared', depth: 2, line: 5 },
+  ]);
+  await page.evaluate(async markdown => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Link text',
+      onLinkInspect: () => ({ status: 'exists', headings: Markian.headings(markdown) }),
+    });
+    await editor.ready;
+    await editor.execute('link');
+  }, markdown);
+  const panel = page.getByRole('dialog', { name: 'Link', exact: true });
+  await panel.getByRole('textbox', { name: 'Link destination' }).fill('guide.md');
+  await expect(panel.locator('output')).toHaveText('exists');
+  await expect(panel.locator('select option')).toHaveText(['None', 'Guide', 'Shared', 'Shared']);
+  await panel.getByRole('combobox', { name: 'Target heading' }).selectOption('shared-1');
+  await expect(panel.getByRole('combobox', { name: 'Target heading' })).toHaveValue('shared-1');
+});
+
+test('link destination status uses document search labels', async ({ page }) => {
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Link text',
+      onLinkSuggest: () => new Promise(resolve => { window.finishDocumentSearch = resolve; }),
+      onLinkInspect: () => ({ status: 'missing' }),
+    });
+    await editor.ready;
+    await editor.execute('link');
+  });
+  const panel = page.getByRole('dialog', { name: 'Link', exact: true });
+  await panel.getByRole('textbox', { name: 'Link destination' }).fill('guide.md');
+  await expect(panel.locator('output')).toHaveText('Searching documents...');
+  await page.evaluate(() => window.finishDocumentSearch([]));
+  await expect(panel.locator('output')).toHaveText('No exact match');
 });
 
 test('visual typing, undo, and identical host echoes preserve content', async ({ page }) => {

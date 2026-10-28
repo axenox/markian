@@ -24,4 +24,6 @@ export function create(element: HTMLElement, options: EditorOptions): MarkianIns
 }
 
 export const version = '0.1.0';
+export { headings } from './render/markdown';
+export type { Heading } from './render/markdown';
 export type * from './types';

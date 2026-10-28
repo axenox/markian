@@ -64,6 +64,8 @@ The initial structural bridge supports atomic node mappings over existing mdast 
 
 The target exposes `Markian.create(element, options)` for editor instances, including disabled/read-only instances. Each handle owns its documents, histories, selection, callbacks, URL base, theme, and pending work. Queries must be scoped to its root; IDs must not collide across instances. Shared immutable dependencies or safe loader promises are acceptable; singleton document state is not.
 
+`Markian.headings(markdown)` publicly re-exports the shared Markdown pipeline's heading parser and `Heading` type. Host link-inspection callbacks can inspect another document without constructing an editor or duplicating anchor generation. Parsing remains owned by `render/markdown.ts`, shared with rendering and editor navigation.
+
 ## Markdown Contract
 
 - Final-newline presence follows the document accepted by the visual engine, independently of the host. Both edit notifications and explicit serialization use the same wrapper: when input lacked a final newline, remove only the serializer's added final LF, never trim trailing whitespace. Successful document replacement updates this policy; validation alone does not. Undo/redo of visual content retains the accepted input's newline convention. Raw-source editing continues to preserve its literal buffer.
