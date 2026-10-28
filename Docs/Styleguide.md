@@ -12,6 +12,8 @@ The public root is `[data-markian]` with `data-theme`, `data-view`, and (after a
 
 ### Global layout
 
+Base editor CSS removes outer paragraph margins inside list items and table cells, so paragraph wrappers do not add accidental spacing when a host supplies external Markdown CSS. Consecutive paragraphs have a 16px fallback gap, which content stylesheets may customize. This structural normalization applies to `.markian-document` surfaces independently of the theme; table-cell padding, list-item spacing, and ordinary paragraph typography remain content-stylesheet concerns. Host themes must not duplicate these rules.
+
 Hosts configure `markdownCssUrls` for rendered content and `themeCssUrls` for editor chrome overrides. Omitted content URLs load the separately packaged `dist/markdown-github.css`; an explicit list replaces it, including `[]` for no content stylesheet. Theme URLs default to `[]` and follow content stylesheets in the cascade. Load base `markian.css` separately. Scope host rules to a wrapper and `.markian-document` or `.markian`: these are ordinary external stylesheets, not isolated CSS. The packaged content stylesheet uses a default-only instance marker so its typography does not leak into custom-styled instances. Readiness waits for the configured stylesheets, and destruction removes their instance-owned links.
 
 The editor consists of 

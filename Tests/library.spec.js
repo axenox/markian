@@ -61,6 +61,32 @@ test('configured CSS URLs replace content styles and overlay the editor theme', 
   })).toBe(true);
 });
 
+test('base editor CSS normalizes list and table spacing with external content styles', async ({ page }) => {
+  await page.route('**/spacing-content.css', route => route.fulfill({ contentType: 'text/css', body: '.markdown-body p { margin: 0 0 16px; } .markdown-body th, .markdown-body td { padding: 6px 13px; }' }));
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.height = '500px';
+    document.querySelector('main').prepend(host);
+    window.spacingEditor = Markian.create(host, {
+      markdown: 'Outside table\n\n- First paragraph\n\n  Second paragraph\n\n| File | Responsibility |\n| --- | --- |\n| index.ts | Factory |',
+      markdownCssUrls: ['/spacing-content.css'],
+    });
+    await spacingEditor.ready;
+    spacingEditor.element.classList.add('spacing-configured');
+    spacingEditor.element.querySelector('.markian-document').classList.add('markdown-body');
+  });
+  const root = page.locator('.spacing-configured');
+  for (const tag of ['li', 'th', 'td']) {
+    const paragraph = root.locator(`.markian-document ${tag} > p`).first();
+    await expect(paragraph).toHaveCSS('margin-top', '0px');
+    await expect(paragraph).toHaveCSS('margin-bottom', '0px');
+  }
+  await expect(root.locator('.markian-document li > p + p')).toHaveCSS('margin-top', '16px');
+  await expect(root.locator('.markian-document > p').first()).toHaveCSS('margin-bottom', '16px');
+  await expect(root.locator('.markian-document td').first()).toHaveCSS('padding', '6px 13px');
+  await page.evaluate(() => spacingEditor.destroy());
+});
+
 test('CSS URL validation and load failure restore the host', async ({ page }) => {
   await page.route('**/missing-content.css', route => route.fulfill({ status: 404, contentType: 'text/css', body: '' }));
   const result = await page.evaluate(async () => {

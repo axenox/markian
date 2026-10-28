@@ -26,7 +26,7 @@ The repository contains strict-TypeScript, instance-based W0-W3 foundations and 
 | [markdown.ts](../src/render/markdown.ts) | Engine-independent GFM parsing, semantic comparison, safe rendering, headings, and URL policy. |
 | [code.ts](../src/extensions/code.ts) | Optional W1 proof slice using public registries, block targets, renderer, and source-view handle; no engine imports. |
 | [mermaid.ts](../src/extensions/mermaid.ts) | Optional W13 factory, bounded/sanitized diagram presentation, isolated deduplicated host-URL loading, public block sessions and source handles. Separate CSS and a host-provided renderer keep Mermaid out of core and distribution dependencies. |
-| [style.css](../src/style.css) | Scoped editor shell, themes, and controls; shared content typography lives in `src/render/content.css`. |
+| [style.css](../src/style.css) | Scoped editor shell, themes, controls, and structural list/table paragraph spacing; shared content typography lives in `src/render/content.css`. |
 | [library.spec.js](../Tests/library.spec.js) | Browser checks against classic-script `dist`, including lifecycle, draft projection, schema registration, and preservation fixtures. |
 
 The new library uses Milkdown/ProseMirror for visual editing, CodeMirror for source editing, and selected Material Design Icons paths. `window.Markian` is a factory, never an editor singleton. Demo globals and page styling are outside the library; startup has no Core, Mermaid, remote-font, or data-service dependency. Extensions use the same public APIs as hosts. Declaration generation, import-boundary checks, manifest hashes, notices, archive-install smoke checks, and Windows/Linux CI are implemented; publication and CI execution outside this machine remain external gates.

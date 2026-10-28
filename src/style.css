@@ -106,6 +106,12 @@
 .markian[data-toolbar-placement='bottom'] .markian-toolbar { order: 3; border-top: 1px solid var(--markian-line); border-bottom: 0; }
 .markian .selectedCell::after { position: absolute; inset: 0; background: #22776122; pointer-events: none; content: ''; }
 .markian .ProseMirror td, .markian .ProseMirror th { position: relative; }
+.markian .markian-document li > p,
+.markian .markian-document th > p,
+.markian .markian-document td > p { margin-top: 0; margin-bottom: 0; }
+.markian .markian-document li > p + p,
+.markian .markian-document th > p + p,
+.markian .markian-document td > p + p { margin-top: 16px; }
 .markian .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
 .markian .ProseMirror li[data-item-type='task'] > input { position: absolute; top: 5px; left: -20px; margin: 0; accent-color: var(--markian-accent); width: 16px; height: 16px; cursor: pointer; }
 .markian .ProseMirror li[data-item-type='task'] > div { min-width: 0; }
