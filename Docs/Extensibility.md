@@ -96,13 +96,13 @@ Load the factory and CSS after core, then register and enable it:
   const diagrams = Markian.create(document.querySelector('#diagrams'), {
     markdown: '```mermaid\nflowchart LR\n  A[Start] --> B[Finish]\n```',
     extensions: { mermaid: { enabled: true, config: {
-      asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
+      source: '/assets/mermaid.min.js',
     } } },
   });
 </script>
 ```
 
-The example assumes a `#diagrams` host, core assets, and a trusted host runtime at the configured URL. Mermaid is not included in Markian's distribution. The loader runs supported Mermaid **12.2.x** in a configuration-isolated iframe and loads it only when needed. Missing configuration or a failed render shows an error without losing source; Retry remains available.
+The example assumes a `#diagrams` host, core assets, and a trusted host runtime at the configured URL. Mermaid is not included in Markian's distribution. The loader checks for callable `initialize()` and `render()` methods, runs the runtime in a configuration-isolated iframe and loads it only when needed. No version declaration is required. Missing configuration or a failed render shows an error without losing source; Retry remains available.
 
 Alternatively supply `config.renderer: { version, render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Mermaid object is not this adapter contract. Host adapters must isolate theme/security settings and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound layout work, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer.
 
@@ -142,7 +142,7 @@ Load viewer core JS/CSS and the render-only adapter JS/CSS, not the editor exten
 <script src="dist/extensions/viewer-mermaid.min.js"></script>
 <script>
   const renderer = MarkianViewerMermaid.createRenderer(document, {
-    asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
+    source: '/assets/mermaid.min.js',
   });
   const viewer = MarkianViewer.create(document.querySelector('#viewer'), {
     markdown: '```mermaid\nflowchart LR\n  A --> B\n```',

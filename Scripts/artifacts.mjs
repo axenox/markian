@@ -53,9 +53,9 @@ await writeFile('dist/manifest.json', JSON.stringify({
   extensions: {
     code: { script: 'extensions/code.min.js', global: 'MarkianCode.codeExtension', requires: pkg.version, dependencies: [] },
     mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,
-      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, supported: '12.2.x', external: true, loading: 'host-configured asset.url or supplied renderer adapter' }] },
+      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, requiredApi: ['initialize', 'render'], external: true, loading: 'host-configured source URL or supplied renderer adapter' }] },
     viewerMermaid: { script: 'extensions/viewer-mermaid.min.js', stylesheet: 'extensions/viewer-mermaid.css', types: 'types/viewer-mermaid.d.ts', global: 'MarkianViewerMermaid.createRenderer', requires: pkg.version,
-      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, supported: '12.2.x', external: true, loading: 'Explicit mermaid:true plus a matching fence and host-configured asset.url or supplied renderer' }] },
+      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, requiredApi: ['initialize', 'render'], external: true, loading: 'Explicit mermaid:true plus a matching fence and host-configured source URL or supplied renderer' }] },
   },
   assets,
 }, null, 2) + '\n');

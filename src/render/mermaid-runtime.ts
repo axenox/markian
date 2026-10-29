@@ -5,31 +5,30 @@ export interface MermaidRenderContext {
   signal: AbortSignal;
 }
 export interface MermaidRenderer {
-  version: string;
   render(context: MermaidRenderContext): string | Promise<string>;
 }
 interface MermaidApi {
   initialize(config: Record<string, unknown>): void;
   render(id: string, source: string, container: HTMLElement): Promise<{ svg: string }>;
 }
-const loads = new WeakMap<Document, Map<string, { version: string; promise: Promise<MermaidRenderer> }>>();
+const loads = new WeakMap<Document, Map<string, Promise<MermaidRenderer>>>();
 
-export function version(value: string): void {
-  if (!/^12\.2\.\d+(?:[-+][\w.-]+)?$/.test(value)) throw new Error('Mermaid requires a declared supported 12.2.x renderer version.');
+export function mermaidApi(value: unknown): MermaidApi {
+  if (!value || typeof value !== 'object' || !('initialize' in value) || typeof value.initialize !== 'function'
+    || !('render' in value) || typeof value.render !== 'function') {
+    throw new TypeError('The configured Mermaid source must expose initialize() and render() functions.');
+  }
+  return value as MermaidApi;
 }
 
-export function loadMermaid(document: Document, asset: { url: string; version: string }): Promise<MermaidRenderer> {
-  version(asset.version);
-  if (typeof asset.url !== 'string' || !asset.url.trim()) return Promise.reject(new Error('Mermaid URL is not configured. Set extensions.mermaid.config.asset.url.'));
-  const url = new URL(asset.url, document.baseURI);
+export function loadMermaid(document: Document, source: string): Promise<MermaidRenderer> {
+  if (typeof source !== 'string' || !source.trim()) return Promise.reject(new Error('Mermaid URL is not configured. Set extensions.mermaid.config.source.'));
+  const url = new URL(source, document.baseURI);
   if (!['http:', 'https:'].includes(url.protocol)) return Promise.reject(new Error('Mermaid assets require an explicit HTTP(S) URL.'));
   let entries = loads.get(document);
   if (!entries) { entries = new Map(); loads.set(document, entries); }
   const existing = entries.get(url.href);
-  if (existing) {
-    if (existing.version !== asset.version) return Promise.reject(new Error('Incompatible Mermaid versions requested for the same asset URL.'));
-    return existing.promise;
-  }
+  if (existing) return existing;
   const promise = new Promise<MermaidRenderer>((resolve, reject) => {
     const frame = document.createElement('iframe');
     frame.className = 'markian-mermaid-runtime';
@@ -46,17 +45,22 @@ export function loadMermaid(document: Document, asset: { url: string; version: s
     script.onerror = () => failed(new Error('Mermaid asset could not be loaded. Retry the diagram.'));
     script.onload = () => {
       clearTimeout(timeout);
-      const api = (frame.contentWindow as (Window & { mermaid?: MermaidApi }) | null)?.mermaid;
-      if (!api || typeof api.initialize !== 'function' || typeof api.render !== 'function') { failed(new Error('The configured asset does not expose Mermaid.')); return; }
+      let api: MermaidApi;
+      try { api = mermaidApi((frame.contentWindow as (Window & { mermaid?: unknown }) | null)?.mermaid); }
+      catch (error) { failed(error instanceof Error ? error : new Error(String(error))); return; }
       let queue: Promise<unknown> = Promise.resolve();
-      resolve({ version: asset.version, render(context) {
+      resolve({ render(context) {
         const operation = queue.then(async () => {
           if (context.signal.aborted) throw new Error('Mermaid rendering was cancelled.');
           api.initialize({ startOnLoad: false, securityLevel: 'strict', theme: context.theme === 'dark' ? 'dark' : 'default',
             maxTextSize: 20000, maxEdges: 500, htmlLabels: false, suppressErrorRendering: true });
           const container = local.createElement('div');
           local.body.append(container);
-          try { return (await api.render(context.id, context.source, container)).svg; }
+          try {
+            const result = await api.render(context.id, context.source, container);
+            if (!result || typeof result.svg !== 'string') throw new TypeError('Mermaid render() must return an object containing SVG text.');
+            return result.svg;
+          }
           finally { container.remove(); }
         });
         queue = operation.catch(() => {});
@@ -65,7 +69,7 @@ export function loadMermaid(document: Document, asset: { url: string; version: s
     };
     local.head.append(script);
   });
-  entries.set(url.href, { version: asset.version, promise });
+  entries.set(url.href, promise);
   return promise;
 }
 

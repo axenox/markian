@@ -208,7 +208,7 @@ test('viewer Mermaid loading is explicit, lazy and independently disabled per in
   await page.addStyleTag({ url: '/dist/extensions/viewer-mermaid.css' });
   await page.addScriptTag({ url: '/dist/extensions/viewer-mermaid.min.js' });
   await page.evaluate(async () => {
-    const renderer = MarkianViewerMermaid.createRenderer(document, { asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' } });
+    const renderer = MarkianViewerMermaid.createRenderer(document, { source: '/host-assets/mermaid.min.js' });
     window.viewerErrors = [];
     const make = async options => {
       const host = document.createElement('div');

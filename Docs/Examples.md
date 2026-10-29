@@ -13,7 +13,7 @@ Each named page keeps mount sizing, configuration, sample Markdown, and JavaScri
 
 ## Mermaid Runtime
 
-Mermaid is not bundled. The diagram page's inline host configuration points to `/host-assets/mermaid.min.js` with a declared supported version. The development server supplies this route from the development-only Mermaid dependency. On a static host, provide that route or update the configuration to a trusted Mermaid 12.2.x runtime.
+Mermaid is not bundled. The diagram page's inline `source` configuration points to `/host-assets/mermaid.min.js`, without a version declaration. The development server supplies this route from the development-only Mermaid dependency. On a static host, provide that route or set `source` to a trusted Mermaid runtime exposing `initialize()` and `render()`.
 
 Missing configuration or failed rendering shows an error without losing fenced source. The minimal editor and default workspace do not request Mermaid. The viewer comparison intentionally keeps Mermaid disabled; rendering in the viewer uses its separate [render-only adapter](Extensibility.md#viewer-mermaid), not the editor extension.
 

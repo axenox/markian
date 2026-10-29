@@ -2,12 +2,12 @@ import DOMPurify from 'dompurify';
 import './mermaid.css';
 import { commandButton } from '../ui/controls';
 import type { Disposer, ExtensionFactory, SourceHandle } from '../types';
-import { bounded, loadMermaid, version, type MermaidRenderer } from '../render/mermaid-runtime';
+import { bounded, loadMermaid, type MermaidRenderer } from '../render/mermaid-runtime';
 export { loadMermaid } from '../render/mermaid-runtime';
 export type { MermaidRenderContext, MermaidRenderer } from '../render/mermaid-runtime';
 export interface MermaidConfig {
   renderer?: MermaidRenderer;
-  asset?: { url: string; version: string };
+  source?: string;
   maxCharacters?: number;
   maxLines?: number;
 }
@@ -48,8 +48,9 @@ export const mermaidExtension: ExtensionFactory = () => ({
   init(instance, supplied, lifetime) {
     const config = (supplied ?? {}) as MermaidConfig;
     if (typeof config !== 'object' || config === null) throw new TypeError('Mermaid config must be an object.');
-    if (config.renderer) { version(config.renderer.version); if (typeof config.renderer.render !== 'function') throw new TypeError('Mermaid renderer.render must be a function.'); }
-    if (config.asset) { version(config.asset.version); if (typeof config.asset.url !== 'string') throw new TypeError('Mermaid asset.url must be a string.'); }
+    if ('asset' in config) throw new TypeError('Mermaid asset is no longer supported. Use source: URL string.');
+    if (config.renderer && typeof config.renderer.render !== 'function') throw new TypeError('Mermaid renderer.render must be a function.');
+    if (config.source !== undefined && (typeof config.source !== 'string' || !config.source.trim())) throw new TypeError('Mermaid source must be a nonempty URL string.');
     const characters = config.maxCharacters ?? 20000;
     const lines = config.maxLines ?? 500;
     if (!Number.isInteger(characters) || characters < 1 || characters > 20000 || !Number.isInteger(lines) || lines < 1 || lines > 500) throw new TypeError('Mermaid limits must be positive integers within 20000 characters and 500 lines.');
@@ -106,8 +107,8 @@ export const mermaidExtension: ExtensionFactory = () => ({
           try {
             const text = value();
             bounded(text, characters, lines);
-            const renderer = config.renderer ?? (config.asset ? await loadMermaid(document, config.asset) : undefined);
-            if (!renderer) throw new Error('Mermaid URL is not configured. Set extensions.mermaid.config.asset.url.');
+            const renderer = config.renderer ?? (config.source ? await loadMermaid(document, config.source) : undefined);
+            if (!renderer) throw new Error('Mermaid URL is not configured. Set extensions.mermaid.config.source.');
             if (disposed || current.signal.aborted) return;
             const id = `markian-diagram-${++sequence}`;
             const svg = await renderer.render({ source: text, id, theme: instance.element.dataset.theme === 'dark' ? 'dark' : 'light', signal: current.signal });

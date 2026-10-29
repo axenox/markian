@@ -115,7 +115,7 @@ async function mermaidFixture(page, kind = 'supplied') {
     host.style.height = '560px';
     document.querySelector('main').prepend(host);
     window.diagramCalls = [];
-    const renderer = { version: '12.2.0', render: async ({ source, theme, signal }) => {
+    const renderer = { render: async ({ source, theme, signal }) => {
       diagramCalls.push({ source, theme, signal });
       if (kind === 'delayed') await new Promise(resolve => { (window.diagramResolves ??= []).push(resolve); });
       if (source.includes('invalid')) throw new Error('Invalid diagram syntax');
@@ -139,7 +139,7 @@ test('Mermaid optional core and disabled instances request no renderer assets', 
     editor.set('```mermaid\nflowchart LR\n A-->B\n```');
     const host = document.createElement('div');
     document.body.append(host);
-    window.disabledDiagram = Markian.create(host, { markdown: editor.get(), extensions: { mermaid: { enabled: false, config: { asset: { url: '/must-not-load.js', version: '12.2.0' } } } } });
+    window.disabledDiagram = Markian.create(host, { markdown: editor.get(), extensions: { mermaid: { enabled: false, config: { source: '/must-not-load.js' } } } });
     await disabledDiagram.ready;
     await editor.execute('preview');
   });
@@ -319,7 +319,7 @@ test('Mermaid late results are ignored after rapid drafts and teardown', async (
 test('Mermaid missing host URL shows an error instead of a diagram and retains editable source', async ({ page }) => {
   const root = await mermaidFixture(page, 'missing');
   expect(await page.evaluate(async () => {
-    try { await MarkianMermaid.loadMermaid(document, { url: ' ', version: '12.2.0' }); return ''; }
+    try { await MarkianMermaid.loadMermaid(document, ' '); return ''; }
     catch (error) { return error.message; }
   })).toContain('Mermaid URL is not configured');
   await expect(root.locator('.markian-diagram[data-state="error"]')).toHaveCount(2);
@@ -416,7 +416,7 @@ for (const width of [1440, 390]) test(`Mermaid host-configured example renders, 
   await page.screenshot({ path: `.test-results/mermaid-${width}-dark.png` });
 });
 
-test('Mermaid host URL loading retries failures, deduplicates instances and rejects conflicting versions', async ({ page }) => {
+test('Mermaid source loading retries failures and deduplicates instances by URL', async ({ page }) => {
   let failures = 0;
   await page.route('**/host-assets/mermaid.min.js', async route => {
     if (++failures !== 1) { await route.continue(); return; }
@@ -432,16 +432,64 @@ test('Mermaid host URL loading retries failures, deduplicates instances and reje
   await page.evaluate(async () => {
     const host = document.createElement('div');
     document.body.append(host);
-    window.otherDiagram = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n Other-->Instance\n```', extensions: { mermaid: { enabled: true, config: { asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' } } } } });
+    window.otherDiagram = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n Other-->Instance\n```', extensions: { mermaid: { enabled: true, config: { source: '/host-assets/mermaid.min.js' } } } });
     await otherDiagram.ready;
   });
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(2);
   expect(failures).toBe(2);
   expect(await page.evaluate(async () => {
-    try { await MarkianMermaid.loadMermaid(document, { url: '/host-assets/mermaid.min.js', version: '12.2.1' }); return false; } catch (error) { return error.message.includes('Incompatible'); }
+    return await MarkianMermaid.loadMermaid(document, '/host-assets/mermaid.min.js') === await MarkianMermaid.loadMermaid(document, new URL('/host-assets/mermaid.min.js', document.baseURI).href);
   })).toBe(true);
   await page.evaluate(() => diagramEditor.destroy());
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(1);
+});
+
+test('Mermaid source API failures retain Markdown and allow a corrected runtime retry', async ({ page }) => {
+  let valid = false;
+  await page.route('**/host-mermaid-api.js', route => route.fulfill({ contentType: 'text/javascript', body: valid
+    ? 'window.mermaid = {initialize(){}, async render(){return {svg:\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><text x="5" y="25">Ready</text></svg>\'};}};'
+    : 'window.mermaid = {initialize(){}};' }));
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const host = document.createElement('div');
+    host.style.height = '560px';
+    document.querySelector('main').prepend(host);
+    window.diagramEditor = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n A-->B\n```', extensions: { mermaid: { enabled: true, config: { source: '/host-mermaid-api.js' } } } });
+    await diagramEditor.ready;
+  });
+  const diagram = page.locator('.markian-diagram');
+  await expect(diagram).toHaveAttribute('data-state', 'error');
+  await expect(diagram.locator('.markian-diagram-status')).toContainText('initialize() and render()');
+  await expect(page.locator('.markian-mermaid-runtime')).toHaveCount(0);
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('flowchart LR');
+  valid = true;
+  await diagram.hover();
+  await diagram.getByRole('button', { name: 'Retry diagram', exact: true }).click();
+  await expect(diagram).toHaveAttribute('data-state', 'ready');
+  await expect(diagram.locator('.markian-diagram-canvas svg')).toContainText('Ready');
+});
+
+test('Mermaid editor and viewer reject obsolete asset configuration without fallback', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.addScriptTag({ url: '/dist/extensions/viewer-mermaid.min.js' });
+  const errors = await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const errors = [];
+    for (const config of [{ asset: { url: '/old.js' } }, { asset: { url: '/old.js' }, source: '/new.js' }]) {
+      const host = document.createElement('div');
+      document.body.append(host);
+      try { await Markian.create(host, { markdown: '', extensions: { mermaid: { enabled: true, config } } }).ready; }
+      catch (error) { errors.push(error.message); }
+      finally { host.remove(); }
+      try { MarkianViewerMermaid.createRenderer(document, config); }
+      catch (error) { errors.push(error.message); }
+    }
+    return errors;
+  });
+  expect(errors).toHaveLength(4);
+  for (const message of errors) expect(message).toContain('Use source: URL string');
 });
 
 for (const finalNewline of [false, true]) test(`CRLF visual serialization is stable ${finalNewline ? 'with' : 'without'} a final newline`, async ({ page }) => {

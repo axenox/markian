@@ -164,20 +164,17 @@ Script: `dist/extensions/mermaid.min.js`. CSS: `dist/extensions/mermaid.css`. Fa
 }
 ```
 
-Both `renderer` and `asset` are omitted by default; there is no default runtime URL. Option names below are local to `config`.
+Both `renderer` and `source` are omitted by default; there is no default runtime URL. Option names below are local to `config`.
 
 | Option             | Default                | Description                                                              |
 | ------------------ | ---------------------- | ------------------------------------------------------------------------ |
-| `renderer`         | Omitted                | Host `{ version, render }` adapter; takes precedence over `asset`.       |
-| `renderer.version` | Required with renderer | Supported Mermaid `12.2.x` version.                                      |
+| `renderer`         | Omitted                | Host `{ render }` adapter; takes precedence over `source`. |
 | `renderer.render`  | Required with renderer | Function returning SVG text or a promise.                                |
-| `asset`            | Omitted                | Explicit alternative `{ url, version }` for the isolated runtime loader. |
-| `asset.url`        | Required with asset    | Trusted HTTP(S) script URL; relative URLs use the browser document base. |
-| `asset.version`    | Required with asset    | Supported `12.2.x` version, with no implicit version.                    |
+| `source`           | Omitted                | Trusted HTTP(S) Mermaid script URL string for the isolated runtime loader. Relative URLs use the browser document base. |
 | `maxCharacters`    | `20000`                | Positive integer, at most 20,000 characters per diagram.                 |
 | `maxLines`         | `500`                  | Positive integer, at most 500 lines per diagram.                         |
 
-With neither renderer nor asset, editor activation succeeds but diagrams show a missing-renderer error. Rendering limits and sanitization still apply with a custom renderer.
+With neither renderer nor source, editor activation succeeds but diagrams show a missing-renderer error. A loaded runtime must expose callable `initialize()` and `render()` methods, and `render()` must return an object containing SVG text. No version is declared or allowlisted. Rendering limits and sanitization still apply with a custom renderer. The former `asset` option is rejected even when `source` is also present; there is no compatibility fallback.
 
 The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensibility.md#mermaid).
 
@@ -219,7 +216,7 @@ All options are construction-time settings. Use `set`, `setTheme`, and `destroy`
 
 Load `dist/extensions/viewer-mermaid.min.js` and `dist/extensions/viewer-mermaid.css`. Call `MarkianViewerMermaid.createRenderer(document, options)` and pass the result as `renderers.mermaid` with `mermaid: true`.
 
-Default local settings, before adding a required renderer or asset:
+Default local settings, before adding a required renderer or source:
 
 ```json
 { "maxCharacters": 20000, "maxLines": 500 }
@@ -227,16 +224,13 @@ Default local settings, before adding a required renderer or asset:
 
 | Option             | Default                | Description                                                                         |
 | ------------------ | ---------------------- | ----------------------------------------------------------------------------------- |
-| `renderer`         | Omitted                | Versioned `{ version, render }` adapter; preferred over `asset`.                    |
-| `renderer.version` | Required with renderer | Supported Mermaid `12.2.x` version.                                                 |
+| `renderer`         | Omitted                | Host `{ render }` adapter; preferred over `source`. |
 | `renderer.render`  | Required with renderer | Receives source, unique ID, theme, and abort signal; returns SVG text or a promise. |
-| `asset`            | Omitted                | Explicit `{ url, version }` runtime. At least renderer or asset is required.        |
-| `asset.url`        | Required with asset    | Trusted HTTP(S) script URL; relative to browser document base.                      |
-| `asset.version`    | Required with asset    | Supported `12.2.x` version.                                                         |
+| `source`           | Omitted                | Trusted HTTP(S) Mermaid script URL string; relative to browser document base. At least renderer or source is required. |
 | `maxCharacters`    | `20000`                | Positive integer up to 20,000.                                                      |
 | `maxLines`         | `500`                  | Positive integer up to 500.                                                         |
 
-Unlike editor Mermaid activation, creating this adapter without a renderer or asset throws. Loading its script alone does not load Mermaid. Compatible viewer loads share a retained cache; editor and viewer bundles have separate caches. See [viewer Mermaid usage](Extensibility.md#viewer-mermaid).
+Unlike editor Mermaid activation, creating this adapter without a renderer or source throws. Loading its script alone does not load Mermaid. The same runtime API checks and rejection of the old `asset` option apply as for the editor extension. Viewer loads of the same resolved URL share a retained cache; editor and viewer bundles have separate caches. See [viewer Mermaid usage](Extensibility.md#viewer-mermaid).
 
 ## Per-Operation Options
 

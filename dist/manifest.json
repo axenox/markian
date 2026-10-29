@@ -34,9 +34,12 @@
         {
           "name": "mermaid",
           "testedVersion": "12.2.0",
-          "supported": "12.2.x",
+          "requiredApi": [
+            "initialize",
+            "render"
+          ],
           "external": true,
-          "loading": "host-configured asset.url or supplied renderer adapter"
+          "loading": "host-configured source URL or supplied renderer adapter"
         }
       ]
     },
@@ -50,9 +53,12 @@
         {
           "name": "mermaid",
           "testedVersion": "12.2.0",
-          "supported": "12.2.x",
+          "requiredApi": [
+            "initialize",
+            "render"
+          ],
           "external": true,
-          "loading": "Explicit mermaid:true plus a matching fence and host-configured asset.url or supplied renderer"
+          "loading": "Explicit mermaid:true plus a matching fence and host-configured source URL or supplied renderer"
         }
       ]
     }
@@ -67,16 +73,16 @@
       "bytes": 2908
     },
     "extensions/mermaid.min.js": {
-      "sha256": "f67457d74c6ebae16d9986751bbdf1f6e470145eb4913fd7abd87a44807c22f1",
-      "bytes": 56170
+      "sha256": "ad7f12ab6f9d94aa26fd5105b85a75c0bed9e46194eff9dd8d19174219777013",
+      "bytes": 56221
     },
     "extensions/viewer-mermaid.css": {
       "sha256": "eace81e313496006839ad90dd834763c53982974f76f3f9945863f424faced90",
       "bytes": 624
     },
     "extensions/viewer-mermaid.min.js": {
-      "sha256": "8ee21bdee8243cc1a1e21133d087ba7be3ebe36218c823d25ba968df9fe5985e",
-      "bytes": 3191
+      "sha256": "14f2c0fb5fae165f4aed1280aad1cc1e97fb7a64441ee87b609063012a142120",
+      "bytes": 3435
     },
     "markdown-github.css": {
       "sha256": "0cc8225055de59c004fda6c8554db3406f51805443a4cdff2d631107cfa96472",
@@ -99,7 +105,7 @@
       "bytes": 914166
     },
     "sizes.json": {
-      "sha256": "f3ab658a41400e551e3bff9dfaaedcc3193a440a1fe5a39ed0f6be7496385ede",
+      "sha256": "716468f440ca929f384adb4d6767da5a56039e887204554a99797ad644be78fc",
       "bytes": 1806
     },
     "THIRD_PARTY_NOTICES.txt": {
@@ -135,8 +141,8 @@
       "bytes": 104
     },
     "types/extensions/mermaid.d.ts": {
-      "sha256": "2800cfa903e633c4cf7cd954cc95c591be980a9a94991edc53fbc01f8bca4fb0",
-      "bytes": 527
+      "sha256": "5cf6e0eabade9b369b54b44fe74a37d364d5396716e172b57dd717b34ef164aa",
+      "bytes": 481
     },
     "types/index.d.ts": {
       "sha256": "c844b65d2effae7d53d17cb728f11fdcf11f02baea9714ee148f2f2309c0e47d",
@@ -155,8 +161,8 @@
       "bytes": 840
     },
     "types/render/mermaid-runtime.d.ts": {
-      "sha256": "36192477853020bf19e7f9980903606a07291d202d26c8f3270bc7a53b3986db",
-      "bytes": 536
+      "sha256": "00d07027c82f4f8a6e153f7157fbc6ab4343125598eec92bb99a2a7d656ab370",
+      "bytes": 685
     },
     "types/search.d.ts": {
       "sha256": "bcf1ddd07090e3b8d7bced045b2e62d573c65d9e2c534c29f2bba82508a1cf96",
@@ -187,8 +193,8 @@
       "bytes": 746
     },
     "types/viewer-mermaid.d.ts": {
-      "sha256": "a6a248ffc39767eb2d77d1eec7b829b0b536f21a40794fd473fd79dbe6a0d46f",
-      "bytes": 487
+      "sha256": "c6d017c549611e7095be586eadc005217f18016012924cb5f9969bafcd8706d8",
+      "bytes": 441
     },
     "types/viewer.d.ts": {
       "sha256": "8785638e497cd23cc0a532b0d125146d7239342c699b8a9eb5bed7a10902e6a2",

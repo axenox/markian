@@ -27,9 +27,9 @@
       "brotli": 1140
     },
     "extensions/viewer-mermaid.min.js": {
-      "bytes": 3191,
-      "gzip": 1584,
-      "brotli": 1319
+      "bytes": 3435,
+      "gzip": 1606,
+      "brotli": 1345
     },
     "extensions/viewer-mermaid.css": {
       "bytes": 624,
@@ -37,9 +37,9 @@
       "brotli": 262
     },
     "extensions/mermaid.min.js": {
-      "bytes": 56170,
-      "gzip": 22420,
-      "brotli": 19353
+      "bytes": 56221,
+      "gzip": 22396,
+      "brotli": 19359
     },
     "extensions/mermaid.css": {
       "bytes": 2908,

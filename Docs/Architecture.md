@@ -48,7 +48,7 @@ Register trusted editor extension factories once, then enable them separately fo
 
 The bundled Code extension provides expanded block editing. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
 
-Mermaid is host-supplied through an explicit URL/version or a supported renderer adapter. There is no guessed CDN or sibling-framework path. Compatible local loads are shared within a bundle; editor and viewer bundles have independent caches. A common host renderer can share one runtime across both. The loader isolates configuration in an iframe, not untrusted script execution: load only trusted assets.
+Mermaid is host-supplied through a `source` URL string or a `{ render }` adapter. No version declaration is required: the loader checks for callable `initialize` and `render` methods at runtime and validates the rendered SVG result. There is no guessed CDN or sibling-framework path. Loads of the same resolved URL are shared within a bundle; editor and viewer bundles have independent caches. A common host renderer can share one runtime across both. The loader isolates configuration in an iframe, not untrusted script execution: load only trusted scripts. The former `asset` object is rejected, not translated.
 
 | Dependency | Role |
 | --- | --- |
@@ -57,7 +57,7 @@ Mermaid is host-supplied through an explicit URL/version or a supported renderer
 | remark/mdast and rehype | CommonMark/GFM parsing, Markdown comparison, and safe HTML generation. |
 | rehype-sanitize and DOMPurify | Display sanitization, including optional renderer output. |
 | Selected MDI icons and Codicons | Compact controls without a remote icon font. |
-| Optional host Mermaid 12.2.x | Diagram rendering only when explicitly configured and used. |
+| Optional host Mermaid 11+ | Diagram rendering only when explicitly configured and used. |
 
 ## Markdown and Safety
 

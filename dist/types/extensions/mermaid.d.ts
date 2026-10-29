@@ -5,10 +5,7 @@ export { loadMermaid } from '../render/mermaid-runtime';
 export type { MermaidRenderContext, MermaidRenderer } from '../render/mermaid-runtime';
 export interface MermaidConfig {
     renderer?: MermaidRenderer;
-    asset?: {
-        url: string;
-        version: string;
-    };
+    source?: string;
     maxCharacters?: number;
     maxLines?: number;
 }

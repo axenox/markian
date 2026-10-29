@@ -3,10 +3,7 @@ import type { ViewerRendererContext } from './viewer';
 import './render/mermaid.css';
 export interface ViewerMermaidOptions {
     renderer?: MermaidRenderer;
-    asset?: {
-        url: string;
-        version: string;
-    };
+    source?: string;
     maxCharacters?: number;
     maxLines?: number;
 }

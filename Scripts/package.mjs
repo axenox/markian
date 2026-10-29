@@ -37,7 +37,7 @@ try {
 			const requested = new URL(request.url, 'http://localhost').pathname.replace(/^\/installed\/markian\//, '/');
 			if (requested === '/Examples/mermaid.config.js') {
 				response.setHeader('Content-Type', 'application/javascript');
-				response.end(`window.markianMermaidConfig = ${JSON.stringify({ asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' } })};`);
+				response.end(`window.markianMermaidConfig = ${JSON.stringify({ source: '/host-assets/mermaid.min.js' })};`);
 				return;
 			}
 			if (requested === '/host-assets/mermaid.min.js') {

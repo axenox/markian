@@ -12,7 +12,7 @@ Classic scripts expose browser globals. TypeScript declarations are generated un
 | `Markian.version` | None | `string` | Library version. |
 | `MarkianViewer.create` | `host: HTMLElement, options?: ViewerOptions` | `Viewer` | Mount on a `div`, `section`, or `article`. Options default to `{}`. |
 | `MarkianViewer.headings` | `markdown: string` | `Heading[]` | The same heading parser. |
-| `MarkianMermaid.loadMermaid` | `document: Document, asset: { url: string, version: string }` | `Promise<MermaidRenderer>` | Load the explicit trusted runtime and return its versioned adapter. |
+| `MarkianMermaid.loadMermaid` | `document: Document, source: string` | `Promise<MermaidRenderer>` | Load the trusted script URL, check `initialize()`/`render()` and return its `{ render }` adapter. |
 | `MarkianViewerMermaid.createRenderer` | `document: Document, options: ViewerMermaidOptions` | `(context: ViewerRendererContext) => Promise<string>` | Create an optional viewer fence renderer. |
 
 `MarkianCode.codeExtension` and `MarkianMermaid.mermaidExtension` are `ExtensionFactory` values supplied by their optional scripts. Register them explicitly; they do not activate themselves.

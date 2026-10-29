@@ -5,12 +5,15 @@ export interface MermaidRenderContext {
     signal: AbortSignal;
 }
 export interface MermaidRenderer {
-    version: string;
     render(context: MermaidRenderContext): string | Promise<string>;
 }
-export declare function version(value: string): void;
-export declare function loadMermaid(document: Document, asset: {
-    url: string;
-    version: string;
-}): Promise<MermaidRenderer>;
+interface MermaidApi {
+    initialize(config: Record<string, unknown>): void;
+    render(id: string, source: string, container: HTMLElement): Promise<{
+        svg: string;
+    }>;
+}
+export declare function mermaidApi(value: unknown): MermaidApi;
+export declare function loadMermaid(document: Document, source: string): Promise<MermaidRenderer>;
 export declare function bounded(source: string, characters: number, lines: number): void;
+export {};

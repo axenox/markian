@@ -55,7 +55,7 @@ All options, effective defaults, callbacks, and bundled extension settings are i
 
 ## Extensibility
 
-Hosts and extensions use the same public API. The following example loads both bundled editor extensions and adds a custom command. The host must serve a trusted Mermaid 12.2.x runtime at the configured URL.
+Hosts and extensions use the same public API. The following example loads both bundled editor extensions and adds a custom command. The host must serve a trusted Mermaid 11+ runtime at the configured URL.
 
 ### Optional Mermaid Extension
 
@@ -76,7 +76,7 @@ This example enables Mermaid alongside Code. Full renderer, safety, and workspac
     extensions: {
       code: { enabled: true },
       mermaid: { enabled: true, config: {
-        asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
+        source: '/assets/mermaid.min.js',
       } },
     },
   });
