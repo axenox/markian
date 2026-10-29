@@ -365,7 +365,7 @@ Track completed work and remaining tasks below as implementation proceeds. The #
 | 11 | W13 | Deliver the Mermaid Extension | Separate optional IIFE/CSS/types and external Mermaid 12.2.x metadata/notices; host-configured URL or versioned supplied adapters, deduplicated isolated loader, sanitized/scoped SVG, centered labels, floating controls, insertion/editing sessions, history/indent/help/draft saving, pan/zoom, retry/error and separate packaged example; focused Chromium/distribution fixtures. | Real-device touch, screen-reader, cross-browser and restrictive-CSP acceptance remain applicable W9 gates; block-session targeting retains W7's top-level-fence limitation. |
 | 12 | W14 | Deliver the Code Extension | | |
 | 13 | W10 | Integrate Markian in Codiware | | |
-| 14 | W16 | Deliver the Lightweight Viewer | | |
+| 14 | W16 | Deliver the Lightweight Viewer | Separate rendering-only IIFE/CSS/types and MarkianViewer lifecycle; shared semantics/security, exact source, safe resource callbacks, scoped themes, cancellable sanitized fence adapters, disabled-by-default lazy Mermaid adapter without editing UI; measured raw/gzip/Brotli budgets and import-graph gate; Chromium corpus/coexistence/desktop-mobile checks and installed offline/subdirectory archive fixture. | W9 cross-browser, restrictive-CSP, screen-reader and real-device gates; W11/W12 own display-widget bindings/adoption. Publication/cross-OS parity retain W2 gates. |
 | 15 | W11 | Integrate Markian in JEasyUIFacade | | |
 | 16 | W12 | Integrate Markian in UI5Facade | | |
 | 17 | W15 | Deliver Core's DocsPlaceholders Extension | | |
@@ -553,6 +553,27 @@ Use only the ordinary public API. The host resolves Core's assets, loads/registe
 Acceptance: verify exact DocsFacade delimiter/body round trips against its server renderer, marker edits, insertion, body policies, malformed pairs, host callback failure/cancellation, stale/unauthorized results, and independent fallback rendering. Test a Core-free install and side-by-side enabled/disabled editors, routed/subdirectory/offline assets, registration order, missing/incompatible assets, deduplicated loads, independent state, and cleanup. Absent/disabled extensions preserve comments/bodies without Core requests or provider execution; enabled unknown IDs fail explicitly without discarding Markdown.
 
 ### W16. Deliver the Lightweight Viewer
+
+Implemented slice (2026-10-28): `MarkianViewer.create` mounts directly without an
+editor; `ready`, `get`, `set`, `setTheme`, and `destroy` own independent rendering
+and exact Markdown. `MarkianViewer.headings` shares the anchor policy. Viewer
+CSS, declarations, manifest, and live editor/viewer [comparison](../../Examples/viewer.html)
+are built and packaged. `mermaid: false` is the explicit default; only true plus
+a configured renderer and matching fence may load a Mermaid runtime. The optional
+viewer-Mermaid JS/CSS supplies no editing extension. The bounded raster-image
+policy is applied after reference resolution and survives HTML sanitization.
+
+The [size report](../../dist/sizes.json) records core-only editor/viewer JS and
+CSS, additive combined costs, the optional viewer adapter, and external Mermaid.
+Viewer JS/CSS is about 24% of editor gzip bytes. Build gates cap JS at
+250,000/80,000/70,000 raw/gzip/Brotli bytes, CSS at 6,000/1,800/1,600 bytes, and
+viewer/editor totals at 35% in each encoding. The actual bundled import graph
+rejects editor dependencies. Focused Chromium checks cover semantic/security
+fixtures against active Preview, source/lifecycle/stale-result safety, resources,
+independent viewers/editor coexistence, and light/dark desktop/mobile layout,
+real image decoding, focus, and lazy Mermaid. The archive fixture installs with
+scripts disabled and checks viewer-only offline/subdirectory delivery. This is
+not a claim that W9, W10, publication, or host display-widget adoption is complete.
 
 Owner: Markian. Schedule immediately after W10's Codiware integration and before display-widget adoption in W11/W12. W10 does not depend on W16. W1-W3 must already have separated shared rendering/policy/content styles from editor engines and UI; W16 depends on those boundaries, W2's packaging, and applicable W9 security/accessibility gates, not on Core's W15 extension.
 
@@ -846,7 +867,7 @@ Include standalone examples in tagged checkouts and published npm/Composer archi
 | Example | What a new user can try | Delivery owner |
 | --- | --- | --- |
 | Minimal editor | Mount an editor, await readiness, get/set Markdown, observe changes, and destroy it. | W1-W2 |
-| Lightweight viewer | Render/replace Markdown, switch themes, follow safe links, and dispose without loading editor assets; add alongside W16, not before delivery. | W16 |
+| Lightweight viewer | [Editor/viewer comparison](../../Examples/viewer.html): equal responsive panes share live Markdown, theme changes, replacement, and disposal. This demo loads both bundles; dedicated startup/archive fixtures verify viewer-only asset isolation. Mermaid is disabled by default. | W16 delivered slice |
 | Form and disabled editing | Textarea/form values and reset, read-only transitions, retained search/copy/navigation, and blocked mutations. | W1/W4 |
 | Multiple instances and themes | Independent values, histories, themes, resizing, and teardown on one page. | W1/W4 |
 | Toolbars and host customization | Pinned/floating/compact controls, a host-added public-API command, and paired custom fullscreen restoration. | W4 |

@@ -444,6 +444,32 @@ test('Mermaid host URL loading retries failures, deduplicates instances and reje
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(1);
 });
 
+for (const finalNewline of [false, true]) test(`CRLF visual serialization is stable ${finalNewline ? 'with' : 'without'} a final newline`, async ({ page }) => {
+  const markdown = '# Notes\n\nFirst line\nsecond **line**.\n\n<!-- keep -->\n\n- [x] Reviewed\n\n| Item | Status |\n| --- | --- |\n| Guide | Ready |\n\n```text\none  \n  two\n```\n\nTail paragraph' + (finalNewline ? '\n' : '');
+  const source = markdown.replace(/\n/g, '\r\n');
+  await page.evaluate(async value => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), { markdown: value });
+    await editor.ready;
+  }, source);
+  const root = page.locator('[data-markian]').first();
+  await expect(root).toHaveAttribute('data-view', 'visual');
+  await expect(root.locator('[role="alert"]')).toBeHidden();
+  await root.locator('.ProseMirror > p').last().click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('!');
+  const serialized = await page.evaluate(() => editor.get());
+  expect(serialized).not.toContain('\r');
+  expect(serialized.endsWith('\n')).toBe(finalNewline);
+  expect(equivalentMarkdown(serialized, markdown.replace('Tail paragraph', 'Tail paragraph!'))).toBe(true);
+  for (let iteration = 0; iteration < 3; iteration++) {
+    await page.evaluate(() => { editor.setMode('raw'); editor.setMode('visual'); editor.set(editor.get()); });
+    expect(await page.evaluate(() => editor.get())).toBe(serialized);
+    await expect(root).toHaveAttribute('data-view', 'visual');
+    await expect(root.locator('[role="alert"]')).toBeHidden();
+  }
+});
+
 for (const ending of ['', '\n']) test(`visual editing and undo preserve ${ending ? 'a final newline' : 'no final newline'}`, async ({ page }) => {
   const original = '# Heading\n\nParagraph' + ending;
   await page.evaluate(value => editor.set(value), original);
@@ -1105,11 +1131,14 @@ test('unsupported input retains exact source and failed visual import retains dr
   expect(result.value).toBe(result.markdown);
   expect(result.mode).toBe('raw');
   expect(result.error).toContain('retained');
+  expect(result.error).toContain('First round-trip differences:');
+  expect(result.error).toMatch(/Lines 1-3: document\.children\[0\]\.type changed from "yaml"/);
   const root = page.locator('[data-markian]').first();
   await root.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(root).toHaveAttribute('data-view', 'raw');
   await expect(root.locator('[data-command="raw"]')).toHaveCount(0);
   await expect(root.locator('[role="alert"]')).toContainText('retained');
+  await expect(root.locator('[role="alert"]')).toContainText('Lines 1-3:');
   expect(await page.evaluate(() => editor.get())).toBe(result.markdown);
 });
 

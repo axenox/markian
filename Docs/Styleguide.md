@@ -88,15 +88,42 @@ Other views can be added through the ordinary public instance API, equally by ex
 
 ### Disabled / Read-Only Editor
 
-Markian remains an editor when editing is disabled. The separate W16 lightweight viewer is planned for display-only host widgets after Codiware integration; it must not be a disabled editor with hidden controls. For editors, disabled/read-only means document mutation is blocked, not that focus, selection, or the whole toolbar is disabled.
+Markian remains an editor when editing is disabled. The separate W16 lightweight viewer renders display-only content directly; host widget adoption remains integration work. It is not a disabled editor with hidden controls. For editors, disabled/read-only means document mutation is blocked, not that focus, selection, or the whole toolbar is disabled.
 
 Keep search (without replace), text selection, copying text or the complete current Markdown, safe link/outline navigation, Help, fullscreen, and diagram pan/zoom available. Disable or omit typing, paste/drop, insertion/formatting, undo/redo, replace, task-checkbox changes, uploads, and regeneration. Source/code views, if accessible, must be noneditable too. Apply the same rules to keyboard shortcuts, extension commands, and asynchronous results, not just visible buttons.
 
 Entering or leaving this state must retain the current document, drafts, selection/history, and pending-workspace policy without implicitly committing edits or marking the document dirty. Do not copy Help content or only a block draft when Copy Markdown is used; copy the editor's complete current value. The host can still supply an intentional new value through its normal value-setting API.
 
-### Planned Lightweight Viewer
+### Lightweight Viewer
 
-Share scoped document typography, safe rendered-content styling, theme tokens, and responsive media/table behavior with the editor from the beginning, without importing the editor frame, toolbars, dialogs, or engine styles. The viewer has no editing chrome; host display widgets supply their own surrounding UI. Retain accessible text selection, safe link navigation, nonmutating task presentation, and plain-code fallback when optional rendering is unavailable. W16 verifies standalone viewer CSS, light/dark desktop/mobile layouts, overflow, and coexistence with editors; this is planned behavior, not prototype conformance.
+`[data-markian-viewer].markian-viewer` owns its `data-theme` and the same scoped
+`.markian-document` typography as Preview. Load `markian-viewer.css` alone; it
+includes content styling and viewer light/dark tokens without editor frames,
+controls, engines, or a separately requested content stylesheet. The viewer is
+unframed, constrained to its host width, and uses the existing 480px container
+spacing rule. Long code and wide tables scroll locally, images scale within the
+document, and keyboard links have visible focus. Task checkboxes are disabled.
+Dark alert colors resolve from the content stylesheet's scope root. Viewer
+content uses the same border-box sizing as the editor, including table cells.
+Default table headings align left; explicit Markdown column alignment is retained.
+Shared task styling retains identical checked colors and dimensions when disabled;
+viewer tasks remain noninteractive. Comment-only visual paragraphs occupy no space
+but remain in the editor document and saved Markdown. Mixed text/comment paragraphs
+are not hidden.
+
+The optional `extensions/viewer-mermaid.css` shares trusted SVG styling from
+`src/render/mermaid.css` with W13, using scoped theme tokens and centered node
+labels rather than renderer-supplied CSS. It adds no editing/pan/zoom toolbar.
+Missing, disabled, pending, and failed renderers retain readable plain code.
+Host display widgets supply their own surrounding UI. Chromium screenshots and
+checks cover light/dark 1100px/360px viewports, real image decoding, focus,
+overflow, and editor coexistence; real-device and screen-reader acceptance remain
+open. The comparison example reuses `.demo-actions` and the shared stacked-header
+pattern via `.demo-viewer`. Shared `.demo-comparison` and `.demo-pane` classes
+provide equal-width desktop columns, compact headings, independently scrolling
+surfaces, and vertically stacked narrow-screen panes. Editor mount sizing stays
+inline in the example. Both panes share the Markdown value and theme; only the
+editor exposes editing controls.
 
 ## Controls and Shared Patterns
 

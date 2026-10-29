@@ -9,6 +9,14 @@
     "contentStylesheet": "markdown-github.css",
     "types": "types/index.d.ts"
   },
+  "viewer": {
+    "script": "markian-viewer.min.js",
+    "stylesheet": "markian-viewer.css",
+    "types": "types/viewer.d.ts",
+    "global": "MarkianViewer",
+    "dependencies": [],
+    "measurements": "sizes.json"
+  },
   "extensions": {
     "code": {
       "script": "extensions/code.min.js",
@@ -31,6 +39,22 @@
           "loading": "host-configured asset.url or supplied renderer adapter"
         }
       ]
+    },
+    "viewerMermaid": {
+      "script": "extensions/viewer-mermaid.min.js",
+      "stylesheet": "extensions/viewer-mermaid.css",
+      "types": "types/viewer-mermaid.d.ts",
+      "global": "MarkianViewerMermaid.createRenderer",
+      "requires": "0.1.0",
+      "dependencies": [
+        {
+          "name": "mermaid",
+          "testedVersion": "12.2.0",
+          "supported": "12.2.x",
+          "external": true,
+          "loading": "Explicit mermaid:true plus a matching fence and host-configured asset.url or supplied renderer"
+        }
+      ]
     }
   },
   "assets": {
@@ -39,24 +63,44 @@
       "bytes": 1212
     },
     "extensions/mermaid.css": {
-      "sha256": "e9c00992e24af57b7bda1c70078266e6daef6ed183d6c65903c0b2a859a8d768",
-      "bytes": 3142
+      "sha256": "a8ef9b84a7dea7e57d7cd08eeb2f346f2909f42585bc35191d1888ae70823830",
+      "bytes": 2908
     },
     "extensions/mermaid.min.js": {
-      "sha256": "93395dfe6ac4e9027cb277cf2d8f2d079f9d336460c1b3d11d997bdecedc39d9",
-      "bytes": 56164
+      "sha256": "f67457d74c6ebae16d9986751bbdf1f6e470145eb4913fd7abd87a44807c22f1",
+      "bytes": 56170
+    },
+    "extensions/viewer-mermaid.css": {
+      "sha256": "eace81e313496006839ad90dd834763c53982974f76f3f9945863f424faced90",
+      "bytes": 624
+    },
+    "extensions/viewer-mermaid.min.js": {
+      "sha256": "8ee21bdee8243cc1a1e21133d087ba7be3ebe36218c823d25ba968df9fe5985e",
+      "bytes": 3191
     },
     "markdown-github.css": {
-      "sha256": "4332421799c0e9ab12bf44e60eb480c1b1611815cbc898e99248a914ea16e813",
-      "bytes": 3845
+      "sha256": "0cc8225055de59c004fda6c8554db3406f51805443a4cdff2d631107cfa96472",
+      "bytes": 4398
+    },
+    "markian-viewer.css": {
+      "sha256": "4d7cfb92736d35e2696579a0d377e2b7aa4f8798f0869ec3ff5e66940050f153",
+      "bytes": 4935
+    },
+    "markian-viewer.min.js": {
+      "sha256": "c890137ca0d74acee1173b18f61b567da203dd7eab285e550d4bafe59e9c2aa2",
+      "bytes": 211878
     },
     "markian.css": {
-      "sha256": "a0bb0838f829c115c2b6179634e29aad6e8c58a3202ae0ed78afc2787f956203",
-      "bytes": 11701
+      "sha256": "13f94f2b76855d77d0f6e710c357ca57f58731ad5e7961c533dc54efeb25927e",
+      "bytes": 11758
     },
     "markian.min.js": {
-      "sha256": "92ab54f6c4ff3c0fb94ea0828bf6c7b29cc485378395fbaef4eb431ab3b12880",
-      "bytes": 912694
+      "sha256": "3aef5e80051b7cca72f56a4b4ee537d3fe6a0691232391b41d371a983c23b6f4",
+      "bytes": 914166
+    },
+    "sizes.json": {
+      "sha256": "f3ab658a41400e551e3bff9dfaaedcc3193a440a1fe5a39ed0f6be7496385ede",
+      "bytes": 1806
     },
     "THIRD_PARTY_NOTICES.txt": {
       "sha256": "faeea697f6486c46a940ed44b6eedd93cdd5c0c8c3aff9ee4639eae09f1aa6b5",
@@ -91,8 +135,8 @@
       "bytes": 104
     },
     "types/extensions/mermaid.d.ts": {
-      "sha256": "86b097086570a8462c12bcfbf381f60e1d70f889dc1fc990d1dc6d397fc340e7",
-      "bytes": 704
+      "sha256": "2800cfa903e633c4cf7cd954cc95c591be980a9a94991edc53fbc01f8bca4fb0",
+      "bytes": 527
     },
     "types/index.d.ts": {
       "sha256": "c844b65d2effae7d53d17cb728f11fdcf11f02baea9714ee148f2f2309c0e47d",
@@ -107,8 +151,12 @@
       "bytes": 453
     },
     "types/render/markdown.d.ts": {
-      "sha256": "81776271f6f23140cffe1525e1b5d57a7fa46117e0ca0c87b2cfbb939ff03d39",
-      "bytes": 754
+      "sha256": "08ee96c013fc306698a432670bd1fc33962508d24269f4f64ff9b91755dffb16",
+      "bytes": 840
+    },
+    "types/render/mermaid-runtime.d.ts": {
+      "sha256": "36192477853020bf19e7f9980903606a07291d202d26c8f3270bc7a53b3986db",
+      "bytes": 536
     },
     "types/search.d.ts": {
       "sha256": "bcf1ddd07090e3b8d7bced045b2e62d573c65d9e2c534c29f2bba82508a1cf96",
@@ -137,6 +185,14 @@
     "types/ui/toolbar.d.ts": {
       "sha256": "5d6a75f9204973ff8c6b36d05de4ff3be4bb0a22d61fe8c7b70e07b8e37d8d26",
       "bytes": 746
+    },
+    "types/viewer-mermaid.d.ts": {
+      "sha256": "a6a248ffc39767eb2d77d1eec7b829b0b536f21a40794fd473fd79dbe6a0d46f",
+      "bytes": 487
+    },
+    "types/viewer.d.ts": {
+      "sha256": "8785638e497cd23cc0a532b0d125146d7239342c699b8a9eb5bed7a10902e6a2",
+      "bytes": 1350
     }
   }
 }

@@ -1,6 +1,6 @@
 # Markian
 
-A framework-independent Markdown editor. This checkout implements W0-W3 foundations, W4-W7 editing, table, provider, and navigation features, and the optional W13 Mermaid extension described below. It is not a stable release: remaining parity, device, and integration gates are tracked in the plan. The former demonstration and its tests are archived under [Prototype](Prototype/README.md); no library build imports them.
+A framework-independent Markdown editor and lightweight viewer. This checkout implements W0-W3 foundations, W4-W7 editing, table, provider, and navigation features, the optional W13 Mermaid extension, and the W16 viewer described below. It is not a stable release: remaining parity, device, and integration gates are tracked in the plan. The former demonstration and its tests are archived under [Prototype](Prototype/README.md); no library build imports them.
 
 ## Try It
 
@@ -47,6 +47,14 @@ The package installs to `vendor/axenox/markian`. Serve or copy its prebuilt `dis
 ```
 
 Await `ready` before commands, replacement, or view navigation. Initialization rejection restores the host. A preservation fallback to raw mode instead resolves readiness and reports an `error` event plus an inline diagnostic.
+
+Visual serialization uses LF line endings, including for CRLF/CR input, while
+preserving whether the accepted document ended with a newline. Meaningful spaces,
+hard breaks, comments and code are not trimmed. Repeated accepted round trips
+retain the serialized value. A genuine visual-import mismatch reports up to five
+differences with original source line ranges, structural property paths, and short
+before/after excerpts. These ranges identify affected Markdown nodes rather than
+exact changed characters; source remains available for correction.
 
 See the [complete configuration reference](Docs/Configuration.md) for all editor
 options, effective defaults, callbacks, toolbar settings, and bundled extension
@@ -104,6 +112,136 @@ does not disable the editor shell or its editing controls.
 Textarea hosts retain their name/form association. Values track active drafts synchronously; native form reset loads `defaultValue` and resets history. Pending/failed image insertion prevents native form submission until resolved or explicitly removed; submission is not automatically retried. Disabled editing does not change native textarea disabled/submission semantics.
 
 `getCommands()`, `getViews()`, `getRenderers()`, `getHelp()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. `getToolbar()` instead uses `insert(item, group?, beforeId?)` for group-local placement, described below. Applications and extensions use the same methods. Help entries contain `{ id, markdown }`. `insertCodeBlock(value, language)` inserts one undoable fenced block at the visual selection and enforces permissions. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
+
+## Lightweight Viewer
+
+The [comparison example](Examples/viewer.html) shows an editor and a live viewer
+of the same Markdown in equal panes, stacked on narrow screens. That demo loads
+both bundles; standalone viewer hosts need only the viewer assets below. The viewer
+uses the same GFM parser, sanitization, heading anchors, softbreak policy, and
+content typography as editor Preview, without Milkdown, ProseMirror, CodeMirror,
+editing sessions, toolbars, or dialogs. It does not construct a disabled editor.
+Read-only editors remain separate and retain their richer nonmutating controls.
+
+```html
+<link rel="stylesheet" href="dist/markian-viewer.css">
+<article id="document"></article>
+<script src="dist/markian-viewer.min.js"></script>
+<script>
+  const viewer = MarkianViewer.create(document.querySelector('#document'), {
+    markdown: '# Notes\n\nReady for review.',
+    theme: 'light',
+    mermaid: false,
+  });
+  viewer.ready.then(() => viewer.set('# Updated notes'));
+</script>
+```
+
+Mount on a `div`, `section`, or `article`; original child nodes and their listeners
+are retained and restored on destruction. `MarkianViewer` coexists with `Markian`
+without overwriting its global. Each viewer owns its value, theme, revision,
+resource callbacks, pending renders, and DOM. Declarations are generated at
+`dist/types/viewer.d.ts`; the manifest declares all viewer assets.
+
+| API | Behavior |
+| --- | --- |
+| `create(host, options)` | Mount immediately; `markdown` defaults to `''`. Load the viewer CSS explicitly. Invalid configuration/import restores the host and throws. |
+| `ready` | Promise for initial optional rendering. Failed fence renderers report an error and retain plain code. |
+| `get()` | Exact supplied Markdown, never serialized HTML or normalized editor content. |
+| `set(markdown)` | Validate/render before replacing; synchronous errors retain the old document. Returns a promise for optional renderers. Identical values are no-ops and return the current render promise. |
+| `setTheme('light' / 'dark')` | Rerender presentation, including enabled adapters, without changing Markdown. Returns a render promise. |
+| `destroy()` | Abort pending work, remove owned DOM/listeners, and restore the host; safe twice. Other methods reject use after destruction. |
+| `headings(markdown)` | The same engine-independent `Heading[]` parser exposed by the editor. |
+
+Links retain safe native navigation/selection/copy. Local fragments navigate
+within the current viewer, even beside viewers with identical heading IDs. Tasks
+are always disabled. Unknown comments and front matter remain invisible;
+generated bodies remain ordinary readable Markdown. No placeholder providers run.
+Raw HTML follows Preview's existing policy; it is not interpreted as trusted HTML.
+
+`documentBase` resolves relative link/image destinations without rewriting the
+stored Markdown. `onResourceResolve(context)` optionally returns a synchronous
+URL string or `null` to suppress the resource. Both original and returned URLs
+must pass the shared URL policy. `onLinkOpen(context)` optionally handles
+navigation; it receives the original Markdown destination and mouse event.
+These are trusted host callbacks, not built-in transport or endpoint settings.
+See [every option and callback field](Docs/Configuration.md#viewer-options).
+
+### Optional Viewer Rendering
+
+`renderers` maps fence-language IDs to callbacks returning HTML/SVG text or a
+promise. Context supplies `source`, `language`, `theme`, `markdown`, `revision`,
+`documentBase`, and an abort `signal`. Replacement, theme changes, and destruction
+abort obsolete work; late results cannot replace newer content, even when the
+callback ignores cancellation. Output is bounded to 2,000,000 characters and
+sanitized again; active content, embedded styles, controls, and external resource
+references are removed. SVG IDs/local references are scoped to the render.
+Failures retain plain code and call `onError`, or log to the console by default.
+Hosts can supply a preloaded highlighter this way; no language packs or W14
+editing UI load implicitly. Hosts load trusted, scoped highlighting CSS separately.
+
+**Mermaid is disabled by default.** Even a supplied `renderers.mermaid` callback
+is not invoked unless `mermaid: true`. Enabling it with no matching fence loads
+nothing; without a supplied callback, the fence remains plain code. The optional
+render-only adapter does not depend on the W13 editor extension:
+
+```html
+<link rel="stylesheet" href="dist/extensions/viewer-mermaid.css">
+<script src="dist/extensions/viewer-mermaid.min.js"></script>
+<script>
+  const renderMermaid = MarkianViewerMermaid.createRenderer(document, {
+    asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
+  });
+  const diagrams = MarkianViewer.create(document.querySelector('#diagrams'), {
+    markdown: '```mermaid\ngraph LR\n Draft-->Review\n```',
+    mermaid: true,
+    renderers: { mermaid: renderMermaid },
+  });
+</script>
+```
+
+Load the viewer JS/CSS first and provide the `#diagrams` host. Instead of `asset`,
+pass a supported versioned `renderer` with `render({ source, id, theme, signal })`.
+The adapter accepts Mermaid `12.2.x`, defaults to 20,000 characters/500 lines, and
+rejects executable links/configuration directives. It loads only an explicit host
+URL, in an isolated runtime deduplicated among viewers by document/URL/version;
+there is no CDN guess, AJAX, or bundled Mermaid. Shared assets remain after an
+instance is destroyed. Editor and viewer IIFEs embed independent loader caches;
+supply the same host renderer adapter to both when they must share one runtime.
+Loading the adapter script alone never loads the Mermaid runtime.
+
+### Measured Distribution
+
+The deterministic [size report](dist/sizes.json) lists individual assets, optional
+dependencies, and combined costs. The 2026-10-28 Windows/Node 24 proof build uses
+independent resources, gzip level 9 and Brotli quality 11. Baseline totals enable
+no optional features; editor totals include its separate content stylesheet.
+Rounded decimal KB are shown here; the report records exact bytes.
+
+| Assets | Minified KB | gzip KB | Brotli KB |
+| --- | ---: | ---: | ---: |
+| Editor JS | 914.2 | 283.2 | 237.3 |
+| Editor shell + content CSS | 16.2 | 3.9 | 3.3 |
+| Viewer JS | 211.9 | 67.3 | 58.1 |
+| Viewer CSS (includes content) | 4.9 | 1.4 | 1.1 |
+| Editor + viewer JS/CSS | 1147.1 | 355.8 | 299.9 |
+| Optional viewer Mermaid adapter JS + CSS | 3.8 | 1.9 | 1.6 |
+| External Mermaid 12.2.0 runtime | 5494.8 | 1578.8 | 1177.4 |
+
+Viewer JS/CSS is approximately 24% of the equivalent editor gzip total. Shared
+source is embedded in each independent bundle: there is no runtime shared chunk,
+and the combined cost is additive, not deduplicated. This is a byte-size result,
+not a rendering-speed claim. The build rejects viewer JS over 250,000/80,000/70,000
+raw/gzip/Brotli bytes, CSS over 6,000/1,800/1,600 bytes, or totals above 35% of the
+editor in any of those encodings. Rollup's actual viewer import graph rejects
+editor engines, controllers, UI, and editing-extension modules.
+
+Focused Chromium checks cover the shared semantic/security corpus, source
+preservation, stale renders, host restoration, resources, lazy Mermaid, coexistence,
+and light/dark desktop/mobile overflow and image decoding. The archive fixture
+installs with scripts disabled and tests viewer-only subdirectory/offline use.
+Cross-browser, restrictive CSP, screen-reader, and actual display-widget bindings
+remain W9/W11/W12 acceptance work; no host widget adapter changed here.
 
 ## Optional Code Slice
 

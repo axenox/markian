@@ -1,15 +1,8 @@
 import './mermaid.css';
-import type { ExtensionFactory, Theme } from '../types';
-export interface MermaidRenderContext {
-    source: string;
-    id: string;
-    theme: Theme;
-    signal: AbortSignal;
-}
-export interface MermaidRenderer {
-    version: string;
-    render(context: MermaidRenderContext): string | Promise<string>;
-}
+import type { ExtensionFactory } from '../types';
+import { type MermaidRenderer } from '../render/mermaid-runtime';
+export { loadMermaid } from '../render/mermaid-runtime';
+export type { MermaidRenderContext, MermaidRenderer } from '../render/mermaid-runtime';
 export interface MermaidConfig {
     renderer?: MermaidRenderer;
     asset?: {
@@ -19,8 +12,4 @@ export interface MermaidConfig {
     maxCharacters?: number;
     maxLines?: number;
 }
-export declare function loadMermaid(document: Document, asset: {
-    url: string;
-    version: string;
-}): Promise<MermaidRenderer>;
 export declare const mermaidExtension: ExtensionFactory;

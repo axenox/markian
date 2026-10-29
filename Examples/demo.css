@@ -95,6 +95,27 @@ body > main {
   color: #59645f;
 }
 
+.demo-comparison > main {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.demo-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  height: calc(100dvh - 130px);
+  min-height: 440px;
+}
+
+.demo-pane > h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  color: #59645f;
+}
+
 .demo-workspace > main > aside pre {
   height: 220px;
   overflow: auto;
@@ -107,7 +128,8 @@ body > main {
   border-radius: 4px;
 }
 
-.demo-diagrams .demo-actions {
+.demo-diagrams .demo-actions,
+.demo-viewer .demo-actions {
   flex-wrap: wrap;
 }
 
@@ -162,7 +184,8 @@ body > main {
 
 @media (max-width: 800px) {
   .demo-workspace > header,
-  .demo-diagrams > header {
+  .demo-diagrams > header,
+  .demo-viewer > header {
     padding: 14px 20px;
     align-items: flex-start;
     flex-direction: column;
@@ -185,12 +208,22 @@ body > main {
   }
 
   .demo-workspace > main,
-  .demo-diagrams > main {
+  .demo-diagrams > main,
+  .demo-viewer > main {
     padding: 16px;
   }
 
   .demo-workspace > main {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .demo-comparison > main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .demo-pane {
+    height: 60dvh;
+    min-height: 400px;
   }
 
   .demo-actions {

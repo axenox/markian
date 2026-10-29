@@ -21,11 +21,11 @@
 .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #a64a94; }
 .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #996c00; }
 .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #c33f45; }
-.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='note'] { --markian-alert: #7cb8f5; }
-.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #75d6a0; }
-.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #e49dd6; }
-.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #e8c15a; }
-.markian[data-theme='dark'] .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #ff9a9f; }
+:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='note'] { --markian-alert: #7cb8f5; }
+:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #75d6a0; }
+:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #e49dd6; }
+:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #e8c15a; }
+:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #ff9a9f; }
 .markian-document .markian-alert-marker { display: none; }
 .markian-document img { max-width: 100%; height: auto; }
 .markian-document table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
@@ -33,10 +33,14 @@
 .markian-document th > p, .markian-document td > p { margin: 0; }
 .markian-document th > p + p, .markian-document td > p + p { margin-top: 4px; }
 .markian-document th { background: var(--markian-code, #f1f3f4); }
+.markian-document th:not([align]) { text-align: left; }
 .markian-document hr { border: 0; border-top: 1px solid var(--markian-line, #dce3df); }
 .markian-document .contains-task-list { padding-left: 24px; }
 .markian-document .task-list-item { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
-.markian-document .task-list-item > input[type='checkbox'], .markian-document .task-list-item > p > input[type='checkbox'] { width: 16px; height: 16px; margin: 0 8px 0 -24px; vertical-align: -3px; accent-color: var(--markian-accent, #227761); }
+.markian-document .task-list-item > input[type='checkbox'], .markian-document .task-list-item > p > input[type='checkbox'] { position: absolute; top: 5px; left: -20px; width: 16px; height: 16px; margin: 0; accent-color: var(--markian-accent, #227761); }
+.markian-document li input[type='checkbox'] { appearance: none; display: inline-grid; place-content: center; border: 1px solid var(--markian-line, #dce3df); border-radius: 2px; background: var(--markian-surface, #fff); opacity: 1; }
+.markian-document li input[type='checkbox']:checked { border-color: var(--markian-accent, #227761); background: var(--markian-accent, #227761); }
+.markian-document li input[type='checkbox']:checked::before { content: '\2713'; color: var(--markian-surface, #fff); font: bold 14px/1 'Segoe UI', sans-serif; }
 @container (max-width: 480px) {
 	.markian-document { padding: 18px; }
 }

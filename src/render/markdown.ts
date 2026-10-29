@@ -7,7 +7,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import type { Root, RootContent } from 'mdast';
 import type { State as HastState } from 'mdast-util-to-hast';
-import type { Element as HastElement } from 'hast';
+import type { Element as HastElement, Root as HastRoot, RootContent as HastContent } from 'hast';
 import { colorSyntax, type TextColor } from './colors';
 
 export const documentLimit = 1_000_000;
@@ -39,7 +39,42 @@ function canonical(value: unknown): unknown {
 }
 
 export function equivalentMarkdown(first: string, second: string): boolean {
-  return JSON.stringify(canonical(parseMarkdown(first))) === JSON.stringify(canonical(parseMarkdown(second)));
+  return JSON.stringify(canonical(parseMarkdown(first.replace(/\r\n?/g, '\n')))) === JSON.stringify(canonical(parseMarkdown(second.replace(/\r\n?/g, '\n'))));
+}
+
+export function markdownDifferences(first: string, second: string): string[] {
+  const differences: string[] = [];
+  const describe = (value: unknown): string => {
+    const text = JSON.stringify(canonical(value)) ?? 'missing';
+    return text.length > 100 ? text.slice(0, 97) + '...' : text;
+  };
+  const visit = (original: unknown, serialized: unknown, path: string, startLine: number, endLine: number): void => {
+    if (differences.length >= 5 || JSON.stringify(canonical(original)) === JSON.stringify(canonical(serialized))) return;
+    if (original && typeof original === 'object' && !Array.isArray(original)) {
+      const position = (original as { position?: Root['position'] }).position;
+      startLine = position?.start.line ?? startLine;
+      endLine = position?.end.line ?? endLine;
+    }
+    if (Array.isArray(original) && Array.isArray(serialized)) {
+      for (let index = 0; index < Math.max(original.length, serialized.length) && differences.length < 5; index++) {
+        visit(original[index], serialized[index], `${path}[${index}]`, original[index] === undefined ? endLine : startLine, endLine);
+      }
+      return;
+    }
+    if (original && serialized && typeof original === 'object' && typeof serialized === 'object'
+      && !Array.isArray(original) && !Array.isArray(serialized)) {
+      const originalFields = original as Record<string, unknown>;
+      const serializedFields = serialized as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(originalFields), ...Object.keys(serializedFields)])) {
+        if (!['position', 'data', 'spread'].includes(key)) visit(originalFields[key], serializedFields[key], `${path}.${key}`, startLine, endLine);
+      }
+      return;
+    }
+    const location = startLine === endLine ? `Line ${startLine}` : `Lines ${startLine}-${endLine}`;
+    differences.push(`${location}: ${path} changed from ${describe(original)} to ${describe(serialized)}.`);
+  };
+  visit(parseMarkdown(first.replace(/\r\n?/g, '\n')), parseMarkdown(second.replace(/\r\n?/g, '\n')), 'document', 1, 1);
+  return differences;
 }
 
 export function safeUrl(destination: string, image = false): boolean {
@@ -117,6 +152,18 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
     .use(remarkRehype, { handlers: {
       textColor: (state: HastState, node: TextColor): HastElement => ({ type: 'element', tagName: 'span', properties: allowTextColors ? { style: `color: ${node.color}` } : {}, children: state.all(node) }),
     } })
+    .use(() => (tree: HastRoot) => {
+      const walk = (node: HastRoot | HastContent): void => {
+        if (node.type === 'element') {
+          for (const attribute of ['href', 'src'] as const) {
+            const value = node.properties[attribute];
+            if (typeof value === 'string' && !safeUrl(value, attribute === 'src')) delete node.properties[attribute];
+          }
+        }
+        if ('children' in node) node.children.forEach(walk);
+      };
+      walk(tree);
+    })
     .use(() => (tree) => {
       if (!softbreaks) return;
       const walk = (node: { type: string; tagName?: string; value?: string; children?: typeof node[] }): void => {
@@ -130,7 +177,7 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
       };
       walk(tree);
     })
-    .use(rehypeSanitize, { ...defaultSchema, clobberPrefix: '', attributes: { ...defaultSchema.attributes, blockquote: ['dataAlertKind', 'dataAlertTitle'], span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
+    .use(rehypeSanitize, { ...defaultSchema, protocols: { ...defaultSchema.protocols, src: [...(defaultSchema.protocols?.src ?? []), 'data'] }, clobberPrefix: '', attributes: { ...defaultSchema.attributes, blockquote: ['dataAlertKind', 'dataAlertTitle'], span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
     .use(rehypeStringify)
     .processSync(markdown));
 }

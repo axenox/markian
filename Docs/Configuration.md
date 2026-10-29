@@ -1,7 +1,7 @@
 # Configuration
 
-This reference covers every public editor option and every configuration option
-of the bundled Code and Mermaid extensions. It describes Markian itself, not
+This reference covers every public editor/viewer option and every configuration option
+of the bundled Code, Mermaid, and viewer-Mermaid adapters. It describes Markian itself, not
 host-specific defaults such as Codiware's automatic extension activation.
 
 Pass options to `Markian.create(host, options)` and await `editor.ready` before
@@ -70,6 +70,66 @@ their individual defaults are shown in the chapters below.
 | `onImageInsert` | Bounded raster data URI | Optional sync/async callback receiving provider context plus `blob`, returning a saved image destination and optional alternative text. Custom callbacks must not return embedded data URIs. Hosts await `whenIdle()` before saving. |
 | `onFullscreenEnter` | Built-in viewport fullscreen | Optional sync/async callback receiving `instance`, `element`, and an abort `signal`; must return a restore/disposal function. |
 | `extensions` | `{}` | Per-instance activation/configuration of previously registered factories. Registration alone does not enable an extension. Unknown enabled IDs are errors. |
+
+## Viewer Options
+
+The independent `MarkianViewer.create(host, options)` entry point uses
+`dist/markian-viewer.min.js` and `dist/markian-viewer.css`, not editor assets.
+Its generated declarations are `dist/types/viewer.d.ts`.
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `markdown` | `''` | Exact Markdown string, at most 1,000,000 characters. Rendering never rewrites it. |
+| `theme` | `'light'` | `'light'` or `'dark'`, instance-local. |
+| `softbreaks` | `false` | Render ordinary line breaks as `<br>` without changing source or code fences. |
+| `allowTextColors` | `false` | Preview's bounded hexadecimal color syntax; not arbitrary HTML/CSS. |
+| `documentBase` | Browser document base URI | HTTP(S) base for relative link/image destinations; a relative configured base resolves against the browser document. |
+| `mermaid` | `false` | Gate invocation of `renderers.mermaid`. False/omitted means no Mermaid callback or runtime loading, even when fences exist. True alone supplies no renderer; no matching fence means no runtime request. |
+| `renderers` | `{}` | Language-to-callback map for optional fence rendering. Each callback returns HTML/SVG text or a promise, sanitized and bounded before display. Missing/failed adapters leave plain code. No implicit highlighter or editing extensions. |
+| `onResourceResolve` | Safe browser URL resolution | Synchronous callback returning a URL string or `null`; original and resolved URLs must be safe. Hosts own resource routing/authentication. |
+| `onLinkOpen` | Native navigation; instance-local fragments | Synchronous host navigation callback. Return value is unused; Markian prevents native navigation when supplied. |
+| `onError` | `console.error` | Notification callback for current optional-renderer/navigation errors. Renderer failures retain plain code and resolve readiness/replacement. Synchronous validation/resource-resolution errors throw without replacing the old value. |
+
+Shared viewer callback context contains `markdown`, `revision`, `theme`,
+`documentBase`, and an abort `signal`. Resource/navigation context also contains
+the original `destination` and `kind: 'link' | 'image'`; navigation adds `event`.
+Fence context adds `language` and `source`. Obsolete rendering is aborted/ignored
+on replacement, theme changes, or destruction. Functions are trusted JavaScript,
+never strings evaluated from Markdown or serialized configuration.
+
+All options are construction-time settings. Use `set(markdown)`, `setTheme(theme)`,
+and `destroy()` for live operations; `get()` returns the supplied Markdown.
+`ready`, `set`, and `setTheme` provide render promises; identical `set` returns the
+current promise without rebuilding. Destroy is idempotent and restores original
+host children. The viewer has no editor toolbar, permission state, providers,
+history, stylesheet URL loader, form integration, or task-toggle option. Style it
+through the standalone CSS and scoped host overrides.
+
+### Viewer Mermaid Adapter
+
+Load `dist/extensions/viewer-mermaid.min.js` and
+`dist/extensions/viewer-mermaid.css` explicitly. Create a callback with
+`MarkianViewerMermaid.createRenderer(document, options)` and pass it as
+`renderers.mermaid` together with `mermaid: true`. The adapter does not load a
+runtime until an enabled viewer renders a matching fence. It returns sanitized,
+noninteractive diagram presentation, not the editor's code/pan/zoom UI.
+
+| Adapter Option | Default | Behavior |
+| --- | --- | --- |
+| `renderer` | Unset | Supplied versioned `{ version, render(context) }` adapter; preferred over `asset`. Supported version is `12.2.x`; result is SVG text or a promise. |
+| `asset` | Unset | Explicit `{ url, version }` host asset. At least one of renderer/asset is required. |
+| `asset.url` | Required with asset | Trusted HTTP(S) script URL, relative to the browser document base when not absolute. No implicit CDN or editor extension. |
+| `asset.version` | Required with asset | Declared supported Mermaid `12.2.x` version. |
+| `maxCharacters` | `20000` | Positive integer up to 20,000 diagram characters. |
+| `maxLines` | `500` | Positive integer up to 500 diagram lines. |
+
+The supplied renderer receives `source`, unique `id`, `theme`, and abort `signal`.
+It may receive the viewer context's additional fields; do not rely on them as a
+Mermaid renderer requirement. Compatible viewer URL loads are deduplicated and
+retained for reuse. Separate editor/viewer IIFEs have separate caches: provide a
+shared host renderer when both should use one runtime. See the
+[viewer guide](../README.md#lightweight-viewer) for usage, bounds, size budgets,
+and remaining acceptance limits.
 
 ## Toolbar
 

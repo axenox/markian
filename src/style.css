@@ -117,6 +117,7 @@
 .markian .markian-document td > p + p { margin-top: 16px; }
 .markian .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; padding-left: 4px; margin: 2px 0; }
 .markian .ProseMirror li[data-item-type='task'] > input { position: absolute; top: 5px; left: -20px; margin: 0; accent-color: var(--markian-accent); width: 16px; height: 16px; cursor: pointer; }
+.markian .ProseMirror .markian-comment-only { display: none; }
 .markian .ProseMirror li[data-item-type='task'] > div { min-width: 0; }
 .markian .ProseMirror li[data-item-type='task'] > input:disabled { cursor: default; }
 .markian .ProseMirror li[data-item-type='task'] > div > p { margin: 0; }

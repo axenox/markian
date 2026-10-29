@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { equivalentMarkdown, headings, renderMarkdown, safeUrl, validateMarkdown } from '../src/render/markdown';
+import { equivalentMarkdown, markdownDifferences, headings, renderMarkdown, safeUrl, validateMarkdown } from '../src/render/markdown';
 import { findMatches } from '../src/search';
 import { defaultToolbar, ToolbarItems, validateToolbar } from '../src/ui/toolbar';
 import type { ToolbarEntry } from '../src/types';
@@ -99,6 +99,37 @@ test('ordinary GFM and unknown comments survive semantic comparison', () => {
   assert.ok(!equivalentMarkdown(source, source.replace('<!-- BEGIN sample -->', '')));
 });
 
+test('semantic comparison accepts line-ending normalization without hiding content changes', () => {
+  const markdown = '---\ntitle: Notes\n---\n\n# Notes\n\nFirst line\nsecond **line**.\n\n<!-- first\nsecond -->\n\n| Item | Status |\n| --- | --- |\n| Guide | Ready |\n\n```text\none  \n  two\n```\n';
+  for (const ending of ['\r\n', '\r']) {
+    const source = markdown.replace(/\n/g, ending);
+    assert.ok(equivalentMarkdown(source, markdown));
+    assert.ok(equivalentMarkdown(markdown, source));
+    assert.ok(!equivalentMarkdown(source, markdown.replace('one  ', 'one')));
+    assert.ok(!equivalentMarkdown(source, markdown.replace('  two', 'two')));
+    assert.ok(!equivalentMarkdown(source, markdown.replace('second **line**.', 'changed **line**.')));
+    assert.ok(!equivalentMarkdown(source, markdown.replace('<!-- first\nsecond -->', '')));
+  }
+  assert.ok(equivalentMarkdown('first\r\nsecond\nthird\rfourth', 'first\nsecond\nthird\nfourth'));
+});
+
+test('round-trip differences report original source lines and bounded excerpts', () => {
+  const source = '# Notes\r\n\r\nFirst line\r\nsecond line.\r\n\r\n- [x] Reviewed\r\n';
+  const normalized = source.replace(/\r\n/g, '\n');
+  assert.deepEqual(markdownDifferences(source, normalized), []);
+  const differences = markdownDifferences(source, normalized.replace('second line.', 'Changed.').replace('[x]', '[ ]'));
+  assert.equal(differences.length, 2);
+  assert.match(differences[0], /^Lines 3-4: document\.children\[1\]\.children\[0\]\.value changed from/);
+  assert.match(differences[0], /second line\./);
+  assert.match(differences[0], /Changed\./);
+  assert.match(differences[1], /^Line 6: .*checked changed from true to false\./);
+  assert.match(markdownDifferences('# Notes\n\n<!-- keep -->', '# Notes')[0], /^Line 3: .* to missing\./);
+  assert.match(markdownDifferences('# Notes', '# Notes\n\nAdded')[0], /^Line 1: .*changed from missing to/);
+  assert.match(markdownDifferences('x'.repeat(500), 'y'.repeat(500))[0], /\.\.\./);
+  const many = Array.from({ length: 10 }, (_, index) => `Paragraph ${index}`).join('\n\n');
+  assert.equal(markdownDifferences(many, many.replaceAll('Paragraph', 'Changed')).length, 5);
+});
+
 test('rendering is safe, autolinks GFM and hides front matter and metadata', () => {
   const html = renderMarkdown('---\nsecret: value\n---\n\n<!-- secret -->\n\nwww.example.org and user@example.org\n\n[bad](javascript:alert%281%29)\n\n<script>alert(1)</script>');
   assert.ok(html.includes('http://www.example.org'));
@@ -142,6 +173,16 @@ test('URL and document bounds reject unsafe input', () => {
   assert.equal(safeUrl('../notes.md?q=1#heading'), true);
   assert.equal(safeUrl('data:image/png;base64,AA==', true), true);
   assert.throws(() => validateMarkdown('x'.repeat(1_000_001)), RangeError);
+});
+
+test('rendered images retain bounded raster data URIs but reject unsafe direct and reference destinations', () => {
+  const raster = 'data:image/png;base64,AA==';
+  assert.match(renderMarkdown(`![Pixel](${raster})`), /src="data:image\/png;base64,AA=="/);
+  assert.match(renderMarkdown(`![Pixel][image]\n\n[image]: ${raster}`), /src="data:image\/png;base64,AA=="/);
+  for (const destination of ['data:image/svg+xml;base64,AA==', 'data:text/html;base64,AA==', 'javascript:alert%281%29', '//example.org/image.png', 'data:image/png;base64,' + 'A'.repeat(2_000_001)]) {
+    if (destination.length > 1_000_000) { assert.equal(safeUrl(destination, true), false); continue; }
+    for (const markdown of [`![Unsafe](${destination})`, `![Unsafe][image]\n\n[image]: ${destination}`]) assert.doesNotMatch(renderMarkdown(markdown), /src="(?:data:|javascript:|\/\/)/);
+  }
 });
 
 test('literal search handles Unicode words, punctuation and case without regex execution', () => {

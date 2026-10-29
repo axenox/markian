@@ -1,0 +1,35 @@
+@import './render/content.css';
+
+.markian-viewer, .markian-viewer * { box-sizing: border-box; }
+
+.markian-viewer {
+  --markian-surface: #fff;
+  --markian-text: #262c2b;
+  --markian-muted: #59645f;
+  --markian-line: #dce3df;
+  --markian-accent: #227761;
+  --markian-soft: #e8f3ee;
+  --markian-code: #f1f3f4;
+  container-type: inline-size;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--markian-surface);
+  color: var(--markian-text);
+  color-scheme: light;
+}
+
+.markian-viewer[data-theme='dark'] {
+  --markian-surface: #202624;
+  --markian-text: #e5ece8;
+  --markian-muted: #a7b5ad;
+  --markian-line: #48554e;
+  --markian-accent: #8bd7b7;
+  --markian-soft: #2c4035;
+  --markian-code: #2b3530;
+  color-scheme: dark;
+}
+
+.markian-viewer .markian-document { min-width: 0; }
+.markian-viewer .markian-document :focus-visible { outline: 2px solid var(--markian-accent); outline-offset: 3px; }
+.markian-viewer .markian-rendered-fence { max-width: 100%; overflow: auto; }
+.markian-viewer .markian-rendered-fence svg { display: block; max-width: 100%; height: auto; }

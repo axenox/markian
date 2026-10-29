@@ -5,7 +5,7 @@ import { $node, $mark, $remark } from '@milkdown/kit/utils';
 import type { RootContent } from 'mdast';
 import type { State as MarkdownState, Info } from 'mdast-util-to-markdown';
 import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
-import { equivalentMarkdown, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
+import { equivalentMarkdown, markdownDifferences, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
 import type { StructuralNode, SearchOptions, SearchMatch } from '../types';
 import { findMatches } from '../search';
 import { colorSyntax, type TextColor } from '../render/colors';
@@ -47,7 +47,7 @@ export async function createVisual(
   let finalNewline = false;
   const renderedCodeBlocks = new WeakSet<Node>();
   const serialize = (node: ProseNode): string => {
-    const markdown = editor.action(ctx => ctx.get(serializerCtx)(node));
+    const markdown = editor.action(ctx => ctx.get(serializerCtx)(node)).replace(/\r\n?/g, '\n');
     if (finalNewline) return markdown || '\n';
     return markdown.endsWith('\n') ? markdown.slice(0, -1) : markdown;
   };
@@ -144,6 +144,13 @@ export async function createVisual(
     props: { decorations: state => {
       const decorations: Decoration[] = [];
       state.doc.descendants((node, position) => {
+        if (node.type.name === 'paragraph' && node.childCount > 0) {
+          let commentsOnly = true;
+          node.forEach(child => {
+            if (child.type.name !== 'html' || !/^\s*<!--[\s\S]*-->\s*$/.test(String(child.attrs.value))) commentsOnly = false;
+          });
+          if (commentsOnly) decorations.push(Decoration.node(position, position + node.nodeSize, { class: 'markian-comment-only' }));
+        }
         if (node.type.name !== 'blockquote' || !node.firstChild?.isTextblock) return;
         const paragraph = node.firstChild;
         const marker = quoteMarker(paragraph.textBetween(0, paragraph.content.size, '\n', '\n'));
@@ -280,7 +287,10 @@ export async function createVisual(
     parseMarkdown(markdown);
     const node = editor.action(ctx => ctx.get(parserCtx)(markdown));
     if (!safeDocument(node)) throw new Error('Unsafe URLs cannot be opened in visual mode. Source has been retained.');
-    if (!equivalentMarkdown(markdown, serialize(node))) throw new Error('This document contains content not supported by visual mode. Source has been retained.');
+    const serialized = serialize(node);
+    if (!equivalentMarkdown(markdown, serialized)) {
+      throw new Error('This document contains content not supported by visual mode. Source has been retained. First round-trip differences: ' + markdownDifferences(markdown, serialized).join(' '));
+    }
     return node;
   };
   return {

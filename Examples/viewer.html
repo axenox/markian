@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markian viewer</title>
+  <link rel="stylesheet" href="demo.css">
+  <link rel="stylesheet" href="../dist/markian.css">
+  <link rel="stylesheet" href="../dist/markian-viewer.css">
+  <style>
+    #editor {
+      height: 100%;
+      min-height: 0;
+    }
+
+    #viewer {
+      min-height: 0;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body class="demo-viewer demo-comparison">
+  <header>
+    <a class="brand" href="index.html" aria-label="Markian examples">
+      <span class="brand-symbol" aria-hidden="true">m.</span>markian
+      <span class="workspace-label">Editor / Viewer</span>
+    </a>
+    <div class="demo-actions">
+      <label><input id="theme" type="checkbox"> Dark</label>
+      <button id="replace" type="button">Replace document</button>
+      <button id="destroy" type="button">Destroy</button>
+    </div>
+  </header>
+  <main>
+    <section class="demo-pane" aria-labelledby="editor-label">
+      <h2 id="editor-label">Editor</h2>
+      <div id="editor"></div>
+    </section>
+    <section class="demo-pane" aria-labelledby="viewer-label">
+      <h2 id="viewer-label">Viewer</h2>
+      <article id="viewer"></article>
+    </section>
+  </main>
+  <script src="../dist/markian.min.js"></script>
+  <script src="../dist/markian-viewer.min.js"></script>
+  <script>
+    const markdown = `# Field notes
+
+A **readable document** with [local navigation](#checklist).
+
+<!-- BEGIN sample -->
+
+Generated content stays ordinary Markdown, with no provider execution.
+
+<!-- END sample -->
+
+## Checklist
+
+- [x] Review the draft
+- [ ] Publish the update
+
+| Item | Status |
+| --- | --- |
+| Guide | Reviewed |
+| Examples | Ready |
+
+> [!TIP]
+> Keep the source portable.
+
+\`\`\`mermaid
+graph LR
+  Draft --> Review
+\`\`\`
+`;
+    window.viewer = MarkianViewer.create(document.querySelector('#viewer'), {
+      markdown,
+      mermaid: false,
+    });
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown,
+      sidebarVisible: false,
+    });
+    const unsubscribe = editor.on('change', () => viewer.set(editor.get()));
+    window.comparisonReady = Promise.all([editor.ready, viewer.ready]).then(() => viewer.set(editor.get()));
+    document.querySelector('#theme').addEventListener('change', event => {
+      const theme = event.target.checked ? 'dark' : 'light';
+      editor.setTheme(theme);
+      viewer.setTheme(theme);
+    });
+    document.querySelector('#replace').addEventListener('click', async () => {
+      await comparisonReady;
+      editor.set('# Updated notes\n\n[Return to examples](index.html)', { pending: 'discard' });
+    });
+    document.querySelector('#destroy').addEventListener('click', () => {
+      unsubscribe();
+      editor.destroy();
+      viewer.destroy();
+      document.querySelectorAll('.demo-actions input, .demo-actions button').forEach(control => { control.disabled = true; });
+    });
+  </script>
+</body>
+</html>
