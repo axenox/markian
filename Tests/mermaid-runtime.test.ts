@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadMermaid, mermaidApi } from '../src/render/mermaid-runtime';
+import { loadMermaid, mermaidApi } from '../src/mermaid-runtime';
 
 test('Mermaid accepts the required API without a version declaration', () => {
   const api = { initialize() {}, async render() { return { svg: '<svg/>' }; } };

@@ -9,7 +9,7 @@ import { defaultToolbar, ToolbarItems, validateToolbar } from './ui/toolbar';
 import { searchPanel, destinationPanel } from './ui/panels';
 import { installEditing } from './editing';
 import { StaticSearch } from './ui/static-search';
-import { loadStylesheets, stylesheetUrls } from './styles';
+import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
 import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
@@ -84,6 +84,8 @@ export class EditorInstance implements MarkianInstance {
 
   constructor(private host: HTMLElement, private options: EditorOptions, private factories: ReadonlyMap<string, ExtensionFactory>) {
     validateMarkdown(options.markdown);
+    options = { ...options, markdownCssClasses: markdownClasses(options.markdownCssClasses) };
+    this.options = options;
     this.cssUrls = stylesheetUrls(options, host.ownerDocument);
     for (const [name, callback] of Object.entries(options)) if (name.startsWith('on') && callback !== undefined && typeof callback !== 'function') throw new TypeError(`${name} must be a callback function.`);
     for (const name of ['readOnly', 'disabled', 'softbreaks', 'allowTextColors', 'sidebarVisible'] as const) if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
@@ -331,6 +333,7 @@ export class EditorInstance implements MarkianInstance {
     });
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
+    visual.view.dom.classList.add(...this.options.markdownCssClasses!);
     this.initialized = true;
     try { visual.replace(this.source, true); }
     catch (error) { this.mode = 'raw'; this.ensureRaw(); this.report(error); }
@@ -959,14 +962,26 @@ export class EditorInstance implements MarkianInstance {
     }
     this.floating.hidden = !this.floating.childElementCount;
     const position = visual ? visual.coordsAtPos(selection.from) : raw?.coordsAtPos(selection.from);
-    if (position) {
+    const end = visual ? visual.coordsAtPos(selection.to) : raw?.coordsAtPos(selection.to);
+    if (position && end) {
       const root = this.element.getBoundingClientRect();
-      const toolbar = this.toolbar.getBoundingClientRect();
-      const topBound = this.options.toolbarPlacement === 'bottom' || this.element.clientWidth <= 480 ? 8 : toolbar.height + 8;
-      this.floating.style.top = `${Math.max(topBound, Math.min(root.height - this.floating.offsetHeight - 55, position.top - root.top - this.floating.offsetHeight - 8))}px`;
+      const work = this.work.getBoundingClientRect();
+      const nativeSelection = this.host.ownerDocument.getSelection();
+      const range = visual && nativeSelection?.rangeCount ? nativeSelection.getRangeAt(0) : undefined;
+      const bounds = range && visual?.dom.contains(range.commonAncestorContainer) ? range.getBoundingClientRect() : undefined;
+      const selectionTop = bounds?.top ?? Math.min(position.top, end.top);
+      const selectionBottom = bounds?.bottom ?? Math.max(position.bottom, end.bottom);
+      const topBound = Math.max(work.top, 0) + 8;
+      const bottomBound = Math.min(work.bottom, this.host.ownerDocument.documentElement.clientHeight) - 8;
+      const height = this.floating.offsetHeight;
+      const above = Math.min(selectionTop - height - 8, bottomBound - height);
+      const below = Math.max(selectionBottom + 8, topBound);
+      const top = above >= topBound ? above : below + height <= bottomBound ? below : undefined;
+      if (top === undefined) { this.floating.hidden = true; return; }
+      this.floating.style.top = `${top - root.top - this.element.clientTop}px`;
       this.floating.style.left = `${Math.max(8, Math.min(root.width - this.floating.offsetWidth - 8, position.left - root.left))}px`;
       this.floating.style.right = 'auto';
-    }
+    } else this.floating.hidden = true;
   }
 
   private closeSearch(restoreFocus = true): void {
@@ -1195,7 +1210,7 @@ export class EditorInstance implements MarkianInstance {
     for (const id of ['help', 'preview']) this.views.insert({
       id,
       mount: ({ element }) => {
-        element.classList.add('markian-document');
+        element.classList.add('markian-document', ...this.options.markdownCssClasses!);
         element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors);
         if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';

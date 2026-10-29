@@ -1,2 +1,2 @@
-@scope(.markian-diagram,.markian-rendered-fence[data-language=mermaid]){svg{font:14px var(--markian-font,"Segoe UI", sans-serif)}svg text{fill:var(--markian-text);stroke:none}svg .node text{text-anchor:middle}svg .node rect,svg .node polygon,svg .node circle,svg .node path,svg .actor{fill:var(--markian-soft);stroke:var(--markian-accent)}svg .cluster rect,svg .label-container{fill:var(--markian-code);stroke:var(--markian-line)}svg .flowchart-link,svg .messageLine0,svg .messageLine1,svg .actor-line{fill:none;stroke:var(--markian-muted)}svg marker path{fill:var(--markian-muted);stroke:var(--markian-muted)}}
+.markian-diagram svg,.markian-rendered-fence[data-language=mermaid] svg{max-width:100%}
 /*$vite$:1*/

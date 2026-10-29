@@ -1,8 +1,8 @@
 import './mermaid.css';
 import type { ExtensionFactory } from '../types';
-import { type MermaidRenderer } from '../render/mermaid-runtime';
-export { loadMermaid } from '../render/mermaid-runtime';
-export type { MermaidRenderContext, MermaidRenderer } from '../render/mermaid-runtime';
+import { type MermaidRenderer } from '../mermaid-runtime';
+export { loadMermaid } from '../mermaid-runtime';
+export type { MermaidRenderContext, MermaidRenderer } from '../mermaid-runtime';
 export interface MermaidConfig {
     renderer?: MermaidRenderer;
     source?: string;

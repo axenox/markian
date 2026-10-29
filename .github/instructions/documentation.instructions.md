@@ -11,6 +11,9 @@ Carefully inspect and update instructions every time you change something! Make 
 - Write all documentation in english
 - Use Github compatible markdown (including mermaid for diagrams)
 - Use simple words - the docs must be easy to understand!
+- When adding information, choose the appropriate file carefully. Avoid adding similar information to multiple docs files. Find the document with the best-fit scope for your new information.
+- If there is no suitable existing document, create a new one - e.g. a new Component document in `Development` folder.
+
 
 ## README file
 

@@ -1,4 +1,4 @@
-import { bounded, loadMermaid, type MermaidRenderer } from './render/mermaid-runtime';
+import { bounded, loadMermaid, type MermaidRenderer } from './mermaid-runtime';
 import type { ViewerRendererContext } from './viewer';
 import './render/mermaid.css';
 

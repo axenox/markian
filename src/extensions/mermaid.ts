@@ -2,9 +2,9 @@ import DOMPurify from 'dompurify';
 import './mermaid.css';
 import { commandButton } from '../ui/controls';
 import type { Disposer, ExtensionFactory, SourceHandle } from '../types';
-import { bounded, loadMermaid, type MermaidRenderer } from '../render/mermaid-runtime';
-export { loadMermaid } from '../render/mermaid-runtime';
-export type { MermaidRenderContext, MermaidRenderer } from '../render/mermaid-runtime';
+import { bounded, loadMermaid, type MermaidRenderer } from '../mermaid-runtime';
+export { loadMermaid } from '../mermaid-runtime';
+export type { MermaidRenderContext, MermaidRenderer } from '../mermaid-runtime';
 export interface MermaidConfig {
   renderer?: MermaidRenderer;
   source?: string;
@@ -13,30 +13,21 @@ export interface MermaidConfig {
 }
 let sequence = 0;
 
-function safeSvg(document: Document, source: string, prefix: string): SVGElement {
+function safeSvg(document: Document, source: string): SVGElement {
   if (source.length > 2_000_000) throw new Error('Rendered diagram exceeds the SVG limit.');
   const input = new DOMParser().parseFromString(source, 'image/svg+xml');
-  for (const element of input.querySelectorAll<SVGElement>('[style]')) {
-    const anchor = element.style.getPropertyValue('text-anchor').trim();
-    if (['start', 'middle', 'end'].includes(anchor)) element.setAttribute('text-anchor', anchor);
-  }
-  const clean = DOMPurify.sanitize(new XMLSerializer().serializeToString(input.documentElement), { USE_PROFILES: { svg: true, svgFilters: true }, FORBID_TAGS: ['foreignObject', 'a', 'image', 'style', 'animate', 'set'], FORBID_ATTR: ['style'], ALLOW_DATA_ATTR: false });
+  const clean = DOMPurify.sanitize(new XMLSerializer().serializeToString(input.documentElement), { USE_PROFILES: { svg: true, svgFilters: true }, FORBID_TAGS: ['foreignObject', 'a', 'image', 'use', 'animate', 'set'], ALLOW_DATA_ATTR: true });
   const parsed = new DOMParser().parseFromString(clean, 'image/svg+xml');
   if (parsed.querySelector('parsererror') || parsed.documentElement.localName !== 'svg' || parsed.querySelectorAll('*').length > 10000) throw new Error('Renderer returned invalid or oversized SVG.');
   const svg = document.importNode(parsed.documentElement, true) as unknown as SVGElement;
-  const ids = new Map<string, string>();
-  for (const element of [svg, ...svg.querySelectorAll<SVGElement>('*')]) if (element.id) { ids.set(element.id, `${prefix}-${ids.size}`); element.id = ids.get(element.id)!; }
+  const ids = new Set([svg, ...svg.querySelectorAll('[id]')].map(element => element.id));
   for (const element of [svg, ...svg.querySelectorAll('*')]) for (const attribute of [...element.attributes]) {
     if (/^on/i.test(attribute.name)) element.removeAttribute(attribute.name);
     else if (/^(?:href|xlink:href)$/i.test(attribute.name)) {
-      const target = ids.get(attribute.value.slice(1));
-      if (attribute.value.startsWith('#') && target) element.setAttribute(attribute.name, `#${target}`);
-      else element.removeAttribute(attribute.name);
-    } else if (attribute.value.includes('url(')) {
+      if (!attribute.value.startsWith('#') || !ids.has(attribute.value.slice(1))) element.removeAttribute(attribute.name);
+    } else if (attribute.name !== 'style' && /url\s*\(/i.test(attribute.value)) {
       const match = attribute.value.match(/^url\(["']?#([^)'"\s]+)["']?\)$/);
-      const target = match && ids.get(match[1]);
-      if (target) element.setAttribute(attribute.name, `url(#${target})`);
-      else element.removeAttribute(attribute.name);
+      if (!match || !ids.has(match[1])) element.removeAttribute(attribute.name);
     }
   }
   svg.removeAttribute('width');
@@ -114,7 +105,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
             const svg = await renderer.render({ source: text, id, theme: instance.element.dataset.theme === 'dark' ? 'dark' : 'light', signal: current.signal });
             if (disposed || current.signal.aborted) return;
             if (typeof svg !== 'string') throw new TypeError('Mermaid renderer must return an SVG string.');
-            canvas.replaceChildren(safeSvg(document, svg, id));
+            canvas.replaceChildren(safeSvg(document, svg));
             status.textContent = '';
             element.dataset.state = 'ready';
           } catch (error) {

@@ -12,6 +12,7 @@ This JSON is the default declarative configuration with an empty required docume
   "initialMode": "visual",
   "sidebarVisible": true,
   "theme": "light",
+  "markdownCssClasses": [],
   "themeCssUrls": [],
   "readOnly": false,
   "disabled": false,
@@ -49,6 +50,7 @@ This JSON is the default declarative configuration with an empty required docume
 | `sidebarVisible`    | `true`                                          | Start with the document outline open. Specialized views hide it temporarily without resetting this choice.                                                                                   |
 | `theme`             | `"light"`                                       | `"light"` or `"dark"`, per instance.                                                                                                                                                         |
 | `markdownCssUrls`   | `markdown-github.css` beside the classic script | Ordered HTTP(S) content stylesheets. An explicit array replaces the default; `[]` loads none. Non-classic loading must provide this option. Relative URLs use the browser document base URI. |
+| `markdownCssClasses` | `[]` | Additional classes on the Markdown document wrapper in Visual, Preview and Help. Each array entry must be one nonempty class name without whitespace. Classes are copied at construction; editor controls and source editors are unaffected. |
 | `themeCssUrls`      | `[]`                                            | Ordered HTTP(S) theme overrides after content CSS. Base `markian.css` must still be host-loaded. Readiness waits for configured CSS; destruction removes owned links.                        |
 | `readOnly`          | `false`                                         | Block user edits while retaining selection, navigation, copying, search, Help, and fullscreen.                                                                                               |
 | `disabled`          | `false`                                         | Also block user edits without making the editor inert or changing native textarea disabled/submission semantics.                                                                             |
@@ -69,6 +71,8 @@ This JSON is the default declarative configuration with an empty required docume
 | `extensions`        | `{}`                                            | Activation/configuration map for registered factories, described below.                                                                                                                      |
 
 Stylesheet failures reject readiness and restore the host. CSS is trusted and page-wide; scope custom rules as described in the [style guide](Styleguide.md#stylesheets-and-themes).
+
+For a host stylesheet that targets `.markdown-body`, pass both `markdownCssUrls: ['/assets/github-markdown-light.css']` and `markdownCssClasses: ['markdown-body']`. The same options work in the viewer. Classes alone do not replace the default content theme; an explicit `markdownCssUrls` array does.
 
 ## Toolbar
 
@@ -178,6 +182,8 @@ With neither renderer nor source, editor activation succeeds but diagrams show a
 
 The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensibility.md#mermaid).
 
+The source loader preserves Mermaid's native `default` theme for light instances and its native `dark` theme for dark instances. Markian does not recolor nodes or replace diagram fonts. Mermaid style tags, inline styles and IDs are preserved, including those returned by custom adapters. See the [CSS risk boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety).
+
 ## Viewer Options
 
 Load `dist/markian-viewer.min.js` and `dist/markian-viewer.css`. These defaults are independent of editor settings:
@@ -186,6 +192,7 @@ Load `dist/markian-viewer.min.js` and `dist/markian-viewer.css`. These defaults 
 {
   "markdown": "",
   "theme": "light",
+  "markdownCssClasses": [],
   "softbreaks": false,
   "allowTextColors": false,
   "mermaid": false,
@@ -199,6 +206,8 @@ Omitted callbacks and `documentBase` use the effective defaults below.
 | ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `markdown`          | `""`                                           | Exact supplied Markdown, at most 1,000,000 characters.                                                                                                          |
 | `theme`             | `"light"`                                      | `"light"` or `"dark"`, per instance.                                                                                                                            |
+| `markdownCssUrls` | Built-in viewer content theme | Ordered HTTP(S) content stylesheets. Omission retains built-in typography; an explicit array replaces it, including `[]` for none. Readiness waits for owned links; destruction removes them. |
+| `markdownCssClasses` | `[]` | Additional document-wrapper classes, with the same validation as the editor. Applied again on every render, value update and theme change. The viewer root is unaffected. |
 | `softbreaks`        | `false`                                        | Display ordinary soft breaks as `<br>` without changing source.                                                                                                 |
 | `allowTextColors`   | `false`                                        | Render the bounded hex-color syntax, not arbitrary HTML/CSS.                                                                                                    |
 | `documentBase`      | Browser document base URI                      | HTTP(S) base for relative resources; relative configured values use the browser base.                                                                           |
@@ -210,7 +219,7 @@ Omitted callbacks and `documentBase` use the effective defaults below.
 
 Viewer callback context contains `{ markdown, revision, theme, documentBase, signal }`. Resource callbacks add `{ destination, kind: "link" | "image" }`; navigation also adds `event: MouseEvent`. Renderer callbacks add `{ language, source }` and return HTML/SVG text or a promise. They are bounded and sanitized as described in [viewer renderers](Extensibility.md#viewer-renderers).
 
-All options are construction-time settings. Use `set`, `setTheme`, and `destroy` for live operations. The viewer has no editor toolbar, history, form integration, stylesheet loader, or mutable task controls.
+All options are construction-time settings. Use `set`, `setTheme`, and `destroy` for live operations. The viewer has no editor toolbar, history, form integration, or mutable task controls. Configured content stylesheets are instance-owned; load the base viewer CSS separately.
 
 ### Viewer Mermaid Adapter
 

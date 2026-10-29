@@ -75,4 +75,6 @@ Update configuration and API references when public contracts change, the style 
 
 - [Code guide](Code_guide.md): source layout, ownership, and lifecycle.
 - [Writing extensions](Writing_extensions.md): public extension contract and cleanup.
+- [Toolbars](Components/Toolbars.md): floating-control positioning.
+- [Mermaid extension](Extensions/Mermaid_extension.md): runtime loading, SVG styling, and safety boundaries.
 - [Plan](../Requirements/Plan.md): work packages and remaining acceptance checks.

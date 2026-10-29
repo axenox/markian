@@ -35,6 +35,8 @@ Groups generate separators only when they have visible content. Custom layouts a
 
 Pinned controls reflect active state at the caret or selection. The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Table actions and code expansion use their own contextual controls. Code expansion is caret-contextual, not a default pinned command.
 
+Floating controls must not cover selected text.
+
 Views with Back place it first, followed by a separator, and omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
 
 Menus use native details/summary disclosure and native popover surfaces. Pointer interaction preserves document selection. Flyouts open beside the parent, flip and clamp to the viewport, and have one scrollbar each. Bottom toolbars open first-level menus upward. Outside clicks and command activation dismiss menus.
@@ -44,6 +46,8 @@ Keyboard navigation follows these rules:
 - Up/Down and Home/End move within the active menu, including its submenu headings.
 - Right enters a submenu; Left leaves it.
 - Escape closes the active menu and returns focus to its summary, retaining an open parent.
+
+For technical details - see [toolbar component guide](Development/Components/Toolbars.md).
 
 ## Views and Permissions
 
@@ -83,13 +87,15 @@ Use separate `dist/extensions/mermaid.css` styling. Above 600px of container wid
 
 Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
 
+Diagrams retain Mermaid's native `default`/`dark` theme colors, fonts, strokes, label backgrounds and supplied diagram colors. Markian styles only the workspace and controls, not SVG nodes or text. Original Mermaid style tags and inline styles remain intact, without CSS isolation or rewriting; see the accepted risks in the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Viewer diagrams fit the host with a responsive maximum.
+
 Pointer/touch dragging pans. A focused preview uses arrows to pan, plus/minus to zoom, and Home to reset; Ctrl/Cmd-wheel also zooms. Labeled controls provide equivalent actions. Read-only inspection retains these presentation controls.
 
 Backspace/Delete at the adjacent visual paragraph boundary removes a rendered diagram as one object rather than merging text into its hidden source. Undo restores it; read-only state blocks removal. Ordinary unrendered fences retain regular code editing.
 
 ## Stylesheets and Themes
 
-Load base `markian.css` explicitly. `markdownCssUrls` replaces content CSS, including `[]` for none; omission loads `markdown-github.css` beside the classic script. `themeCssUrls` appends theme overrides. Readiness waits for these instance-owned links; destruction removes them.
+Load base `markian.css` explicitly. `markdownCssUrls` replaces content CSS, including `[]` for none; omission loads `markdown-github.css` beside the classic script. The viewer accepts the same replacement option; omission retains its built-in content styling. `markdownCssClasses` adds host classes only to document wrappers in Visual, Preview, Help and viewer output, including replacement renders. It does not theme controls or disable default typography by itself. `themeCssUrls` appends editor theme overrides. Readiness waits for these instance-owned links; destruction removes them.
 
 These are ordinary page stylesheets. Scope document rules to `.markian-document` inside a host wrapper and chrome rules to that wrapper or `.markian`. Avoid Milkdown DOM selectors in integrations. The default content stylesheet uses a default-only instance marker so it does not restyle custom-content instances.
 

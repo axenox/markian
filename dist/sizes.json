@@ -2,9 +2,9 @@
   "compression": "Independent resources; gzip level 9, Brotli default quality 11. Bytes, not KiB. No editor or viewer optional features enabled in baseline totals.",
   "assets": {
     "markian.min.js": {
-      "bytes": 914557,
-      "gzip": 283316,
-      "brotli": 237454
+      "bytes": 915185,
+      "gzip": 283553,
+      "brotli": 237802
     },
     "markian.css": {
       "bytes": 11758,
@@ -17,9 +17,9 @@
       "brotli": 936
     },
     "markian-viewer.min.js": {
-      "bytes": 211878,
-      "gzip": 67289,
-      "brotli": 58133
+      "bytes": 213217,
+      "gzip": 67754,
+      "brotli": 58529
     },
     "markian-viewer.css": {
       "bytes": 4935,
@@ -32,36 +32,36 @@
       "brotli": 1345
     },
     "extensions/viewer-mermaid.css": {
-      "bytes": 624,
-      "gzip": 304,
-      "brotli": 262
+      "bytes": 100,
+      "gzip": 112,
+      "brotli": 91
     },
     "extensions/mermaid.min.js": {
-      "bytes": 56221,
-      "gzip": 22396,
-      "brotli": 19359
+      "bytes": 55918,
+      "gzip": 22293,
+      "brotli": 19239
     },
     "extensions/mermaid.css": {
-      "bytes": 2908,
-      "gzip": 947,
-      "brotli": 770
+      "bytes": 2354,
+      "gzip": 768,
+      "brotli": 600
     }
   },
   "totals": {
     "editor": {
-      "bytes": 930713,
-      "gzip": 287236,
-      "brotli": 240801
+      "bytes": 931341,
+      "gzip": 287473,
+      "brotli": 241149
     },
     "viewer": {
-      "bytes": 216813,
-      "gzip": 68639,
-      "brotli": 59273
+      "bytes": 218152,
+      "gzip": 69104,
+      "brotli": 59669
     },
     "combined": {
-      "bytes": 1147526,
-      "gzip": 355875,
-      "brotli": 300074
+      "bytes": 1149493,
+      "gzip": 356577,
+      "brotli": 300818
     }
   },
   "budget": {

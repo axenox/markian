@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify';
 import { headings, renderMarkdown, safeUrl, validateMarkdown } from './render/markdown';
+import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
 import './viewer.css';
 
 export { headings };
@@ -26,6 +27,8 @@ export interface ViewerRendererContext extends ViewerContext {
 export interface ViewerOptions {
   markdown?: string;
   theme?: 'light' | 'dark';
+  markdownCssUrls?: readonly string[];
+  markdownCssClasses?: readonly string[];
   softbreaks?: boolean;
   allowTextColors?: boolean;
   mermaid?: boolean;
@@ -71,6 +74,10 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
     if (!/^[\w+-]+$/.test(language) || typeof renderer !== 'function') throw new TypeError('Viewer renderers require language IDs and functions.');
   }
   const document = host.ownerDocument;
+  const classes = markdownClasses(options.markdownCssClasses);
+  const cssUrls = stylesheetUrls(options, document);
+  const stylesLifetime = new AbortController();
+  const styleCleanups: (() => void)[] = [];
   const window = document.defaultView;
   if (!window) throw new Error('Viewer requires a live document.');
   const base = new URL(options.documentBase ?? document.baseURI, document.baseURI);
@@ -79,7 +86,7 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
   const element = document.createElement('div');
   element.className = 'markian-viewer';
   element.dataset.markianViewer = '';
-  element.dataset.markianMarkdownDefault = '';
+  element.toggleAttribute('data-markian-markdown-default', options.markdownCssUrls === undefined);
   element.dataset.theme = theme;
   const original = document.createDocumentFragment();
   let markdown = initial;
@@ -110,6 +117,7 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
     const context: ViewerContext = { markdown: next, revision: revision + 1, signal: controller.signal, theme, documentBase: base.href };
     const content = document.createElement('div');
     content.className = 'markian-document';
+    content.classList.add(...classes);
     content.innerHTML = renderMarkdown(next, options.softbreaks, options.allowTextColors);
     for (const node of content.querySelectorAll<HTMLAnchorElement | HTMLImageElement>('a, img')) {
       const kind = node.tagName === 'IMG' ? 'image' : 'link';
@@ -144,11 +152,12 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
         const replacement = document.createElement('div');
         replacement.className = 'markian-rendered-fence';
         replacement.dataset.language = language;
-        replacement.innerHTML = purify.sanitize(html, { USE_PROFILES: { html: true, svg: true }, FORBID_TAGS: ['style', 'foreignObject', 'form', 'input', 'button', 'textarea', 'select', 'animate', 'set', 'image', 'use', 'img', 'audio', 'video', 'source', 'picture', 'track'], FORBID_ATTR: ['style', 'src', 'srcset', 'poster', 'background', 'ping', 'action', 'formaction', 'data'], ALLOW_DATA_ATTR: false });
+        const mermaid = language === 'mermaid';
+        replacement.innerHTML = purify.sanitize(html, { USE_PROFILES: { html: true, svg: true }, FORBID_TAGS: [...(mermaid ? [] : ['style']), 'foreignObject', 'form', 'input', 'button', 'textarea', 'select', 'animate', 'set', 'image', 'use', 'img', 'audio', 'video', 'source', 'picture', 'track'], FORBID_ATTR: [...(mermaid ? [] : ['style']), 'src', 'srcset', 'poster', 'background', 'ping', 'action', 'formaction', 'data'], ALLOW_DATA_ATTR: mermaid });
         const ids = new Map<string, string>();
         for (const node of replacement.querySelectorAll<HTMLElement>('[id]')) {
           const previous = node.id;
-          node.id = `markian-viewer-${instanceId}-${revision}-${index}-${ids.size}`;
+          if (!mermaid) node.id = `markian-viewer-${instanceId}-${revision}-${index}-${ids.size}`;
           ids.set(previous, node.id);
         }
         for (const node of replacement.querySelectorAll('*')) {
@@ -156,7 +165,7 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
             if (/^(href|xlink:href|src)$/i.test(attribute.name)) {
               if (attribute.value.startsWith('#') && ids.has(attribute.value.slice(1))) node.setAttribute(attribute.name, `#${ids.get(attribute.value.slice(1))}`);
               else node.removeAttribute(attribute.name);
-            } else if (/url\s*\(/i.test(attribute.value)) {
+            } else if (!(mermaid && attribute.name === 'style') && /url\s*\(/i.test(attribute.value)) {
               const reference = attribute.value.match(/^url\(#([^\s)]+)\)$/);
               if (reference && ids.has(reference[1])) node.setAttribute(attribute.name, `url(#${ids.get(reference[1])})`);
               else node.removeAttribute(attribute.name);
@@ -198,13 +207,18 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
     if (destroyed) return;
     destroyed = true;
     active?.abort();
+    stylesLifetime.abort();
+    styleCleanups.reverse().forEach(dispose => dispose());
     element.removeEventListener('click', click);
     element.remove();
     host.append(original);
     mounted.delete(host);
   };
   let ready: Promise<void>;
-  try { ready = render(initial); }
+  try {
+    ready = Promise.all([render(initial), loadStylesheets(host, cssUrls, stylesLifetime.signal, dispose => styleCleanups.push(dispose))]).then(() => undefined);
+    ready = ready.catch(error => { destroy(); throw error; });
+  }
   catch (error) { destroy(); throw error; }
   return {
     element, ready,

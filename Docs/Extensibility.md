@@ -104,13 +104,13 @@ Load the factory and CSS after core, then register and enable it:
 
 The example assumes a `#diagrams` host, core assets, and a trusted host runtime at the configured URL. Mermaid is not included in Markian's distribution. The loader checks for callable `initialize()` and `render()` methods, runs the runtime in a configuration-isolated iframe and loads it only when needed. No version declaration is required. Missing configuration or a failed render shows an error without losing source; Retry remains available.
 
-Alternatively supply `config.renderer: { version, render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Mermaid object is not this adapter contract. Host adapters must isolate theme/security settings and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound layout work, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer.
+Alternatively supply `config.renderer: { render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Mermaid object is not this adapter contract. Host adapters must isolate theme/security settings and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound layout work, use the supplied unique `id`, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer. Mermaid style tags and inline styles are preserved, not converted to presentation attributes.
 
-`MarkianMermaid.loadMermaid(document, { url, version })` returns the same adapter contract. Compatible loads are deduplicated and retained after instances are destroyed. The iframe is not a sandbox for untrusted scripts; use trusted URLs only. A host-supplied adapter is the alternative for CSP-controlled environments; full CSP acceptance remains unverified.
+`MarkianMermaid.loadMermaid(document, source)` returns the same adapter contract. Compatible loads are deduplicated and retained after instances are destroyed. The iframe is not a sandbox for untrusted scripts; use trusted URLs only. A host-supplied adapter is the alternative for CSP-controlled environments; full CSP acceptance remains unverified.
 
 The extension adds Insert diagram, inline diagram presentation, and a source/preview workspace with local undo/redo, indentation, search, and Back. `get()` includes pending diagram edits. Invalid syntax remains saveable as a fence. Nested diagrams render, but block-edit sessions currently target only top-level fences.
 
-Rendering defaults to 20,000 characters and 500 lines. Settings can lower but not raise these limits. Configuration directives, front matter, and executable links are refused for rendering. SVG output is bounded, sanitized, and assigned unique IDs. Renderer CSS and external resources are removed; the extension stylesheet supplies safe theme colors. Pan, zoom, reset, and read-only inspection do not change Markdown.
+Rendering defaults to 20,000 characters and 500 lines. Settings can lower but not raise these limits. Configuration directives, front matter, and executable links are refused for rendering. SVG output is bounded and sanitized, retaining Mermaid's original IDs and CSS. The source loader uses Mermaid's `default` theme in light mode and its native `dark` theme in dark mode. Markian adds no replacement diagram palette or font. CSS is not isolated or filtered; see the [accepted risks](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Pan, zoom, reset, and read-only inspection do not change Markdown.
 
 See [Mermaid configuration](Configuration.md#mermaid) and the [runnable example](Examples.md).
 
@@ -128,7 +128,7 @@ Schema mappings must register during extension initialization, before engine con
 
 The viewer is separate from editor extensions. Supply `renderers: { language: callback }` in viewer options. A callback receives source, language, theme, full Markdown, revision, document base, and abort signal; it returns HTML/SVG text or a promise.
 
-Viewer output is limited to 2,000,000 characters, sanitized, stripped of active controls and external resource references, and given scoped SVG IDs. Failure leaves plain code and reports through `onError`. Stale results cannot replace a newer document. Load any trusted highlighting CSS yourself; no language pack loads implicitly.
+Viewer output is limited to 2,000,000 characters, sanitized, stripped of active controls and direct external resource references, and given scoped SVG IDs. Mermaid is the exception: its IDs and CSS remain intact, as described above. Failure leaves plain code and reports through `onError`. Stale results cannot replace a newer document. Load any trusted highlighting CSS yourself; no language pack loads implicitly.
 
 ### Viewer Mermaid
 

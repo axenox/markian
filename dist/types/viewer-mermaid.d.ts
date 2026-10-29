@@ -1,4 +1,4 @@
-import { type MermaidRenderer } from './render/mermaid-runtime';
+import { type MermaidRenderer } from './mermaid-runtime';
 import type { ViewerRendererContext } from './viewer';
 import './render/mermaid.css';
 export interface ViewerMermaidOptions {

@@ -48,7 +48,7 @@ Register trusted editor extension factories once, then enable them separately fo
 
 The bundled Code extension provides expanded block editing. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
 
-Mermaid is host-supplied through a `source` URL string or a `{ render }` adapter. No version declaration is required: the loader checks for callable `initialize` and `render` methods at runtime and validates the rendered SVG result. There is no guessed CDN or sibling-framework path. Loads of the same resolved URL are shared within a bundle; editor and viewer bundles have independent caches. A common host renderer can share one runtime across both. The loader isolates configuration in an iframe, not untrusted script execution: load only trusted scripts. The former `asset` object is rejected, not translated.
+Hosts supply the Mermaid renderer. See [Mermaid configuration](Configuration.md#mermaid) for integration and the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md) for implementation details.
 
 | Dependency | Role |
 | --- | --- |
@@ -71,7 +71,7 @@ Markdown is the public content format. Rendered HTML and engine documents are in
 - Front matter and resolved-reference differences may require Source view. Unsupported content must not silently disappear merely to fit the visual schema.
 - Mermaid remains an ordinary `mermaid` fence; invalid diagram syntax can still be saved as source.
 
-Treat documents and provider output as untrusted. Shared URL checks reject unsafe schemes and destinations. Optional HTML/SVG output is bounded and sanitized again; local SVG references are scoped to avoid collisions. These safeguards do not establish complete CSP, accessibility, or cross-browser acceptance.
+Treat documents and provider output as untrusted. Shared URL checks reject unsafe schemes and destinations. Optional HTML/SVG output is bounded and sanitized again; local SVG references are scoped to avoid collisions except for Mermaid, whose original IDs and CSS remain intact. These safeguards do not establish complete CSP, accessibility, or cross-browser acceptance.
 
 ## Lifecycle and Styling
 
@@ -79,7 +79,7 @@ Each editor owns its document, revision, selection, histories, callbacks, pendin
 
 Editor initialization waits for enabled extension initialization, configured stylesheets, engine construction, and initial import. Schema registration closes before engine construction. A rejected initialization restores the host. Preservation fallback to Source view instead resolves readiness and reports the incompatibility.
 
-Hosts load base editor CSS explicitly. Content stylesheets can be replaced; theme stylesheets add overrides. These are ordinary page styles, not shadow-DOM isolation, so hosts must scope them. The viewer has standalone CSS. See the [style guide](Styleguide.md).
+Hosts load base editor/viewer CSS explicitly. Both entry points support replacement content stylesheets and additional document-wrapper classes; the editor also accepts theme stylesheets. Markian preserves configured wrapper classes as views and rendered documents change. These are ordinary page styles, not shadow-DOM isolation, so hosts must scope them. See the [style guide](Styleguide.md).
 
 ## Distribution and Status
 

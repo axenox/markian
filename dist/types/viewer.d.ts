@@ -20,6 +20,8 @@ export interface ViewerRendererContext extends ViewerContext {
 export interface ViewerOptions {
     markdown?: string;
     theme?: 'light' | 'dark';
+    markdownCssUrls?: readonly string[];
+    markdownCssClasses?: readonly string[];
     softbreaks?: boolean;
     allowTextColors?: boolean;
     mermaid?: boolean;

@@ -17,6 +17,8 @@ Start with the usage guides to embed and customize Markian. The development guid
 - [Development](Development/index.md): setup, coding rules, and validation.
 - [Code guide](Development/Code_guide.md): source layout and ownership.
 - [Writing extensions](Development/Writing_extensions.md): extension initialization and cleanup.
+- [Toolbars](Development/Components/Toolbars.md): floating-control positioning.
+- [Mermaid extension](Development/Extensions/Mermaid_extension.md): runtime loading, SVG styling, and safety boundaries.
 
 ## Requirements and Decisions
 

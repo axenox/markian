@@ -19,7 +19,7 @@ This guide maps current source responsibilities for contributors. Public concept
 | [source.ts](../../src/engines/source.ts) | CodeMirror buffers, selection, history, search, and permissions. |
 | [markdown.ts](../../src/render/markdown.ts) | GFM parsing, safe rendering, semantic comparison, mismatch diagnostics, URLs, and heading IDs. |
 | [colors.ts](../../src/render/colors.ts) | Shared bounded opt-in hex-color syntax. |
-| [mermaid-runtime.ts](../../src/render/mermaid-runtime.ts) | Bounds, version validation, explicit host loading, and isolated serialized runtime. |
+| [mermaid-runtime.ts](../../src/mermaid-runtime.ts) | Explicit host loading, API validation, bounds and isolated serialized rendering returning Mermaid's original SVG. |
 | [toolbar.ts](../../src/ui/toolbar.ts) | Declarative default layout, validation, and group-local contribution projection. |
 | [controls.ts](../../src/ui/controls.ts) | Shared buttons and recursive toolbar/menu controls. |
 | [panels.ts](../../src/ui/panels.ts) | Search/destination forms, suggestions, validation, focus, and lookup cancellation. |

@@ -230,7 +230,7 @@ test('viewer Mermaid loading is explicit, lazy and independently disabled per in
   expect(await page.evaluate(() => disabledViewer.element.querySelector('pre').textContent)).toContain('A-->B');
   expect(await page.evaluate(() => viewerErrors)).toEqual([]);
   expect(await page.evaluate(() => typeof window.MarkianMermaid)).toBe('undefined');
-  await expect(page.locator('[data-markian-viewer] svg .node rect').first()).toHaveCSS('fill', 'rgb(232, 243, 238)');
+  await expect(page.locator('[data-markian-viewer] svg .node rect').first()).toHaveCSS('fill', 'rgb(236, 236, 255)');
   await expect(page.locator('[data-markian-viewer] svg .node text').first()).toHaveCSS('text-anchor', 'middle');
   await page.screenshot({ path: testInfo.outputPath('viewer-mermaid.png'), fullPage: true });
 });

@@ -145,7 +145,12 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
           }
         }
         if ((node.type === 'link' || node.type === 'image') && !safeUrl(node.url, node.type === 'image')) node.url = '';
-        if ('children' in node) node.children.forEach(child => walk(child as RootContent));
+        if ('children' in node) {
+          if (softbreaks) node.children = node.children.flatMap((child): RootContent[] => child.type === 'text' && child.value.includes('\n')
+            ? child.value.split(/\r?\n/).flatMap((value, index): RootContent[] => index ? [{ type: 'break' }, { type: 'text', value }] : [{ type: 'text', value }])
+            : [child]) as typeof node.children;
+          node.children.forEach(child => walk(child as RootContent));
+        }
       };
       walk(tree);
     })
@@ -161,19 +166,6 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
           }
         }
         if ('children' in node) node.children.forEach(walk);
-      };
-      walk(tree);
-    })
-    .use(() => (tree) => {
-      if (!softbreaks) return;
-      const walk = (node: { type: string; tagName?: string; value?: string; children?: typeof node[] }): void => {
-        if (node.tagName === 'pre' || node.tagName === 'code') return;
-        if (node.children) {
-          node.children = node.children.flatMap(child => child.type === 'text' && child.value?.includes('\n')
-            ? child.value.split('\n').flatMap((value, index) => index ? [{ type: 'element', tagName: 'br', children: [] }, { type: 'text', value }] : [{ type: 'text', value }])
-            : [child]);
-          node.children.forEach(walk);
-        }
       };
       walk(tree);
     })

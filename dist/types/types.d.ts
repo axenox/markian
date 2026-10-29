@@ -140,6 +140,7 @@ export interface EditorOptions {
     sidebarVisible?: boolean;
     theme?: Theme;
     markdownCssUrls?: readonly string[];
+    markdownCssClasses?: readonly string[];
     themeCssUrls?: readonly string[];
     readOnly?: boolean;
     disabled?: boolean;

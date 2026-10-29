@@ -4,6 +4,27 @@ import { equivalentMarkdown, markdownDifferences, headings, renderMarkdown, safe
 import { findMatches } from '../src/search';
 import { defaultToolbar, ToolbarItems, validateToolbar } from '../src/ui/toolbar';
 import type { ToolbarEntry } from '../src/types';
+import { markdownClasses } from '../src/styles';
+
+test('Markdown wrapper classes validate individual tokens and copy host configuration', () => {
+  const classes = ['markdown-body', 'host-content', 'markdown-body'];
+  assert.deepEqual(markdownClasses(classes), ['markdown-body', 'host-content']);
+  assert.deepEqual(classes, ['markdown-body', 'host-content', 'markdown-body']);
+  assert.deepEqual(markdownClasses(), []);
+  for (const invalid of ['', 'two classes', 'line\nbreak', null, 2]) {
+    assert.throws(() => markdownClasses([invalid] as string[]), TypeError);
+  }
+  assert.throws(() => markdownClasses('markdown-body' as unknown as string[]), TypeError);
+});
+
+test('softbreaks render text line breaks without adding breaks between blocks', () => {
+  const markdown = '# Heading\n\nFirst\nsecond **bold\ntext**\n\n- One\n- Two\n\n```text\nfirst\nsecond\n```';
+  const html = renderMarkdown(markdown, true);
+  assert.match(html, /First<br>\nsecond <strong>bold<br>\ntext<\/strong>/);
+  assert.doesNotMatch(html, /<\/(?:h1|p|li|ul)>\s*<br>|<(?:ul|li)>\s*<br>/);
+  assert.match(html, /<code class="language-text">first\nsecond\n<\/code>/);
+  assert.doesNotMatch(renderMarkdown(markdown, false), /<br>/);
+});
 
 test('toolbar containers validate types, alignment, nesting and legacy migration', () => {
   assert.doesNotThrow(() => validateToolbar(defaultToolbar));
