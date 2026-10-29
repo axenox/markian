@@ -10,6 +10,6 @@
     "source": "https://github.com/axenox/markian"
   },
   "archive": {
-    "exclude": ["/node_modules", "/Prototype", "/.prototype-tests", "/.test-results", "/src", "/Tests", "/Scripts", "/.github", "/.githooks"]
+    "exclude": ["/node_modules", "/.test-results", "/src", "/Tests", "/Scripts", "/.github", "/.githooks"]
   }
 }

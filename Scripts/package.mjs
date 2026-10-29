@@ -12,7 +12,7 @@ const [pack] = JSON.parse(execFileSync(npm, ['pack', '--dry-run', '--json', '--i
 const paths = new Set(pack.files.map(file => file.path));
 for (const path of ['dist/markian.min.js', 'dist/markian.css', 'dist/markian-viewer.min.js', 'dist/markian-viewer.css', 'dist/types/viewer.d.ts', 'dist/extensions/viewer-mermaid.min.js', 'dist/types/viewer-mermaid.d.ts', 'dist/sizes.json', 'dist/extensions/code.min.js', 'dist/extensions/mermaid.min.js', 'dist/extensions/mermaid.css', 'dist/types/extensions/mermaid.d.ts', 'dist/types/index.d.ts', 'dist/manifest.json', 'dist/THIRD_PARTY_NOTICES.txt', 'Examples/index.html', 'Examples/minimal-editor.html', 'Examples/mermaid-diagrams.html', 'Examples/viewer.html']) assert.ok(paths.has(path), `Missing package file: ${path}`);
 assert.ok(![...paths].some(path => path.startsWith('dist/dependencies/')), 'Mermaid must be supplied by the host, not shipped in the archive.');
-assert.ok(![...paths].some(path => /^(Prototype|node_modules|src|Tests)\//.test(path)));
+assert.ok(![...paths].some(path => /^(node_modules|src|Tests)\//.test(path)));
 console.log(`npm archive validated: ${pack.files.length} files, ${pack.size} bytes.`);
 const temporary = await mkdtemp(join(tmpdir(), 'markian-package-'));
 let server;

@@ -1,127 +1,120 @@
 # Markian
 
-A framework-independent Markdown editor and lightweight viewer. This checkout implements W0-W3 foundations, W4-W7 editing, table, provider, and navigation features, the optional W13 Mermaid extension, and the W16 viewer described below. It is not a stable release: remaining parity, device, and integration gates are tracked in the plan. The former demonstration and its tests are archived under [Prototype](Prototype/README.md); no library build imports them.
+Markian is a framework-independent Markdown editor and lightweight viewer. It stores ordinary Markdown and provides visual editing, source editing, tables, an outline, search, and optional code and Mermaid workspaces.
 
-## Try It
+The library is under development. Current APIs are documented below; unfinished features and acceptance checks are tracked in the [implementation plan](Docs/Requirements/Plan.md). Browser coverage does not yet establish cross-browser, real-device, screen-reader, or restrictive-CSP conformance.
 
-From a checkout, use Node.js 24 and npm:
+## Getting Started
 
-```powershell
-npm ci
-npm run build
-npm run dev -- --port 5177 --strictPort
+Use the prebuilt files in `dist` with a static HTTP server. Consumers do not need Node.js, a bundler, or a build step.
+
+```html
+<link rel="stylesheet" href="dist/markian.css">
+<div id="notes" style="height: 480px"></div>
+<script src="dist/markian.min.js"></script>
+<script>
+  const editor = Markian.create(document.querySelector('#notes'), {
+    markdown: '# Notes\n\nReady for review.',
+  });
+  editor.ready.then(() => editor.focus());
+</script>
 ```
 
-Open <http://127.0.0.1:5177/> for the [editor workspace](Examples/editor-workspace.html), or browse the [example index](Examples/index.html) and [minimal form example](Examples/minimal-editor.html). Each named HTML file keeps its editor-specific CSS, configuration, and JavaScript inline; the shared [demo stylesheet](Examples/demo.css) handles the page shell. Ordinary script/link tags load the built library distribution rather than source-module imports. Documents live in memory; no storage or data requests are implemented.
+Serve `dist/markdown-github.css` beside the script: Markian loads it by default. Await `ready` before commands or document replacement. A textarea is also a supported host; its value follows edits and native form reset.
 
-Consumers need only a static HTTP server and the prebuilt assets. No npm, Node.js, compiler, import map, remote fonts, or sibling Core package is required at runtime.
-
-## Composer Installation
-
-Install directly from Git by adding the repository to your application's Composer configuration:
+To install the development package with Composer:
 
 ```powershell
 composer config repositories.markian vcs https://github.com/axenox/markian.git
 composer require axenox/markian:@dev
 ```
 
-The `@dev` flag permits the current development version without changing your application's global stability setting. Once a stable release is published on Packagist, the repository configuration and development flag are unnecessary.
+Expose the installed package's `dist` files through your static asset routing. Tagged publication and Asset Packagist availability are not yet verified. See the [examples guide](Docs/Examples.md) for runnable pages and the [development guide](Docs/Development/index.md) to work from source.
 
-The package installs to `vendor/axenox/markian`. Serve or copy its prebuilt `dist` assets through your application's static asset routing, then use the script-tag API below. No Composer plugins, install scripts, PHP autoloading, or consumer build step are needed. Optional Mermaid rendering still requires a host-supplied renderer as described below.
+## Configuration
 
-## Script-Tag API
+Options belong to each instance. This example uses a compact toolbar, a custom content stylesheet, and local link suggestions:
+
+```javascript
+const editor = Markian.create(document.querySelector('#notes'), {
+  markdown: '# Notes',
+  theme: 'dark',
+  sidebarVisible: false,
+  markdownCssUrls: ['/assets/markdown.css'],
+  toolbar: [
+    { id: 'format', type: 'group', items: ['bold', 'italic', 'link'] },
+    { id: 'utilities', type: 'group', align: 'opposite', items: ['search', 'fullscreen'] },
+  ],
+  onLinkSuggest: ({ query }) => [
+    { label: 'Guide', destination: 'guide.md' },
+  ].filter(item => item.label.toLowerCase().includes(query.toLowerCase())),
+});
+```
+
+All options, effective defaults, callbacks, and bundled extension settings are in the [configuration reference](Docs/Configuration.md).
+
+## Extensibility
+
+Hosts and extensions use the same public API. The following example loads both bundled editor extensions and adds a custom command. The host must serve a trusted Mermaid 12.2.x runtime at the configured URL.
+
+### Optional Mermaid Extension
+
+This example enables Mermaid alongside Code. Full renderer, safety, and workspace guidance is in the [Mermaid guide](Docs/Extensibility.md#mermaid).
 
 ```html
 <link rel="stylesheet" href="dist/markian.css">
-<div id="notes"></div>
+<link rel="stylesheet" href="dist/extensions/mermaid.css">
+<div id="extended-notes" style="height: 480px"></div>
 <script src="dist/markian.min.js"></script>
+<script src="dist/extensions/code.min.js"></script>
+<script src="dist/extensions/mermaid.min.js"></script>
 <script>
-  const editor = Markian.create(document.querySelector('#notes'), {
-    markdown: '# Notes\n\nReady for review.',
-    theme: 'light',
+  Markian.registerExtension('code', MarkianCode.codeExtension);
+  Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+  const extendedEditor = Markian.create(document.querySelector('#extended-notes'), {
+    markdown: '# Review',
+    extensions: {
+      code: { enabled: true },
+      mermaid: { enabled: true, config: {
+        asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
+      } },
+    },
   });
-  editor.ready.then(() => {
-    editor.on('change', event => console.log(event.origin, editor.get()));
+  extendedEditor.ready.then(() => {
+    extendedEditor.getCommands().insert({
+      id: 'review:example',
+      label: 'Insert review example',
+      icon: 'codeblock',
+      views: ['visual'],
+      mutates: true,
+      run: instance => instance.insertCodeBlock('Review pending', 'text'),
+    });
+    extendedEditor.getToolbar().insert({ id: 'review:example' }, 'insert', 'rule');
   });
 </script>
 ```
 
-Await `ready` before commands, replacement, or view navigation. Initialization rejection restores the host. A preservation fallback to raw mode instead resolves readiness and reports an `error` event plus an inline diagnostic.
+Callbacks connect host services; renderers and views add presentation; schema mappings extend supported structure. See [customization examples](Docs/Extensibility.md) and the contributor guide to [writing extensions](Docs/Development/Writing_extensions.md). Templates, mentions, general HTML allowlists, and generated-region providers are not current configuration options.
 
-Visual serialization uses LF line endings, including for CRLF/CR input, while
-preserving whether the accepted document ended with a newline. Meaningful spaces,
-hard breaks, comments and code are not trimmed. Repeated accepted round trips
-retain the serialized value. A genuine visual-import mismatch reports up to five
-differences with original source line ranges, structural property paths, and short
-before/after excerpts. These ranges identify affected Markdown nodes rather than
-exact changed characters; source remains available for correction.
+## API
 
-See the [complete configuration reference](Docs/Configuration.md) for all editor
-options, effective defaults, callbacks, toolbar settings, and bundled extension
-configuration.
-
-### Outline Sidebar
-
-The document outline is visible by default. Set `sidebarVisible: false` to start
-collapsed; the toolbar button remains available and its pressed state reflects
-visibility. The sidebar stays beside the document with independent scrolling,
-including on narrow screens. Heading navigation keeps it open without changing
-Markdown. Specialized views hide it temporarily and preserve the visibility choice
-when returning to the document.
-
-### Configurable Stylesheets
-
-`markdownCssUrls` replaces the rendered-content stylesheet list. Omit it to load
-`dist/markdown-github.css` beside the classic script, or pass `[]` for no content
-stylesheet. Non-classic loading must provide this option explicitly.
-`themeCssUrls` appends editor-theme overrides after the content stylesheets and
-defaults to `[]`. Load the base `dist/markian.css` separately in either case.
+The classic script exposes `window.Markian`, a factory rather than a singleton editor. Instances own their document, theme, history, callbacks, and lifecycle.
 
 ```javascript
-const editor = Markian.create(host, {
-  markdown: '# Notes',
-  markdownCssUrls: ['/assets/markdown.css'],
-  themeCssUrls: ['/assets/editor-theme.css'],
-});
 await editor.ready;
+const unsubscribe = editor.on('change', event => {
+  console.log(event.origin, editor.get());
+});
+await editor.whenIdle();
+const markdown = editor.get();
+unsubscribe();
 ```
 
-URLs must be HTTP(S), resolved relative to the document base. Stylesheets load in
-declaration order; readiness waits for loading, and failures reject readiness and
-restore the host. Instance-owned links are removed on destruction. Host CSS is
-trusted and page-wide: scope document rules to `.markian-document` inside a host
-wrapper, and theme rules to that wrapper or the editor root. Replacing content CSS
-does not disable the editor shell or its editing controls.
-
-| API | Current behavior |
-| --- | --- |
-| `get()` | Synchronous complete Markdown, including raw/code drafts while Help or Preview is open. |
-| `set(markdown, options)` | Host replacement; identical projected values are no-ops. `origin` defaults to `host-load`; `resetHistory` defaults to true. Visual import validates before replacement. |
-| `setMode('visual' / 'raw')` | Independent histories; edited source returns as one visual replacement. Failed visual import retains source. |
-| `execute(id, payload)` | Promise of false for unsupported-view/read-only commands; unknown IDs throw. |
-| `setTheme('light' / 'dark')` | Instance-local presentation. |
-| `setReadOnly(bool)` / `setDisabled(bool)` | Prevent user edits while retaining source selection, Help, Preview, copying, and maximize. Host `set()` is still permitted. |
-| `on(name, handler)` | Returns unsubscribe. Names: change, draft, ready, mode, focus, blur, error, save-request. Events include instance, origin, revision, view; draft identifies source/session edits. |
-| `search(options)` / `selectSearch(index)` / `replaceSearch(text, all?)` | Literal view-scoped search with optional caseSensitive/wholeWord. Help/Preview and read-only views cannot replace. Offsets belong to the active engine, not necessarily Markdown. |
-| `insertImage(blob)` / `whenIdle()` | Insert a bounded raster image; await pending results before host saves. Failed/cancelled insertions require retry or explicit removal. |
-| `getActiveSession()` | Current or suspended block draft, or null; get() still projects the complete document. |
-| `focus()` / `resize()` / `destroy()` | Active-view focus/measurement and idempotent host restoration. |
-
-`Markian.headings(markdown)` parses a document without creating an editor and returns `Heading[]`: `{ id, label, depth, line }`, with one-based source lines. It shares rendering's Unicode-aware, duplicate-safe anchor IDs, ignores fenced-code contents, and includes nested headings. Hosts can use it in `onLinkInspect` to populate target-heading choices for another document.
-
-Textarea hosts retain their name/form association. Values track active drafts synchronously; native form reset loads `defaultValue` and resets history. Pending/failed image insertion prevents native form submission until resolved or explicitly removed; submission is not automatically retried. Disabled editing does not change native textarea disabled/submission semantics.
-
-`getCommands()`, `getViews()`, `getRenderers()`, `getHelp()`, and `getSchema()` expose typed registries: `insert(item, beforeId?)` returns an idempotent removal function; IDs and explicit ordering targets must be unique/present. `getToolbar()` instead uses `insert(item, group?, beforeId?)` for group-local placement, described below. Applications and extensions use the same methods. Help entries contain `{ id, markdown }`. `insertCodeBlock(value, language)` inserts one undoable fenced block at the visual selection and enforces permissions. Schema contributions close before engine construction. The initial structural bridge supports atomic node mappings over existing mdast node types; custom Markdown grammars, nested structural serialization, and block-HTML normalization are not yet a complete extension contract.
+`get()` includes pending source and block drafts, even while Help is visible. Hosts own persistence and must handle edits during any asynchronous save. See the [complete API reference](Docs/API.md).
 
 ## Lightweight Viewer
 
-The [comparison example](Examples/viewer.html) shows an editor and a live viewer
-of the same Markdown in equal panes, stacked on narrow screens. That demo loads
-both bundles; standalone viewer hosts need only the viewer assets below. The viewer
-uses the same GFM parser, sanitization, heading anchors, softbreak policy, and
-content typography as editor Preview, without Milkdown, ProseMirror, CodeMirror,
-editing sessions, toolbars, or dialogs. It does not construct a disabled editor.
-Read-only editors remain separate and retain their richer nonmutating controls.
+The viewer displays Markdown without constructing an editor. Load only its assets for display-only pages:
 
 ```html
 <link rel="stylesheet" href="dist/markian-viewer.css">
@@ -130,249 +123,24 @@ Read-only editors remain separate and retain their richer nonmutating controls.
 <script>
   const viewer = MarkianViewer.create(document.querySelector('#document'), {
     markdown: '# Notes\n\nReady for review.',
-    theme: 'light',
-    mermaid: false,
-  });
-  viewer.ready.then(() => viewer.set('# Updated notes'));
-</script>
-```
-
-Mount on a `div`, `section`, or `article`; original child nodes and their listeners
-are retained and restored on destruction. `MarkianViewer` coexists with `Markian`
-without overwriting its global. Each viewer owns its value, theme, revision,
-resource callbacks, pending renders, and DOM. Declarations are generated at
-`dist/types/viewer.d.ts`; the manifest declares all viewer assets.
-
-| API | Behavior |
-| --- | --- |
-| `create(host, options)` | Mount immediately; `markdown` defaults to `''`. Load the viewer CSS explicitly. Invalid configuration/import restores the host and throws. |
-| `ready` | Promise for initial optional rendering. Failed fence renderers report an error and retain plain code. |
-| `get()` | Exact supplied Markdown, never serialized HTML or normalized editor content. |
-| `set(markdown)` | Validate/render before replacing; synchronous errors retain the old document. Returns a promise for optional renderers. Identical values are no-ops and return the current render promise. |
-| `setTheme('light' / 'dark')` | Rerender presentation, including enabled adapters, without changing Markdown. Returns a render promise. |
-| `destroy()` | Abort pending work, remove owned DOM/listeners, and restore the host; safe twice. Other methods reject use after destruction. |
-| `headings(markdown)` | The same engine-independent `Heading[]` parser exposed by the editor. |
-
-Links retain safe native navigation/selection/copy. Local fragments navigate
-within the current viewer, even beside viewers with identical heading IDs. Tasks
-are always disabled. Unknown comments and front matter remain invisible;
-generated bodies remain ordinary readable Markdown. No placeholder providers run.
-Raw HTML follows Preview's existing policy; it is not interpreted as trusted HTML.
-
-`documentBase` resolves relative link/image destinations without rewriting the
-stored Markdown. `onResourceResolve(context)` optionally returns a synchronous
-URL string or `null` to suppress the resource. Both original and returned URLs
-must pass the shared URL policy. `onLinkOpen(context)` optionally handles
-navigation; it receives the original Markdown destination and mouse event.
-These are trusted host callbacks, not built-in transport or endpoint settings.
-See [every option and callback field](Docs/Configuration.md#viewer-options).
-
-### Optional Viewer Rendering
-
-`renderers` maps fence-language IDs to callbacks returning HTML/SVG text or a
-promise. Context supplies `source`, `language`, `theme`, `markdown`, `revision`,
-`documentBase`, and an abort `signal`. Replacement, theme changes, and destruction
-abort obsolete work; late results cannot replace newer content, even when the
-callback ignores cancellation. Output is bounded to 2,000,000 characters and
-sanitized again; active content, embedded styles, controls, and external resource
-references are removed. SVG IDs/local references are scoped to the render.
-Failures retain plain code and call `onError`, or log to the console by default.
-Hosts can supply a preloaded highlighter this way; no language packs or W14
-editing UI load implicitly. Hosts load trusted, scoped highlighting CSS separately.
-
-**Mermaid is disabled by default.** Even a supplied `renderers.mermaid` callback
-is not invoked unless `mermaid: true`. Enabling it with no matching fence loads
-nothing; without a supplied callback, the fence remains plain code. The optional
-render-only adapter does not depend on the W13 editor extension:
-
-```html
-<link rel="stylesheet" href="dist/extensions/viewer-mermaid.css">
-<script src="dist/extensions/viewer-mermaid.min.js"></script>
-<script>
-  const renderMermaid = MarkianViewerMermaid.createRenderer(document, {
-    asset: { url: '/assets/mermaid.min.js', version: '12.2.0' },
-  });
-  const diagrams = MarkianViewer.create(document.querySelector('#diagrams'), {
-    markdown: '```mermaid\ngraph LR\n Draft-->Review\n```',
-    mermaid: true,
-    renderers: { mermaid: renderMermaid },
   });
 </script>
 ```
 
-Load the viewer JS/CSS first and provide the `#diagrams` host. Instead of `asset`,
-pass a supported versioned `renderer` with `render({ source, id, theme, signal })`.
-The adapter accepts Mermaid `12.2.x`, defaults to 20,000 characters/500 lines, and
-rejects executable links/configuration directives. It loads only an explicit host
-URL, in an isolated runtime deduplicated among viewers by document/URL/version;
-there is no CDN guess, AJAX, or bundled Mermaid. Shared assets remain after an
-instance is destroyed. Editor and viewer IIFEs embed independent loader caches;
-supply the same host renderer adapter to both when they must share one runtime.
-Loading the adapter script alone never loads the Mermaid runtime.
+Its source value is exact, tasks are noninteractive, and optional fence rendering is opt-in. Mermaid requires a separate render-only adapter. See [viewer customization](Docs/Extensibility.md#viewer-renderers) and [viewer options](Docs/Configuration.md#viewer-options).
 
-### Measured Distribution
+## Documentation
 
-The deterministic [size report](dist/sizes.json) lists individual assets, optional
-dependencies, and combined costs. The 2026-10-28 Windows/Node 24 proof build uses
-independent resources, gzip level 9 and Brotli quality 11. Baseline totals enable
-no optional features; editor totals include its separate content stylesheet.
-Rounded decimal KB are shown here; the report records exact bytes.
+- [Documentation index](Docs/index.md).
+- [Architecture](Docs/Architecture.md).
+- [Configuration](Docs/Configuration.md).
+- [API](Docs/API.md).
+- [Extensibility](Docs/Extensibility.md).
+- [Style guide](Docs/Styleguide.md).
+- [Development](Docs/Development/index.md).
 
-| Assets | Minified KB | gzip KB | Brotli KB |
-| --- | ---: | ---: | ---: |
-| Editor JS | 914.2 | 283.2 | 237.3 |
-| Editor shell + content CSS | 16.2 | 3.9 | 3.3 |
-| Viewer JS | 211.9 | 67.3 | 58.1 |
-| Viewer CSS (includes content) | 4.9 | 1.4 | 1.1 |
-| Editor + viewer JS/CSS | 1147.1 | 355.8 | 299.9 |
-| Optional viewer Mermaid adapter JS + CSS | 3.8 | 1.9 | 1.6 |
-| External Mermaid 12.2.0 runtime | 5494.8 | 1578.8 | 1177.4 |
+## Current Limits
 
-Viewer JS/CSS is approximately 24% of the equivalent editor gzip total. Shared
-source is embedded in each independent bundle: there is no runtime shared chunk,
-and the combined cost is additive, not deduplicated. This is a byte-size result,
-not a rendering-speed claim. The build rejects viewer JS over 250,000/80,000/70,000
-raw/gzip/Brotli bytes, CSS over 6,000/1,800/1,600 bytes, or totals above 35% of the
-editor in any of those encodings. Rollup's actual viewer import graph rejects
-editor engines, controllers, UI, and editing-extension modules.
+Visual editing can normalize Markdown syntax and line endings, but must retain meaningful content. Unsupported visual imports fall back to source rather than silently deleting content. Raw HTML is not trusted rendered content. The [architecture](Docs/Architecture.md#markdown-and-safety) describes preservation and safety policies.
 
-Focused Chromium checks cover the shared semantic/security corpus, source
-preservation, stale renders, host restoration, resources, lazy Mermaid, coexistence,
-and light/dark desktop/mobile overflow and image decoding. The archive fixture
-installs with scripts disabled and tests viewer-only subdirectory/offline use.
-Cross-browser, restrictive CSP, screen-reader, and actual display-widget bindings
-remain W9/W11/W12 acceptance work; no host widget adapter changed here.
-
-## Optional Code Slice
-
-Load `dist/extensions/code.min.js` after the core. Register once, then opt in per editor:
-
-```javascript
-Markian.registerExtension('code', MarkianCode.codeExtension);
-const editor = Markian.create(host, {
-  markdown: '```text\nhello\n```',
-  extensions: { code: { enabled: true } },
-});
-```
-
-Place the caret inside a code block and use Expand in the floating toolbar. It is not a pinned or overflow toolbar item. The draft has local undo/redo; Back commits once. Help suspends the task without losing draft/history. The public `createSourceEditor` handle reuses core CodeMirror; the extension ships no duplicate engine or language parsers. This is W1's proof slice, not the complete W14 extension.
-
-Different host replacements during a block session or dirty raw draft require `pending: 'commit'`, `'discard'`, or `'reject'`. Identical host echoes do not need a policy. Unlock a modified read-only block session before applying it with Back, or explicitly discard it through host replacement. Hidden source handles and suspended block sessions cannot mutate through public editing operations. Block targets currently support top-level code fences only.
-
-## Optional Mermaid Extension
-
-The [separate Mermaid example](Examples/mermaid-diagrams.html) enables diagrams explicitly. The default workspace and minimal example do not load this extension or its renderer, even for Mermaid fences. No W8-W12 or W14 integration is required.
-
-Load the core first, then the optional factory and stylesheet. Register the factory once; enable it independently for each editor:
-
-```html
-<link rel="stylesheet" href="dist/markian.css">
-<link rel="stylesheet" href="dist/extensions/mermaid.css">
-<div id="diagrams" style="height:600px"></div>
-<script src="dist/markian.min.js"></script>
-<script src="dist/extensions/mermaid.min.js"></script>
-<script>
-  Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
-  const editor = Markian.create(document.querySelector('#diagrams'), {
-    markdown: '```mermaid\nflowchart LR\n  A[Start] --> B[Finish]\n```',
-    extensions: { mermaid: { enabled: true, config: {
-      asset: { url: '/host-assets/mermaid.min.js', version: '12.2.0' },
-    } } },
-  });
-</script>
-```
-
-The host provides Mermaid and its URL/version through `extensions.mermaid.config.asset`; Markian does not bundle the renderer or guess a vendor/CDN path. URLs resolve against the mounting document and may point to a trusted local asset for offline use. The manifest declares the external dependency and supported versions. The [single-file Mermaid example](Examples/mermaid-diagrams.html) keeps host settings in its inline `mermaidConfig` object; the development server supplies its `/host-assets/mermaid.min.js` route from a development-only dependency. A deployed host must provide that asset route or change the configured URL. Absent/disabled extensions request no Mermaid assets. Enabled instances load the configured asset only when rendering a diagram. A missing, empty, unavailable, or invalid URL shows an error instead of the diagram; the ordinary fenced source remains editable and Retry diagram remains available.
-
-Alternatively supply `config.renderer: { version: '12.2.0', render(context) }`. The versioned adapter supports Mermaid **12.2.x**; older versions are not certified. `render({ source, id, theme, signal })` returns an SVG string or a promise of one. A host adapter may reuse a supported host renderer, but must isolate security/theme configuration and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound its renderer's edge/layout work, and never bind Mermaid's source-defined callbacks. Markian never calls `initialize()` on a supplied host instance. A raw Mermaid object is not this adapter contract. The adapter may ignore cancellation, but obsolete results are never displayed.
-
-`MarkianMermaid.loadMermaid(document, { url, version })` returns the same adapter contract. It deduplicates compatible URLs/versions per document, rejects conflicting declarations for a URL, and permits retries after failed loads. It runs the trusted local Mermaid script in an offscreen iframe, with strict security, SVG text labels, a 500-edge bound, serialized rendering and per-render themes. This separate runtime never reconfigures a host's Mermaid global. The shared runtime remains loaded when an editor is destroyed, like a shared script; individual previews, sources, timers and observers are disposed. The iframe is configuration isolation, not a sandbox for untrusted asset code. Load only trusted assets. Restrictive CSP deployments can supply their own compliant renderer adapter; full CSP/browser-matrix acceptance remains W9 work.
-
-Insert diagram adds a simple flowchart in visual mode. Each rendered block has an accessible Edit diagram control opening source-left/preview-right panes, stacked in narrow containers. Back applies the block draft as one parent undo step; unchanged Back adds none. Undo/redo, indent/outdent, source search and save shortcuts use the active session. Press Escape then Tab to leave source Tab handling. Help suspends the session, and `get()` includes drafts before Back. Invalid syntax remains saveable as an ordinary Mermaid fence. Modified read-only drafts remain intact until unlocked or explicitly discarded by the host. Editing sessions currently target top-level fences; nested fences retain source-mode editing.
-
-Diagram labels are centered. A floating toolbar overlays the diagram on hover or keyboard focus, without reserving a fixed strip above it; touch devices and error states keep controls visible. Pan by dragging with a pointer/touch, or focus the preview and use arrow keys. Plus/minus zoom, Home resets, and labeled icon controls provide the same actions. Ctrl/Cmd-wheel also zooms. These presentation controls remain available read-only and never change Markdown. Mermaid help is contributed through the ordinary public help registry.
-
-`maxCharacters` and `maxLines` can lower the defaults of 20,000 characters and 500 lines, but cannot increase them. Configuration directives, front matter and executable-link declarations are refused for rendering without changing saved source. Generated SVG is bounded, sanitized with DOMPurify, stripped of HTML, scripts, links, images, animation, styles and external references, and assigned unique IDs. Markian's scoped stylesheet supplies diagram colors; arbitrary Mermaid CSS/theme overrides are deliberately not preserved. Real-device touch, screen-reader and cross-browser acceptance remain unverified.
-
-## Editing And Host Callbacks
-
-Controls include H1-H6, word-at-caret inline formatting, lists/tasks, indentation, rules, quotes/GitHub alerts, clear formatting, links/images, and GFM tables. Table controls cover insertion, row/column deletion, header promotion, column alignment, and Tab navigation; merged cells and external spreadsheet paste are not supported. Source controls operate on literal Markdown; rich cell operations and visual clear-formatting are not raw-source commands.
-
-Visual typing recognizes backtick-delimited inline code. You can also type two backticks, move Left between them, and type the content; Right Arrow or a closing backtick returns to ordinary text without invisible characters. Start a paragraph with three or more backticks or tildes, optionally followed by a language such as `javascript` or `c++`, and press Space or Enter to create a code block. Fences remain literal until submitted, and backticks inside existing code blocks remain literal.
-
-`toolbar` is an ordered layout of registered toolbar IDs, command IDs, or inline `ToolbarItem` objects. Containers have a unique `id`, `type: 'group'` (inline) or `type: 'menu'` (dropdown), and recursive `items`. Top-level containers accept `align: 'default'` (left, the default) or `align: 'opposite'` (right, outside overflow). Order is preserved within each side. Separators come from nonempty group boundaries, not explicit items. More appears automatically before opposite containers, or at the end. No command is specially aligned by name. Bare string arrays remain supported. Unknown commands, recursive containers, and malformed layouts are rejected.
-
-```javascript
-const editor = Markian.create(host, {
-  markdown: '',
-  toolbar: [
-    { id: 'history', type: 'group', items: ['undo', 'redo'] },
-    { id: 'format', type: 'menu', label: 'Formatting', icon: 'bold', items: [
-      'bold', 'italic', 'strike',
-      { id: 'insert', type: 'menu', label: 'Insert', icon: 'image', items: ['image', 'link'] },
-    ] },
-    { id: 'utilities', type: 'group', align: 'opposite', items: ['fullscreen', 'search'] },
-  ],
-});
-```
-
-The [default layout](src/ui/toolbar.ts) puts every item in history, formatting, insertion, document, or opposite-aligned utility groups. The outline uses a right-sidebar icon; table actions use distinct row/column insertion/deletion icons. Contributions use `editor.getToolbar().insert(item, group?, beforeId?)`. An explicit group ID targets that menu or inline group; omitting `beforeId` appends to it. Omitting the group uses the last top-level default-aligned inline group (`document` in the default layout), never a menu or opposite-aligned group. The optional `beforeId` must name a direct child of the target group. The returned function removes the owned registration and live placement without changing the configured arrays.
-
-For example, Mermaid registers its button with `editor.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'insert', 'rule')`. Its history and indentation controls likewise target named groups explicitly. Custom layouts can receive live additions to their own named groups. An existing reference to the item's ID takes precedence over automatic placement. If the requested group is absent, or no default inline group exists, the item remains registered but no group is created; a custom layout can opt in by referencing its ID. `floatingToolbar` independently selects command IDs; an empty pinned list enables a floating-only layout. `toolbarPlacement: 'bottom'` overrides desktop placement; compact containers use bottom controls by default. Table caret/touch controls share registered commands, while code expansion is code-caret-contextual. Custom commands can use `views: ['*']`, `enabled(instance)`, and `active(instance)`.
-
-For older configurations, replace `menu` with `type: 'menu'` and `items`, use inline groups instead of separator entries, and move fixed controls into an opposite-aligned group. The old `separator`, `overflow`, and `fixed` fields are rejected. A future responsive group type could collapse into a menu; only `menu` and `group` are implemented today.
-
-Menus and transient panels use the native Popover API in supported modern browsers. Submenus are separate flyouts, flip left when needed, and clamp to the viewport without creating nested scrollbars. Right/Left opens/closes nested menus; Home/End stays within the current menu. Link, Image/file, and Search panels point to their visible toolbar button with a speech-bubble tip. Commands invoked from More point to More after it closes; bottom toolbars open panels upward. Providers, focus, permission checks, and outside dismissal remain instance-local.
-
-Search uses the toolbar or focus-bound Ctrl/Cmd+F/H. Queries are literal and limited to 1,000 characters. Visual replacements inherit formatting at the match start; replace-all is one undo step and opaque content is excluded. Outlines share Preview's parsed ATX/Setext anchors, omit a title starting on line 1, and navigate the active scroller.
-
-Provider options are trusted functions, never strings or endpoint configuration:
-
-| Option | Result |
-| --- | --- |
-| `onLinkSuggest` / `onImageSuggest` | `{ label, destination }[]`, locally or through a promise; at most 100 displayed results. |
-| `onLinkInspect` | `{ status: 'exists' / 'missing' / 'unknown', headings?: [{ id, label }] }`; at most 500 headings. |
-| `onLinkOpen` | Host navigation using the original destination. Ctrl/Cmd-click opens in visual editing; Preview/read-only links and Open link provide nonmodifier/touch access. |
-| `onImageInsert` | `{ destination, alt? }`, locally or through a promise, after host-owned file creation succeeds. Callback results must not be data/blob URLs. |
-
-Each provider receives `{ instance, query, documentBase, revision, signal }`; inspection/opening also receive `destination`, insertion receives `blob`. `documentBase` resolves displayed images and default navigation without rewriting stored relative URLs. Arbitrary authenticated resource resolution remains host integration work. Debounced queries and insertion results are checked against revision, view, permissions, cancellation, and lifetime. Hosts own transport, authorization, and actual request cancellation.
-
-Paste, drop, file selection, and `insertImage()` accept PNG/JPEG/GIF/WebP blobs up to 1 MB, one current-document insertion at a time. Without a callback they become raster data URIs. With a callback there is no binary fallback: loading, cancellation, retry, and explicit removal stay outside persisted Markdown. Programmatic host saves must await the gate before reading the value:
-
-```javascript
-await editor.whenIdle();
-const markdown = editor.get();
-```
-
-The host must also serialize or recheck edits during its own asynchronous storage operation. Markian implements no storage transaction.
-
-`onFullscreenEnter({ instance, element, signal })` optionally replaces the built-in viewport overlay. Return a restore function or a promise of one. Restoration runs once on exit/destruction, including late cancelled entry. A rejecting callback must undo its own partial changes. Parent-iframe expansion requires a host bridge.
-
-Colors are opt-in through `allowTextColors: true` and an optional `textColors` palette of 5-10 distinct six-digit hex values. They serialize as bounded `<span style="color:#rrggbb">` HTML; GitHub may strip the color. Portable mode provides no color controls or color-fidelity promise. This is not a general allowed-HTML/stencil implementation.
-
-## Content Policy And Limits
-
-- CommonMark/GFM parsing, tables, tasks, strikethrough, and autolinks use established remark/Milkdown foundations. Visual import compares semantic parse trees before accepting content. Meaningful breaks, ordered-list starts, comments, and fence contents are part of that comparison.
-- Original source remains byte-for-byte unchanged until an actual edit. Visual edits can normalize Markdown syntax. Raw mode retains exact text, including incomplete syntax.
-- Unknown HTML comments are invisible in visual mode and retained in Markdown. Other HTML is inert source in the visual engine and omitted from sanitized Preview. Rich allowed-HTML mapping is unfinished.
-- Front matter and constructs that fail the visual fidelity check remain editable in raw mode. Reference-link documents may conservatively fall back to source because visual serialization resolves references. No unsupported document is silently overwritten by the fallback.
-- Preview uses a rendering-only sanitization pipeline. Unsafe schemes, protocol-relative URLs, SVG data URIs, and backslash destinations are rejected for visual import; source remains available. Relative destinations are not rewritten.
-- Document import is bounded to 1,000,000 characters; raster data-URI URL validation is bounded to 2,000,000 characters. These are initial safeguards, not measured performance budgets or the full W9 limits.
-- Output targets modern ES2022 browsers. Automated checks currently exercise Chromium on Windows, not Safari/Firefox, real mobile devices, or complete accessibility/CSP conformance.
-
-No Mermaid renderer or programming-language pack is included in the core. Mermaid is separately opt-in as described above; repository services, upload transport, and host integrations are not included. Templates/mentions, general allowed HTML, rich external paste, and the standalone viewer remain later work. Real-device/IME and screen-reader acceptance, full raw command parity, and Codiware's actual image-file/reopen workflow remain unverified. Do not use this slice to migrate production documents yet.
-
-## Build And Package Checks
-
-```powershell
-npm run verify
-npm run hooks:install
-```
-
-`verify` runs unit tests, strict type checking, import boundaries, clean deterministic IIFE builds, declarations/notices/manifest, browser tests against `dist`, and an actual npm archive install/browser startup with lifecycle scripts disabled. Source maps are deliberately not published. Only small public type dependencies are installed by npm consumers; Milkdown/CodeMirror and build tooling are development dependencies.
-
-The opt-in commit hook builds even on documentation-only commits. It refuses unstaged/partially staged build inputs and asks for review/staging of changed distribution files; it stages nothing. CI rebuilds on Windows/Linux and checks tracked, deleted, and untracked distribution output. Repository administrators still need to configure required branch checks; this checkout cannot establish branch protection or certify intermediate commits automatically.
-
-Direct Composer metadata uses `axenox/markian`; npm metadata uses `markian`. Publication rights, tagged Composer installation, npm publication, and Asset Packagist discovery/install remain unverified. No credentials or publishing operations are part of this change.
-
-See the [architecture](Docs/Architecture.md), [style guide](Docs/Styleguide.md), and [work-package status](Docs/Requirements/Plan.md) for boundaries and remaining acceptance gates.
+Code workspaces currently target top-level fences; the Code extension does not include language packs. Mermaid is supplied by the host, never bundled into core. Host transport, authentication, storage, and framework widgets remain outside Markian. Full migration and production acceptance are still tracked in the unchanged requirements documents.
