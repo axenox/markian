@@ -1,3 +1,7 @@
+---
+description: "Understand documentation structure, document changes properly"
+name: "Writing documentation"
+---
 # Documentation Instructions
 
 Carefully inspect and update instructions every time you change something! Make sure the documentation in well structured and easy to read. Ensure that the information is understandable and helpful for the target audience of each type of documentation.

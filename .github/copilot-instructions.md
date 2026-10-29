@@ -7,9 +7,9 @@ Markian is a framework-independent Markdown editor/viewer library in development
 - Before planning or changing code, read [the architecture](../Docs/Architecture.md). For any UI or styling change, also read [the style guide](../Docs/Styleguide.md).
 - Update the architecture in the same change whenever module responsibilities, ownership, lifecycle, public contracts, dependency boundaries, or distribution architecture change.
 - Update the style guide in the same change whenever reusable appearance, layout, controls, interaction patterns, themes, or responsive behavior change. Reuse shared classes/components rather than creating look-alike implementations.
-- Keep both documents continuously aligned with the implementation. Distinguish current behavior from approved future contracts; do not rewrite plans as completion claims.
 - Keep [the configuration reference](../Docs/Configuration.md) complete in the same change whenever an editor option, default, or built-in extension changes. Include ALL available options and effective defaults. Explain the shared extension entry structure once, then give each built-in extension its own subchapter with its default configuration and local option names rather than repeated full paths.
 - Consult [the implementation and migration plan](../Docs/Requirements/Plan.md) for approved scope and decisions, [requirements](../Docs/Requirements/Requirements.md) for acceptance criteria, and [README](../README.md) for prototype usage. Update affected guidance when decisions or behavior change.
+- Keep all documentation up-to date according to [Documentation instructions](instructions/documentation.instructions.md)!
 
 ## Engineering Boundaries
 
