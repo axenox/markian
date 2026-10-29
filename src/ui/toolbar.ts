@@ -38,6 +38,7 @@ export function validateToolbar(entries: readonly ToolbarEntry[], depth = 0, ids
 export class ToolbarItems implements ToolbarRegistry {
   private registrations = new Items<ToolbarItem>();
   private additions: { item: ToolbarItem; group: string; beforeId?: string }[] = [];
+  private removals = new Set<{ id: string }>();
 
   constructor(private base: () => readonly ToolbarEntry[], private changed: () => void = () => {}, private guard: () => void = () => {}) {}
 
@@ -71,6 +72,17 @@ export class ToolbarItems implements ToolbarRegistry {
 
   items(): readonly ToolbarItem[] { return this.registrations.items(); }
 
+  remove(id: string): Disposer {
+    this.guard();
+    if (typeof id !== 'string' || !id) throw new TypeError('Toolbar removal requires a nonempty ID.');
+    const removal = { id };
+    this.removals.add(removal);
+    this.changed();
+    return () => {
+      if (this.removals.delete(removal)) this.changed();
+    };
+  }
+
   layout(): ToolbarEntry[] {
     const registered = new Map(this.registrations.items().map(item => [item.id, item]));
     const clone = (entries: readonly ToolbarEntry[], depth = 0): ToolbarEntry[] => {
@@ -89,7 +101,11 @@ export class ToolbarItems implements ToolbarRegistry {
       const index = target.findIndex(entry => (typeof entry === 'string' ? entry : entry.id) === beforeId);
       target.splice(index < 0 ? target.length : index, 0, clone([item])[0]);
     }
-    return entries;
+    const removed = new Set([...this.removals].map(removal => removal.id));
+    const filter = (items: readonly ToolbarEntry[]): ToolbarEntry[] => items
+      .filter(item => !removed.has(typeof item === 'string' ? item : item.id))
+      .map(item => typeof item !== 'string' && item.items ? { ...item, items: filter(item.items) } : item);
+    return filter(entries);
   }
 
   private findContainer(entries: readonly ToolbarEntry[], id: string | undefined): ToolbarEntry[] | undefined {

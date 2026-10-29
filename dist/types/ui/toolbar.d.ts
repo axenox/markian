@@ -7,10 +7,12 @@ export declare class ToolbarItems implements ToolbarRegistry {
     private guard;
     private registrations;
     private additions;
+    private removals;
     constructor(base: () => readonly ToolbarEntry[], changed?: () => void, guard?: () => void);
     register(item: ToolbarItem): Disposer;
     insert(item: ToolbarItem, group?: string, beforeId?: string): Disposer;
     items(): readonly ToolbarItem[];
+    remove(id: string): Disposer;
     layout(): ToolbarEntry[];
     private findContainer;
 }

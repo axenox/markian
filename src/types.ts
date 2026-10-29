@@ -46,6 +46,7 @@ export interface Registry<T extends { id: string }> {
 }
 export interface ToolbarRegistry {
   insert(item: ToolbarItem, group?: string, beforeId?: string): Disposer;
+  remove(id: string): Disposer;
   items(): readonly ToolbarItem[];
 }
 export interface StructuralNode {

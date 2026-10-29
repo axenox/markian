@@ -91,6 +91,45 @@ test('explicit toolbar references retain their placement and absent groups stay 
   assert.deepEqual(floating.layout(), []);
 });
 
+test('toolbar removal preserves the default layout except for the requested item', () => {
+  const original = JSON.stringify(defaultToolbar);
+  const toolbar = new ToolbarItems(() => defaultToolbar);
+  const restore = toolbar.remove('image');
+  const expected = defaultToolbar.map(entry => typeof entry !== 'string' && entry.id === 'insert'
+    ? { ...entry, items: entry.items?.filter(item => item !== 'image') } : entry);
+  assert.deepEqual(toolbar.layout(), expected);
+  assert.equal(JSON.stringify(defaultToolbar), original);
+  assert.deepEqual(new ToolbarItems(() => defaultToolbar).layout(), defaultToolbar);
+  restore();
+  restore();
+  assert.deepEqual(toolbar.layout(), defaultToolbar);
+});
+
+test('toolbar removal searches nested entries and retains registrations and other contributions', () => {
+  const base: ToolbarEntry[] = [{ id: 'tools', type: 'menu', items: [
+    { id: 'nested', type: 'group', items: ['image', 'copy'] },
+    { id: 'image', command: 'image', label: 'Insert picture' },
+  ] }];
+  const toolbar = new ToolbarItems(() => base);
+  toolbar.register({ id: 'image', command: 'image' });
+  const restore = toolbar.remove('image');
+  const restoreSecond = toolbar.remove('image');
+  toolbar.insert({ id: 'custom', command: 'help' }, 'nested');
+  const expected = [{ id: 'tools', type: 'menu', items: [
+    { id: 'nested', type: 'group', items: ['copy', { id: 'custom', command: 'help' }] },
+  ] }];
+  assert.deepEqual(toolbar.layout(), expected);
+  assert.equal(toolbar.items().some(item => item.id === 'image'), true);
+  restore();
+  assert.deepEqual(toolbar.layout(), expected);
+  restoreSecond();
+  assert.deepEqual(toolbar.layout(), [{ id: 'tools', type: 'menu', items: [
+    { id: 'nested', type: 'group', items: ['image', 'copy', { id: 'custom', command: 'help' }] },
+    { id: 'image', command: 'image', label: 'Insert picture' },
+  ] }]);
+  assert.throws(() => toolbar.remove(''), TypeError);
+});
+
 test('ordinary GFM and unknown comments survive semantic comparison', () => {
   const source = '# Notes\n\n<!-- BEGIN sample -->\n\n3. Three\n4. Four\n\n<!-- END sample -->\n\n```mermaid\ngraph LR\n A-->B\n```\n';
   assert.ok(equivalentMarkdown(source, source));

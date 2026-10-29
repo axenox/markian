@@ -134,7 +134,11 @@ Each accessor returns its typed registry. Commands, views, renderers, schema, an
 | `insert(item: T, beforeId?: string)` | `Disposer` | Insert a unique ID, before an existing ID or at the end. Duplicate IDs/unknown ordering targets throw. |
 | `items()` | `readonly T[]` | Inspect current registrations. |
 
-Toolbar instead uses `insert(item: ToolbarItem, group?: string, beforeId?: string): Disposer` and `items(): readonly ToolbarItem[]`. See [placement rules](Configuration.md#live-toolbar-insertion). Returned disposers are idempotent and remove owned additions, not unrelated host changes. Structural registration closes before engine construction.
+Toolbar instead uses `insert(item: ToolbarItem, group?: string, beforeId?: string): Disposer`, `remove(id: string): Disposer`, and `items(): readonly ToolbarItem[]`. See [placement rules](Configuration.md#live-toolbar-insertion).
+
+Toolbar removal applies only to the current instance: `remove(id)` recursively hides matching layout IDs without copying the default layout, modifying configured arrays or unregistering commands. Its disposer restores visibility once all removals for that ID are released, preserving other contributions. `items()` still returns registrations, not the filtered layout.
+
+Returned disposers are idempotent and affect only their owned additions or removals, not unrelated host changes. Structural registration closes before engine construction.
 
 ### Contribution Types
 

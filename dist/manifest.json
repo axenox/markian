@@ -101,11 +101,11 @@
       "bytes": 11758
     },
     "markian.min.js": {
-      "sha256": "3aef5e80051b7cca72f56a4b4ee537d3fe6a0691232391b41d371a983c23b6f4",
-      "bytes": 914166
+      "sha256": "aa101b5d4b60c55be07bb1b97605800bcdb7fe68cdd4b835bcd3b9a14760590f",
+      "bytes": 914557
     },
     "sizes.json": {
-      "sha256": "716468f440ca929f384adb4d6767da5a56039e887204554a99797ad644be78fc",
+      "sha256": "223f0e3dcae0a62b935eb374c6287ac610234bc7e2a8c697b814b80ce9738a58",
       "bytes": 1806
     },
     "THIRD_PARTY_NOTICES.txt": {
@@ -173,8 +173,8 @@
       "bytes": 308
     },
     "types/types.d.ts": {
-      "sha256": "776f1e048a8e6a1315f6364683d9f4a6f0cea739de10ff00e5bac60275e8847d",
-      "bytes": 6499
+      "sha256": "6dcedfe6e59197fc7949007693c2fa18072e65cc8fee6196b6bfc2b623def0c1",
+      "bytes": 6533
     },
     "types/ui/controls.d.ts": {
       "sha256": "2237e2eab3d1de379a71d19cd7c06417e335a1beaa52b4a085622563e8b0e66a",
@@ -189,8 +189,8 @@
       "bytes": 327
     },
     "types/ui/toolbar.d.ts": {
-      "sha256": "5d6a75f9204973ff8c6b36d05de4ff3be4bb0a22d61fe8c7b70e07b8e37d8d26",
-      "bytes": 746
+      "sha256": "c337ac9568f8c18a5ac67dd595de485d13327a11fd4d988ab6909a6b83fa13da",
+      "bytes": 802
     },
     "types/viewer-mermaid.d.ts": {
       "sha256": "c6d017c549611e7095be586eadc005217f18016012924cb5f9969bafcd8706d8",
