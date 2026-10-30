@@ -4,6 +4,7 @@ import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export async function writeIncludes(modules, destination = 'includes.json') {
+  const reviewedLicenseTexts = JSON.parse(await readFile(new URL('./license-texts.json', import.meta.url), 'utf8'));
   const packages = new Map();
   for (const moduleId of modules) {
     const normalized = moduleId.replaceAll('\\', '/');
@@ -24,12 +25,13 @@ export async function writeIncludes(modules, destination = 'includes.json') {
     const declarations = metadata.license ? [metadata.license] : metadata.licenses ?? [];
     const licenses = declarations.map(license => typeof license === 'string' ? license : license.type);
     const links = Object.fromEntries(declarations.filter(license => typeof license === 'object' && license.url).map(license => [license.type, license.url]));
-    if (licenses.length === 0 || licenses.some(license => !license || (texts.length === 0 && !links[license]))) throw new Error(`Missing license declaration or text/link for ${metadata.name}@${metadata.version} (${relative('.', root)}). Review upstream licensing before distribution.`);
+    const licenseTexts = texts.length ? Object.fromEntries(licenses.map(license => [license, texts.join('\n\n')])) : reviewedLicenseTexts[`${metadata.name}@${metadata.version}`] ?? {};
+    if (licenses.length === 0 || licenses.some(license => !license || (!licenseTexts[license] && !links[license]))) throw new Error(`Missing license declaration or text/link for ${metadata.name}@${metadata.version} (${relative('.', root)}). Review upstream licensing before distribution.`);
     entries.set(`${metadata.name}@${metadata.version}`, {
       name: `npm-asset/${metadata.name.replace(/^@/, '').replace('/', '--')}`,
       version: metadata.version,
       license: licenses,
-      ...(texts.length ? { license_text: Object.fromEntries(licenses.map(license => [license, texts.join('\n\n')])) } : { license_link: links }),
+      ...(Object.keys(licenseTexts).length ? { license_text: licenseTexts } : { license_link: links }),
       ...(metadata.description ? { description: metadata.description } : {}),
       ...(metadata.homepage ? { homepage: metadata.homepage } : {}),
     });

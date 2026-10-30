@@ -88,6 +88,8 @@ Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size repo
 
 Each build replaces the bundle registry from its current browser inputs. Entries are unique by package name and version, even when the same package is installed in several locations; different versions remain separate. Packages no longer bundled disappear on regeneration.
 
+When an upstream package omits its license file, registry generation can use reviewed, version-specific license text maintained with the build scripts. This keeps the distributed terms available offline without adding a network dependency to the build.
+
 The package names are `axenox/markian` for Composer and `markian` for npm. Asset Packagist delivery as `npm-asset/markian`, external publication, and host adoption have separate acceptance gates. Distribution sizes are recorded in [the generated report](../dist/sizes.json); byte sizes are not speed measurements.
 
 Current capabilities are described in [configuration](Configuration.md), [API](API.md), and [extensibility](Extensibility.md). Work-package history and unfinished acceptance criteria remain in the [requirements and plan](index.md#requirements-and-decisions), not in the library contract.
