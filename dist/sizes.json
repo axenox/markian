@@ -7,8 +7,8 @@
       "brotli": 243805
     },
     "markian.css": {
-      "bytes": 11758,
-      "gzip": 2782,
+      "bytes": 11754,
+      "gzip": 2787,
       "brotli": 2411
     },
     "markdown-github.css": {
@@ -49,8 +49,8 @@
   },
   "totals": {
     "editor": {
-      "bytes": 952692,
-      "gzip": 294788,
+      "bytes": 952688,
+      "gzip": 294793,
       "brotli": 247152
     },
     "viewer": {
@@ -59,8 +59,8 @@
       "brotli": 59669
     },
     "combined": {
-      "bytes": 1170844,
-      "gzip": 363892,
+      "bytes": 1170840,
+      "gzip": 363897,
       "brotli": 306821
     }
   },

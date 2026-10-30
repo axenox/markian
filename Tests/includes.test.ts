@@ -39,6 +39,35 @@ test('bundle registry records actual packages, keyed terms and legacy license li
   }
 });
 
+test('bundle registry replaces stale entries and deduplicates installed copies without merging versions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'markian-includes-copies-'));
+  try {
+    const copies = [
+      { directory: join(root, 'node_modules', 'library'), version: '1.0.0' },
+      { directory: join(root, 'node_modules', 'parent', 'node_modules', 'library'), version: '1.0.0' },
+      { directory: join(root, 'node_modules', 'other', 'node_modules', 'library'), version: '2.0.0' },
+    ];
+    for (const { directory, version } of copies) {
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, 'package.json'), JSON.stringify({ name: 'library', version, license: 'MIT' }));
+      await writeFile(join(directory, 'LICENSE'), 'Library copyright and license terms');
+    }
+    const destination = join(root, 'includes.json');
+    await writeFile(destination, JSON.stringify([{ name: 'npm-asset/stale', version: '9.0.0' }]));
+    const modules = copies.map(({ directory }) => join(directory, 'index.js'));
+    await writeIncludes(new Set(modules), destination);
+    const entries = JSON.parse(await readFile(destination, 'utf8'));
+    assert.deepEqual(entries.map(entry => `${entry.name}@${entry.version}`), ['npm-asset/library@1.0.0', 'npm-asset/library@2.0.0']);
+    const first = await readFile(destination, 'utf8');
+    await writeIncludes(new Set(modules.reverse()), destination);
+    assert.equal(await readFile(destination, 'utf8'), first);
+    await writeIncludes(new Set(), destination);
+    assert.deepEqual(JSON.parse(await readFile(destination, 'utf8')), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('npm hooks refresh the registry on install and uninstall and skip prebuilt consumers', async () => {
   const root = await mkdtemp(join(tmpdir(), 'markian-includes-npm-'));
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';

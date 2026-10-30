@@ -13,7 +13,7 @@ export async function writeIncludes(modules, destination = 'includes.json') {
     const root = directory + segments.slice(0, segments[0].startsWith('@') ? 2 : 1).join('/');
     if (!packages.has(root)) packages.set(root, JSON.parse(await readFile(join(root, 'package.json'), 'utf8')));
   }
-  const entries = [];
+  const entries = new Map();
   for (const [root, metadata] of packages) {
     const texts = [];
     for (const file of (await readdir(root, { withFileTypes: true })).sort((first, second) => first.name.localeCompare(second.name, 'en'))) {
@@ -25,7 +25,7 @@ export async function writeIncludes(modules, destination = 'includes.json') {
     const licenses = declarations.map(license => typeof license === 'string' ? license : license.type);
     const links = Object.fromEntries(declarations.filter(license => typeof license === 'object' && license.url).map(license => [license.type, license.url]));
     if (licenses.length === 0 || licenses.some(license => !license || (texts.length === 0 && !links[license]))) throw new Error(`Missing license declaration or text/link for ${metadata.name}@${metadata.version} (${relative('.', root)}). Review upstream licensing before distribution.`);
-    entries.push({
+    entries.set(`${metadata.name}@${metadata.version}`, {
       name: `npm-asset/${metadata.name.replace(/^@/, '').replace('/', '--')}`,
       version: metadata.version,
       license: licenses,
@@ -34,9 +34,9 @@ export async function writeIncludes(modules, destination = 'includes.json') {
       ...(metadata.homepage ? { homepage: metadata.homepage } : {}),
     });
   }
-  entries.sort((first, second) => first.name.localeCompare(second.name, 'en') || first.version.localeCompare(second.version, 'en'));
-  await writeFile(destination, JSON.stringify(entries, null, 4) + '\n');
-  console.log(`${destination} generated for ${entries.length} bundled third-party packages.`);
+  const sorted = [...entries.values()].sort((first, second) => first.name.localeCompare(second.name, 'en') || first.version.localeCompare(second.version, 'en'));
+  await writeFile(destination, JSON.stringify(sorted, null, 4) + '\n');
+  console.log(`${destination} generated for ${sorted.length} bundled third-party packages.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

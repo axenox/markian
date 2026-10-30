@@ -61,6 +61,51 @@ test('configured CSS URLs replace content styles and overlay the editor theme', 
   })).toBe(true);
 });
 
+test('focus colors the editor border without a document bar and respects host themes', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.height = '400px';
+    document.querySelector('main').prepend(host);
+    window.focusEditor = Markian.create(host, { markdown: 'Focus document' });
+    focusEditor.element.classList.add('focus-configured');
+    await focusEditor.ready;
+  });
+  const root = page.locator('.focus-configured');
+  const document = root.locator('.ProseMirror');
+  for (const width of [960, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => focusEditor.setTheme(theme), theme);
+      await root.evaluate(element => element.style.removeProperty('--markian-focus-color'));
+      const colors = await root.evaluate(element => {
+        const probe = document.createElement('span');
+        probe.style.cssText = 'color: var(--markian-accent); background-color: var(--markian-line)';
+        element.append(probe);
+        const style = getComputedStyle(probe);
+        const colors = { accent: style.color, line: style.backgroundColor };
+        probe.remove();
+        return colors;
+      });
+      const bounds = await root.boundingBox();
+      await document.focus();
+      await expect(root).toHaveCSS('border-top-color', colors.accent);
+      await expect(document).toHaveCSS('box-shadow', 'none');
+      await root.evaluate(element => element.style.setProperty('--markian-focus-color', 'rgb(98, 0, 238)'));
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        await expect(root).toHaveCSS(`border-${side}-color`, 'rgb(98, 0, 238)');
+      }
+      await page.evaluate(() => editor.element.querySelector('.ProseMirror').focus());
+      await expect(root).toHaveCSS('border-top-color', colors.line);
+      expect(await root.boundingBox()).toEqual(bounds);
+      await page.evaluate(() => focusEditor.setMode('raw'));
+      await root.locator('.cm-content').focus();
+      await expect(root).toHaveCSS('border-top-color', 'rgb(98, 0, 238)');
+      await page.evaluate(() => focusEditor.setMode('visual'));
+    }
+  }
+  await page.evaluate(() => focusEditor.destroy());
+});
+
 test('base editor CSS normalizes list and table spacing with external content styles', async ({ page }) => {
   await page.route('**/spacing-content.css', route => route.fulfill({ contentType: 'text/css', body: '.markdown-body p { margin: 0 0 16px; } .markdown-body th, .markdown-body td { padding: 6px 13px; }' }));
   await page.evaluate(async () => {

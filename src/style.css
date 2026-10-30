@@ -23,6 +23,7 @@
   letter-spacing: 0;
   container-type: inline-size;
 }
+.markian:focus-within { border-color: var(--markian-focus-color, var(--markian-accent)); }
 .markian[data-theme='dark'] {
   --markian-surface: #202524;
   --markian-text: #e5ece8;
@@ -45,7 +46,6 @@
 .markian-visual, .markian-source, .markian-view { flex: 1 1 0; height: 100%; min-width: 0; overflow: auto; }
 .markian-visual > .milkdown { min-height: 100%; }
 .markian-visual .ProseMirror { min-height: 100%; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
-.markian-visual .ProseMirror:focus-visible { box-shadow: inset 3px 0 var(--markian-accent); }
 .markian-visual .ProseMirror-selectednode { outline: 2px solid var(--markian-accent); }
 .markian .cm-editor { color: var(--markian-text); background: var(--markian-surface); }
 .markian .cm-gutters { color: var(--markian-muted); background: var(--markian-code); border-right-color: var(--markian-line); }

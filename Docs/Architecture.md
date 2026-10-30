@@ -86,6 +86,8 @@ Hosts load base editor/viewer CSS explicitly. Both entry points support replacem
 
 Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size reports, and the root [bundle registry](../includes.json). The registry records bundled third-party packages, exact versions and license texts or links in the Power UI `includes.json` format consumed by PackageManager's `GenerateLicenseBOM`. It includes transitive browser dependencies, not development tools or the host-supplied Mermaid renderer. No consumer build, import map, remote font, or host-framework dependency is required. Optional features ship separately rather than as one mandatory all-features bundle.
 
+Each build replaces the bundle registry from its current browser inputs. Entries are unique by package name and version, even when the same package is installed in several locations; different versions remain separate. Packages no longer bundled disappear on regeneration.
+
 The package names are `axenox/markian` for Composer and `markian` for npm. Asset Packagist delivery as `npm-asset/markian`, external publication, and host adoption have separate acceptance gates. Distribution sizes are recorded in [the generated report](../dist/sizes.json); byte sizes are not speed measurements.
 
 Current capabilities are described in [configuration](Configuration.md), [API](API.md), and [extensibility](Extensibility.md). Work-package history and unfinished acceptance criteria remain in the [requirements and plan](index.md#requirements-and-decisions), not in the library contract.

@@ -112,12 +112,15 @@ The current editor root exposes `[data-markian]`, `data-theme`, and `data-view`.
 | `--markian-muted` | `#59645f` | `#a7b5ae` | Secondary labels. |
 | `--markian-line` | `#dce3df` | `#414c46` | Borders and dividers. |
 | `--markian-accent` | `#227761` | `#8bd7b7` | Links, focus, active controls. |
+| `--markian-focus-color` | Falls back to `--markian-accent` | Falls back to `--markian-accent` | Focused editor border; hosts can match their input focus color. |
 | `--markian-soft` | `#e8f3ee` | `#30483d` | Selected/hover surfaces. |
 | `--markian-code` | `#f1f3f4` | `#2b3330` | Code surfaces. |
 | `--markian-font` | `'Public Sans', 'Segoe UI', sans-serif` | Same | Local UI font stack. |
 | `--markian-mono` | `'IBM Plex Mono', Consolas, monospace` | Same | Local code font stack. |
 
 Viewer CSS provides its own scoped theme values. Neither library requests remote fonts. Use complete light/dark palettes, visible focus, and distinguishable loading/error/disabled states. A theme change must not restyle another instance or the host. Do not use viewport-scaled type or negative letter spacing.
+
+Focus anywhere inside the editor highlights its existing outer border without changing its size. Visual editing has no inset focus bar. Set `--markian-focus-color` on the editor root in a host theme to match surrounding input controls; individual toolbar controls retain their keyboard-focus outlines.
 
 ## Responsive Layout and Accessibility
 
