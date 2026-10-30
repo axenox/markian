@@ -1448,6 +1448,245 @@ test('table row and column commands preserve GFM and undo', async ({ page }) => 
   await expect(table.locator('tr').first().locator('th')).toHaveCount(2);
 });
 
+test('spreadsheet text fills and grows a table from the selected cell with undo', async ({ page }) => {
+  await page.evaluate(() => editor.set('| A | B |\n| --- | --- |\n| old | keep |'));
+  const table = page.locator('.ProseMirror table').first();
+  const initial = await page.evaluate(() => editor.get());
+  await table.locator('td p').first().evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    window.getSelection().collapse(element, 0);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await table.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '001\t"two\tparts"\t"say ""hi"""\r\nnext\t\tend\r\n');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(table.locator('tr')).toHaveCount(3);
+  await expect(table.locator('tr').first().locator('th')).toHaveCount(3);
+  expect(await table.locator('tr').nth(1).locator('td').allTextContents()).toEqual(['001', 'two\tparts', 'say "hi"']);
+  expect(await table.locator('tr').nth(2).locator('td').allTextContents()).toEqual(['next', '', 'end']);
+  const markdown = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.setMode('raw'));
+  await page.evaluate(() => editor.setMode('visual'));
+  expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(initial, await page.evaluate(() => editor.get()))).toBe(true);
+});
+
+for (const direction of ['forward', 'backward', 'diagonal']) test(`spreadsheet paste replaces a selected body range ${direction} without changing neighboring cells`, async ({ page }) => {
+  await page.evaluate(() => {
+    const rows = ['| Keep | A | B | C | D |', '| --- | --- | --- | --- | --- |'];
+    for (let row = 1; row <= 5; row++) rows.push(`| Keep ${row} | old A${row} | old B${row} | old C${row} | old D${row} |`);
+    editor.set('Before\n\n' + rows.join('\n') + '\n\nAfter');
+  });
+  const table = page.locator('.ProseMirror table').first();
+  const initial = await page.evaluate(() => editor.get());
+  const first = table.locator('tr').nth(direction === 'backward' ? 4 : 1).locator('td').nth(direction === 'forward' ? 1 : 4);
+  const last = table.locator('tr').nth(direction === 'backward' ? 1 : 4).locator('td').nth(direction === 'forward' ? 4 : 1);
+  await first.click({ position: { x: 8, y: 8 } });
+  await last.click({ modifiers: ['Shift'], position: { x: 8, y: 8 } });
+  await expect(table.locator('.selectedCell')).toHaveCount(16);
+  for (const prefix of ['New', 'Again']) {
+    await table.evaluate(async (element, { prefix, direction }) => {
+      const rows = Array.from({ length: 4 }, (_, row) => ['A', 'B', 'C', 'D'].map(column => `${prefix} ${column}${row + 1}`));
+      const data = new DataTransfer();
+      if (direction !== 'backward') data.setData('text/plain', rows.map(row => row.join('\t')).join('\r\n'));
+      if (direction !== 'forward') data.setData('text/html', `<table>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</table>`);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      await editor.whenIdle();
+    }, { prefix, direction });
+    await expect(table.locator('tr')).toHaveCount(6);
+    await expect(table.locator('.selectedCell')).toHaveCount(16);
+    expect(await table.locator('th').allTextContents()).toEqual(['Keep', 'A', 'B', 'C', 'D']);
+    for (let row = 1; row <= 4; row++) {
+      expect(await table.locator('tr').nth(row).locator('td').allTextContents()).toEqual([`Keep ${row}`, `${prefix} A${row}`, `${prefix} B${row}`, `${prefix} C${row}`, `${prefix} D${row}`]);
+    }
+    expect(await table.locator('tr').last().locator('td').allTextContents()).toEqual(['Keep 5', 'old A5', 'old B5', 'old C5', 'old D5']);
+  }
+  await page.evaluate(() => editor.execute('undo'));
+  await expect(table.locator('tr').nth(1).locator('td').nth(1)).toHaveText('New A1');
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(initial, await page.evaluate(() => editor.get()))).toBe(true);
+});
+
+test('spreadsheet HTML fills the top-left cell and table copying retains spreadsheet HTML', async ({ page }) => {
+  await page.evaluate(() => editor.set('| A | B |\n| --- | --- |\n| C | D |'));
+  const table = page.locator('.ProseMirror table').first();
+  await table.locator('th').first().click();
+  await table.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'Name\tCount\r\nApples\t12\r\nPears\t7');
+    data.setData('text/html', '<html><body><!--StartFragment--><table><tr><td>Name</td><td>Count</td></tr><tr><td>Apples</td><td>12</td></tr><tr><td>Pears</td><td>7</td></tr></table><!--EndFragment--></body></html>');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(table.locator('tr')).toHaveCount(3);
+  expect(await table.locator('tr').first().locator('th').allTextContents()).toEqual(['Name', 'Count']);
+  expect(await table.locator('tr').nth(2).locator('td').allTextContents()).toEqual(['Pears', '7']);
+  const copied = await table.evaluate(element => {
+    const range = document.createRange();
+    range.selectNode(element);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const data = new DataTransfer();
+      element.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }));
+      resolve({ html: data.getData('text/html'), text: data.getData('text/plain') });
+    })));
+  });
+  expect(copied.html).toContain('<table');
+  expect(copied.html).toContain('Pears');
+  expect(copied.text).toBe('Name\tCount\r\nApples\t12\r\nPears\t7');
+  await page.evaluate(() => editor.set('| X | Y |\n| --- | --- |\n| | |'));
+  await table.locator('th').first().click();
+  await table.evaluate((element, copied) => {
+    const data = new DataTransfer();
+    data.setData('text/html', copied.html);
+    data.setData('text/plain', copied.text);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, copied);
+  await expect(table.locator('tr')).toHaveCount(3);
+  expect(await table.locator('tr').nth(1).locator('td').allTextContents()).toEqual(['Apples', '12']);
+});
+
+for (const format of ['text', 'html', 'both']) test(`spreadsheet ${format} values take precedence over the accompanying clipboard image`, async ({ page }) => {
+  await page.evaluate(() => editor.set('| A | B | C | D |\n| --- | --- | --- | --- |\n| old | old | old | old |\n| old | old | old | old |\n| old | old | old | old |'));
+  const table = page.locator('.ProseMirror table').first();
+  await table.locator('th p').first().evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    window.getSelection().collapse(element, 0);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await table.evaluate(async (element, format) => {
+    const rows = Array.from({ length: 4 }, (_, row) => ['A', 'B', 'C', 'D'].map(column => `${column}${row + 1}`));
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const data = new DataTransfer();
+    data.items.add(new File([blob], 'Excel.png', { type: 'image/png' }));
+    if (format !== 'html') data.setData('text/plain', rows.map(row => row.join('\t')).join('\r\n'));
+    if (format !== 'text') data.setData('text/html', `<table>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</table>`);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await editor.whenIdle();
+  }, format);
+  await expect(page.locator('.ProseMirror').first().locator('img')).toHaveCount(0);
+  await expect(table.locator('tr')).toHaveCount(4);
+  expect(await table.locator('th').allTextContents()).toEqual(['A1', 'B1', 'C1', 'D1']);
+  expect(await table.locator('td').allTextContents()).toEqual(['A2', 'B2', 'C2', 'D2', 'A3', 'B3', 'C3', 'D3', 'A4', 'B4', 'C4', 'D4']);
+});
+
+test('image-only clipboard pastes still insert an image', async ({ page }) => {
+  await page.evaluate(() => editor.set('Before'));
+  const prose = page.locator('.ProseMirror').first();
+  await prose.click();
+  await prose.evaluate(async element => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const data = new DataTransfer();
+    data.items.add(new File([blob], 'Screenshot.png', { type: 'image/png' }));
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await editor.whenIdle();
+  });
+  const image = prose.locator('img[src^="data:image/png"]');
+  await expect(image).toHaveCount(1);
+  expect(await image.evaluate(async image => { await image.decode(); return image.naturalWidth; })).toBe(1);
+  expect((await page.evaluate(() => editor.get())).match(/!\[/g)).toHaveLength(1);
+});
+
+test('spreadsheet single columns and HTML-only cells preserve untouched table values', async ({ page }) => {
+  await page.evaluate(() => editor.set('| A | B |\n| --- | --- |\n| C | D |\n| E | F |'));
+  const table = page.locator('.ProseMirror table').first();
+  await table.locator('td p').first().evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    window.getSelection().collapse(element, 0);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await table.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '001\r\n002\r\n');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(await table.locator('td').allTextContents()).toEqual(['001', 'D', '002', 'F']);
+  await table.locator('th').first().click();
+  await table.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/html', '<table><tr><th>Title</th><th>Value</th></tr><tr><td>*literal* | [text]</td><td>12</td></tr></table>');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(await table.locator('th').allTextContents()).toEqual(['Title', 'Value']);
+  expect(await table.locator('td').allTextContents()).toEqual(['*literal* | [text]', '12', '002', 'F']);
+  const markdown = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.setMode('raw'));
+  await page.evaluate(() => editor.setMode('visual'));
+  expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
+});
+
+test('spreadsheet quoted line breaks normalize to portable single-row Markdown tables', async ({ page }) => {
+  await page.evaluate(() => editor.set(''));
+  const prose = page.locator('.ProseMirror').first();
+  await prose.click();
+  await prose.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'Name\t"first line\nsecond line"');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(prose.locator('table tr')).toHaveCount(2);
+  await expect(prose.locator('th').nth(1)).toHaveText('first line second line');
+  await expect(prose.locator('th br')).toHaveCount(0);
+  const markdown = await page.evaluate(() => editor.get());
+  await page.evaluate(markdown => { editor.set('Reset'); editor.set(markdown); }, markdown);
+  await expect(page.locator('[data-markian]').first()).toHaveAttribute('data-view', 'visual');
+  await expect(prose.locator('th').nth(1)).toHaveText('first line second line');
+  expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
+});
+
+test('spreadsheet pasting creates a table outside cells but leaves code and read-only content unchanged', async ({ page }) => {
+  const prose = page.locator('.ProseMirror').first();
+  const paste = text => prose.evaluate((element, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, text);
+  await page.evaluate(() => editor.set(''));
+  await prose.click();
+  await paste('Name\tCount\nApples\t12\n');
+  await expect(prose.locator('table tr')).toHaveCount(2);
+  await expect(prose.locator('th').first()).toHaveText('Name');
+  const initial = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.setReadOnly(true));
+  await paste('Changed\tValue');
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await page.evaluate(() => { editor.setReadOnly(false); editor.set('```text\ncode\n```'); });
+  await prose.locator('pre').click();
+  await paste('literal\ttabs');
+  await expect(prose.locator('table')).toHaveCount(0);
+  expect(await page.evaluate(() => editor.get())).toContain('literal\ttabs');
+});
+
+for (const [key, side] of [['Delete', 'before'], ['Backspace', 'after']]) test(`table ${key} from ${side} removes the whole table and is undoable`, async ({ page }) => {
+  await page.evaluate(() => editor.set('Before\n\n| A | B |\n| --- | --- |\n| C | D |\n\nAfter'));
+  const prose = page.locator('.ProseMirror').first();
+  const initial = await page.evaluate(() => editor.get());
+  const paragraph = side === 'before' ? prose.locator(':scope > p').first() : prose.locator(':scope > p').last();
+  await paragraph.click();
+  await page.keyboard.press(side === 'before' ? 'End' : 'Home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.evaluate(() => editor.setReadOnly(true));
+  await page.keyboard.press(key);
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await page.evaluate(() => editor.setReadOnly(false));
+  await paragraph.click();
+  await page.keyboard.press(side === 'before' ? 'End' : 'Home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press(key);
+  await expect(prose.locator('table')).toHaveCount(0);
+  expect(await page.evaluate(() => editor.get())).toBe('Before\n\nAfter');
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(initial, await page.evaluate(() => editor.get()))).toBe(true);
+});
+
 test('heading levels and word-at-caret formatting serialize ordinary Markdown', async ({ page }) => {
   await page.evaluate(() => editor.set('alpha beta'));
   await page.locator('.ProseMirror p').first().click();

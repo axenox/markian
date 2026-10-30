@@ -53,6 +53,7 @@ Hosts supply the Mermaid renderer. See [Mermaid configuration](Configuration.md#
 | Dependency | Role |
 | --- | --- |
 | Milkdown and ProseMirror | Visual document structure, transactions, selection, and history. |
+| Papa Parse | Quoted tab-separated spreadsheet clipboard values and spreadsheet-compatible table copying. |
 | CodeMirror | Source and block editing, selection, and local history. |
 | remark/mdast and rehype | CommonMark/GFM parsing, Markdown comparison, and safe HTML generation. |
 | rehype-sanitize and DOMPurify | Display sanitization, including optional renderer output. |

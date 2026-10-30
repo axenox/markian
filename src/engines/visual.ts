@@ -4,6 +4,8 @@ import { gfm, strikethroughInputRule, extendListItemSchemaForTask } from '@milkd
 import { $node, $mark, $remark } from '@milkdown/kit/utils';
 import type { RootContent } from 'mdast';
 import type { State as MarkdownState, Info } from 'mdast-util-to-markdown';
+import Papa from 'papaparse';
+import { CellSelection, Fragment, Slice, TableMap, selectedRect } from './prose';
 import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
 import { equivalentMarkdown, markdownDifferences, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
 import type { StructuralNode, SearchOptions, SearchMatch } from '../types';
@@ -32,6 +34,19 @@ function safeDocument(node: ProseNode): boolean {
   return safe;
 }
 
+function clipboardCells(slice: Slice): ProseNode[][] | null {
+  let content = slice.content;
+  while (content.childCount === 1 && content.firstChild?.type.spec.tableRole === 'table') content = content.firstChild.content;
+  const nodes: ProseNode[] = [];
+  content.forEach(node => nodes.push(node));
+  if (nodes.length && nodes.every(node => node.type.spec.tableRole === 'row')) return nodes.map(row => {
+    const cells: ProseNode[] = [];
+    row.forEach(cell => cells.push(cell));
+    return cells;
+  });
+  return nodes.length && nodes.every(node => ['cell', 'header_cell'].includes(String(node.type.spec.tableRole))) ? [nodes] : null;
+}
+
 export async function createVisual(
   element: HTMLElement,
   structures: readonly StructuralNode[],
@@ -45,6 +60,63 @@ export async function createVisual(
   let editor: Editor;
   let replacing = false;
   let finalNewline = false;
+  const pasteSpreadsheet = (view: EditorView, event: ClipboardEvent, slice: Slice): boolean => {
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    let depth = view.state.selection.$from.depth;
+    while (depth > 0 && view.state.selection.$from.node(depth).type.name !== 'table') depth--;
+    if (readOnly() || view.state.selection.$from.parent.type.spec.code) return false;
+    const htmlCells = event.clipboardData?.getData('text/html') ? clipboardCells(slice) : null;
+    let rows: string[][];
+    if (htmlCells && !text.includes('\t')) {
+      rows = htmlCells.map(row => row.map(cell => cell.textBetween(0, cell.content.size, '\n', '\n')));
+    } else {
+      if (!text.includes('\t') && !(depth && /[\r\n]/.test(text))) return false;
+      const parsed = Papa.parse<string[]>(text, { delimiter: '\t', skipEmptyLines: false });
+      if (parsed.errors.length) return false;
+      rows = parsed.data;
+      if (rows.length > 1 && rows.at(-1)?.length === 1 && rows.at(-1)?.[0] === '') rows.pop();
+    }
+    const width = Math.max(...rows.map(row => row.length));
+    if (!width || (width < 2 && rows.length < 2 && !htmlCells)) return false;
+    const { schema } = view.state;
+    const tableRows = rows.map((row, index) => {
+      const cells = Array.from({ length: width }, (_, column) => {
+        const value = (row[column] ?? '').replace(/\r\n?|\n/g, ' ');
+        const content = value ? [schema.text(value)] : [];
+        return (index === 0 ? schema.nodes.table_header : schema.nodes.table_cell).createAndFill(null, schema.nodes.paragraph.create(null, content))!;
+      });
+      return (index === 0 ? schema.nodes.table_header_row : schema.nodes.table_row).create(null, cells);
+    });
+    if (!depth && tableRows.length === 1) tableRows.push(schema.nodes.table_row.create(null,
+      Array.from({ length: width }, () => schema.nodes.table_cell.createAndFill()!)));
+    const tableSlice = new Slice(Fragment.from(schema.nodes.table.create(null, tableRows)), 0, 0);
+    if (depth) {
+      const { table, tableStart, top, left } = selectedRect(view.state);
+      const columns = Math.max(table.firstChild?.childCount ?? 0, left + width);
+      const replacementRows = Array.from({ length: Math.max(table.childCount, top + rows.length) }, (_, rowIndex) => {
+        const existing = rowIndex < table.childCount ? table.child(rowIndex) : null;
+        const type = rowIndex === 0 ? schema.nodes.table_header : schema.nodes.table_cell;
+        const cells = Array.from({ length: columns }, (_, column) => {
+          const pasted = rowIndex >= top && rowIndex < top + rows.length && column >= left && column < left + width
+            ? tableRows[rowIndex - top].child(column - left) : null;
+          const previous = existing && column < existing.childCount ? existing.child(column) : null;
+          return pasted ? type.create(previous?.attrs, pasted.content) : previous ?? type.createAndFill()!;
+        });
+        return (rowIndex === 0 ? schema.nodes.table_header_row : schema.nodes.table_row).create(existing?.attrs, cells);
+      });
+      const start = tableStart - 1;
+      const replacementTable = table.type.create(table.attrs, replacementRows);
+      const transaction = closeHistory(view.state.tr.replaceWith(start, start + table.nodeSize, replacementTable));
+      if (view.state.selection instanceof CellSelection) {
+        const map = TableMap.get(replacementTable);
+        transaction.setSelection(CellSelection.create(transaction.doc,
+          tableStart + map.positionAt(top, left, replacementTable),
+          tableStart + map.positionAt(top + rows.length - 1, left + width - 1, replacementTable)));
+      }
+      view.dispatch(transaction.scrollIntoView());
+    } else view.dispatch(closeHistory(view.state.tr.replaceSelection(tableSlice)).scrollIntoView());
+    return true;
+  };
   const renderedCodeBlocks = new WeakSet<Node>();
   const serialize = (node: ProseNode): string => {
     const markdown = editor.action(ctx => ctx.get(serializerCtx)(node)).replace(/\r\n?/g, '\n');
@@ -175,6 +247,12 @@ export async function createVisual(
       ...options,
       attributes: { class: 'markian-document', 'aria-label': 'Markdown document', role: 'textbox', 'aria-multiline': 'true' },
       editable: () => !readOnly(),
+      clipboardTextSerializer(slice) {
+        const cells = clipboardCells(slice);
+        return cells ? Papa.unparse(cells.map(row => row.map(cell => cell.textBetween(0, cell.content.size, '\n', '\n'))), { delimiter: '\t', newline: '\r\n' })
+          : slice.content.textBetween(0, slice.content.size, '\n\n');
+      },
+      handlePaste: pasteSpreadsheet,
       handleKeyDown(view, event) {
         if (view.composing || !['Backspace', 'Delete'].includes(event.key) || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
         const { state } = view;
@@ -187,7 +265,7 @@ export async function createVisual(
         if (!adjacent) return false;
         const start = backward ? boundary - adjacent.nodeSize : boundary;
         const dom = view.nodeDOM(start);
-        if (!dom || !renderedCodeBlocks.has(dom)) return false;
+        if (adjacent.type.name !== 'table' && (!dom || !renderedCodeBlocks.has(dom))) return false;
         if (!readOnly()) view.dispatch(closeHistory(state.tr.delete(start, start + adjacent.nodeSize)).scrollIntoView());
         return true;
       },

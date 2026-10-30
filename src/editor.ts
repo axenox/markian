@@ -208,6 +208,7 @@ export class EditorInstance implements MarkianInstance {
       this.refreshFloating(true);
     });
     for (const eventName of ['paste', 'drop']) this.listen(this.element, eventName, event => {
+      if (eventName === 'paste' && event.defaultPrevented) return;
       const transfer = event instanceof ClipboardEvent ? event.clipboardData : (event as DragEvent).dataTransfer;
       const files = [...(transfer?.files ?? [])].filter(file => file.type.startsWith('image/'));
       if (!files.length) return;

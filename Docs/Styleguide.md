@@ -8,7 +8,7 @@ The editor has a toolbar, a bounded main work area, and a small status bar. The 
 
 Substantial tasks replace the work area inside the same shell rather than opening large dialogs. Small menus and transient forms use shared popovers. Avoid decorative cards, nested panels, oversized tool headings, heavy shadows, and marketing elements inside the editor.
 
-Give the host an explicit usable height. The editor fills it and has a 260px minimum height. Keep pane tracks, controls, icons, and status regions stable so dynamic labels or loading states do not shift the layout.
+Give the host an explicit usable height. The editor fills it while retaining a usable minimum height. Keep pane tracks, controls, icons, and status regions stable so dynamic labels or loading states do not shift the layout. Exact dimensions, spacing, and breakpoints belong in the [visual editor component guide](Development/Components/Visual_editor.md).
 
 ## Shared Components
 
@@ -63,7 +63,7 @@ The standalone viewer has no editor controls or frame. Its root is `[data-markia
 
 Search, link, and image forms are anchored to their visible toolbar button with a small pointer. Commands from More point to More after it closes. Panels flip above bottom controls or when space is limited, clamp to the viewport, and scroll internally without clipping the pointer.
 
-Stack full-width labeled inputs vertically; keep checkbox options together and actions below fields. Destination fields use a shared 34px height. The image form orders Image URL, Upload new image, and alternative text; an empty status occupies no row. Use focus containment, Escape/Close restoration, and outside dismissal that does not steal focus from the clicked destination or another editor.
+Stack full-width labeled inputs vertically; keep checkbox options together and actions below fields. Destination fields share consistent dimensions. The image form orders Image URL, Upload new image, and alternative text; an empty status occupies no row. Use focus containment, Escape/Close restoration, and outside dismissal that does not steal focus from the clicked destination or another editor.
 
 Search offers previous/next, count, case/word options, and replacement only when permitted. Help/Preview highlighting is disposable presentation. Destination suggestions and heading inspection show pending/error states rather than fabricated success. Dismissal aborts lookups but does not silently cancel an already-started upload. Pending images offer Cancel; failed insertions offer Retry and Remove.
 
@@ -73,9 +73,13 @@ The outline is visible by default and starts with a compact Outline title. It om
 
 Use consistent spacing in Visual, Preview, and viewer output. Code is monospaced and preserves meaningful whitespace. Hidden comments remain invisible without deleting source. Comment-only visual paragraphs occupy no space; mixed text/comment paragraphs remain visible.
 
-Base editor CSS removes accidental outer paragraph margins inside lists and table cells. Consecutive paragraphs have a 16px fallback gap; content CSS can refine it. Packaged content styling uses compact lists with 24px indentation, 8px outer margins, and 2px item spacing. Table cells use 4px vertical and 8px horizontal padding, 72px minimum width, and 1.5 line height. Additional list/cell paragraphs use a 4px gap. Hosts should not duplicate structural normalization in a theme.
+Base editor CSS removes accidental outer paragraph margins inside lists and table cells. Content CSS can refine the fallback paragraph spacing. Packaged content styling keeps lists and tables compact, with clear indentation and separation between items and paragraphs. Hosts should not duplicate structural normalization in a theme.
 
-Tasks use 16px native checkboxes aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. Column alignment follows Markdown; default table headings align left. Contextual row/column controls share the same command buttons as menus.
+Tasks use native checkboxes aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. Column alignment follows Markdown; default table headings align left. Contextual row/column controls share the same command buttons as menus.
+
+Table range pastes retain the pasted selection. Clipboard formats, smart paste, and compatibility with other applications are described in [interoperability](Interoperability.md).
+
+Delete at the end of the paragraph before a table, or Backspace at the start of the paragraph after it, removes the whole table in one undoable edit. Read-only and disabled editors block these edits.
 
 Alert quotes retain ordinary `> [!TYPE]` source markers. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes.
 
@@ -83,7 +87,7 @@ Backtick inline-code typing and submitted backtick/tilde fences should behave li
 
 ## Mermaid Workspace
 
-Use separate `dist/extensions/mermaid.css` styling. Above 600px of container width, `.markian-mermaid` has equal constrained source and preview columns; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
+Use separate `dist/extensions/mermaid.css` styling. The Mermaid workspace has equal constrained source and preview columns when space permits; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
 
 Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
 
@@ -117,7 +121,7 @@ Viewer CSS provides its own scoped theme values. Neither library requests remote
 
 ## Responsive Layout and Accessibility
 
-Respond to editor container width, not only viewport width. At 480px or less, controls grow to 40px, the toolbar moves below the work area, and status is hidden. Desktop shared buttons use 32px targets; pinned controls have their own compact dimensions. Menus and panels must remain reachable without overlapping text.
+Respond to editor container width, not only viewport width. Compact layouts enlarge touch targets, move the toolbar below the work area, and hide status. Wider layouts use compact controls; pinned controls retain their own sizing. Menus and panels must remain reachable without overlapping text.
 
 Fullscreen preserves the same root and task. Use Maximize with outward arrows and Restore original size with inward arrows; pressed state follows actual expansion, including Escape restoration. Restore host layout and focus on exit.
 
