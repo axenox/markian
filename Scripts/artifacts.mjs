@@ -3,18 +3,6 @@ import { createHash } from 'node:crypto';
 import { gzipSync, brotliCompressSync } from 'node:zlib';
 
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
-const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
-const notices = ['Markian third-party notices', 'Dependency versions are pinned in package-lock.json.'];
-for (const [path, metadata] of Object.entries(lock.packages).sort(([first], [second]) => first.localeCompare(second, 'en'))) {
-  if (!path || metadata.optional) continue;
-  const licenses = (await readdir(path)).filter(name => /^(license|licence|copying)(\.|$)/i.test(name)).sort();
-  notices.push(`\n${path.replace(/^node_modules\//, '')} ${metadata.version} (${metadata.license ?? 'see upstream license'})`);
-  for (const license of licenses) {
-    try { notices.push((await readFile(`${path}/${license}`, 'utf8')).replace(/\r\n/g, '\n')); }
-    catch (error) { if (error.code !== 'EISDIR') throw error; }
-  }
-}
-await writeFile('dist/THIRD_PARTY_NOTICES.txt', notices.join('\n') + '\n');
 const sizes = {};
 for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css']) {
   const bytes = await readFile(`dist/${path}`);
@@ -59,5 +47,5 @@ await writeFile('dist/manifest.json', JSON.stringify({
   },
   assets,
 }, null, 2) + '\n');
-console.log(`Manifest and notices generated for ${Object.keys(assets).length} artifacts.`);
+console.log(`Manifest generated for ${Object.keys(assets).length} artifacts; bundled licenses are in includes.json.`);
 console.log(`Viewer/editor JS+CSS gzip: ${viewer.gzip}/${editor.gzip} bytes (${(100 * viewer.gzip / editor.gzip).toFixed(1)}%). Size budgets passed.`);

@@ -57,7 +57,7 @@ Hosts supply the Mermaid renderer. See [Mermaid configuration](Configuration.md#
 | CodeMirror | Source and block editing, selection, and local history. |
 | remark/mdast and rehype | CommonMark/GFM parsing, Markdown comparison, and safe HTML generation. |
 | rehype-sanitize and DOMPurify | Display sanitization, including optional renderer output. |
-| Selected MDI icons and Codicons | Compact controls without a remote icon font. |
+| Selected MDI icons | Compact controls without a remote icon font. |
 | Optional host Mermaid 11+ | Diagram rendering only when explicitly configured and used. |
 
 ## Markdown and Safety
@@ -84,7 +84,7 @@ Hosts load base editor/viewer CSS explicitly. Both entry points support replacem
 
 ## Distribution and Status
 
-Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size reports, and notices. No consumer build, import map, remote font, or host-framework dependency is required. Optional features ship separately rather than as one mandatory all-features bundle.
+Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size reports, and the root [bundle registry](../includes.json). The registry records bundled third-party packages, exact versions and license texts or links in the Power UI `includes.json` format consumed by PackageManager's `GenerateLicenseBOM`. It includes transitive browser dependencies, not development tools or the host-supplied Mermaid renderer. No consumer build, import map, remote font, or host-framework dependency is required. Optional features ship separately rather than as one mandatory all-features bundle.
 
 The package names are `axenox/markian` for Composer and `markian` for npm. Asset Packagist delivery as `npm-asset/markian`, external publication, and host adoption have separate acceptance gates. Distribution sizes are recorded in [the generated report](../dist/sizes.json); byte sizes are not speed measurements.
 

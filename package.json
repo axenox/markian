@@ -16,10 +16,14 @@
   "files": [
     "dist",
     "Examples",
+    "includes.json",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "dependencies": "npm run postinstall",
+    "postinstall": "node --input-type=module -e \"import { existsSync } from 'node:fs'; if (existsSync('Scripts/includes.mjs') && existsSync('src/browser.ts')) { const { buildBundles } = await import('./Scripts/build.mjs'); const { writeIncludes } = await import('./Scripts/includes.mjs'); await writeIncludes(await buildBundles(false)); }\"",
+    "includes:generate": "node Scripts/includes.mjs",
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node Scripts/boundaries.mjs && node Scripts/build.mjs && tsc --emitDeclarationOnly && node Scripts/artifacts.mjs",

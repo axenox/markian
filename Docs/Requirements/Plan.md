@@ -247,7 +247,7 @@ dist/
     languages/
       ...
   manifest.json
-  THIRD_PARTY_NOTICES.txt
+  # Third-party licenses are registered in ../includes.json (app root).
 ```
 
 The core script is a classic-script IIFE exposing the library factory as `window.Markian`, not a live editor instance. It provides ordinary visual Markdown editing, basic raw-source editing, conversion/rendering, sanitization, and core controls/icons. Optional extensions supply Mermaid and programming-language highlighting/expanded-code features through separately loadable prebuilt files. The paths above illustrate the modular layout; W0/W2 finalize exact optional filenames and language assets. Do not include an entire programming-language parser collection or Mermaid renderer in the core. Reuse the raw editor's CodeMirror foundation rather than shipping a second competing runtime.

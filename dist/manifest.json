@@ -108,10 +108,6 @@
       "sha256": "17ca9a598b7998c55a9ab76dd8e8768a233a18dde384f87313d053dd95e30211",
       "bytes": 1805
     },
-    "THIRD_PARTY_NOTICES.txt": {
-      "sha256": "4a956a322d4c3659118e95bba4e6502213f051d92c10cf1af7e336656355b172",
-      "bytes": 628559
-    },
     "types/browser.d.ts": {
       "sha256": "4e824115ddb540ce8cdfb4fa43f9faff075ef4f5522fbae2f6bf0e73474f0ccf",
       "bytes": 94

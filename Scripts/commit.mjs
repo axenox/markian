@@ -5,6 +5,6 @@ const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standa
 if (dirty.trim() || untracked.trim()) throw new Error('Stage all build inputs before committing; partially staged inputs are not supported.');
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 execFileSync(npm, ['run', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' });
-const unstaged = execFileSync('git', ['diff', '--name-only', '--', 'dist'], { encoding: 'utf8' });
-const added = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', 'dist'], { encoding: 'utf8' });
-if (unstaged.trim() || added.trim()) throw new Error('Review and stage the rebuilt dist files, then retry. No files were staged automatically.');
+const unstaged = execFileSync('git', ['diff', '--name-only', '--', 'dist', 'includes.json'], { encoding: 'utf8' });
+const added = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', 'dist', 'includes.json'], { encoding: 'utf8' });
+if (unstaged.trim() || added.trim()) throw new Error('Review and stage the rebuilt dist files and includes.json, then retry. No files were staged automatically.');

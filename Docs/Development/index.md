@@ -59,7 +59,13 @@ Stop and inspect a failing focused check or setup hang. Do not repeat the same s
 
 ## Distribution and Commits
 
-`npm run build` performs strict type checking, import-boundary checks, bundle generation, declarations, notices, manifests, and size reporting. Prebuilt distribution is committed; consumers must not need a compiler. Source maps are not published.
+`npm run build` performs strict type checking, import-boundary checks, bundle generation, declarations, bundle-registry generation, manifests, and size reporting. Prebuilt distribution is committed; consumers must not need a compiler. Source maps are not published.
+
+### Bundled Third-Party Licenses
+
+Root [includes.json](../../includes.json) replaces `dist/THIRD_PARTY_NOTICES.txt` and is included in the published npm/Composer package for Power UI's `GenerateLicenseBOM`. It is generated from modules in all browser bundles, including transitive dependencies and selected icon assets. Build-only tools and the external, host-provided Mermaid renderer are excluded. Entries use Asset Packagist names, exact installed versions, SPDX declarations and license-name-keyed `license_text` or `license_link` fields. License and NOTICE files are embedded when supplied by the package; declared upstream license links cover packages without local terms. Missing license metadata or terms fail generation for review.
+
+The root `postinstall` hook refreshes the registry after `npm install`, `npm ci` and `npm rebuild` with lifecycle scripts enabled. npm's `dependencies` hook also refreshes it when commands such as `npm update` or `npm uninstall` change `node_modules`. These hooks build the module graph in memory without changing `dist`. Published prebuilt consumers skip generation because source/build scripts are not shipped. When using `--ignore-scripts` or a package manager that does not support these npm hooks, run `npm run includes:generate` explicitly. `npm run build` also refreshes the registry from the emitted bundles. Review and commit it alongside dependency or source changes; do not edit entries manually. Generation needs the full development dependencies, not an `--omit=dev` source checkout.
 
 Run the build before a normal developer commit, including documentation-only commits as required by the repository's build policy. The opt-in `npm run hooks:install` hook refuses unstaged/partially staged build inputs and asks for review/staging of changed distribution; it stages nothing. Do not commit or create branches without a user request.
 

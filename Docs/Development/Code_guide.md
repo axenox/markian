@@ -68,6 +68,6 @@ Destroy cancels providers and renders, disposes views/engines/listeners/observer
 
 ## Build and Verification
 
-Use [the development workflow](index.md#validation). Build emits independent editor, viewer, and optional extension assets, declarations, manifests/hashes, notices, and size reports. Import checks enforce Milkdown/rendering/transport boundaries. Archive fixtures install with lifecycle scripts disabled and test prebuilt assets under static subdirectory routes.
+Use [the development workflow](index.md#validation). Build emits independent editor, viewer, and optional extension assets, declarations, manifests/hashes, the root `includes.json` bundle registry, and size reports. `Scripts/includes.mjs` collects exact package versions and license texts or links from the shared build module graph; see [license maintenance](index.md#bundled-third-party-licenses). Import checks enforce Milkdown/rendering/transport boundaries. Archive fixtures install with lifecycle scripts disabled and test prebuilt assets under static subdirectory routes.
 
 Local checks are evidence for their selected behavior only. Publication, actual host file persistence, screen readers, real devices, browser matrices, and restrictive CSP remain separate acceptance work in the [plan](../Requirements/Plan.md).
