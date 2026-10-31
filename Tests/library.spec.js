@@ -1390,6 +1390,53 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
   });
 }
 
+for (const mode of ['visual', 'raw']) test(`mobile fullscreen follows keyboard viewport (${mode})`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(mode => {
+    editor.setMode(mode);
+    const viewport = new EventTarget();
+    Object.assign(viewport, { width: 390, height: 844, offsetTop: 0, offsetLeft: 0 });
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+    window.keyboardViewport = viewport;
+  }, mode);
+  const root = page.locator('[data-markian]').first();
+  const toolbar = root.locator('.markian-toolbar');
+  await expect(toolbar).toHaveCSS('order', '0');
+  expect(await toolbar.evaluate(element => element.getBoundingClientRect().bottom <= element.parentElement.querySelector('.markian-work').getBoundingClientRect().top)).toBe(true);
+  await page.evaluate(async () => { await editor.execute('fullscreen'); editor.focus(); });
+  await expect(toolbar).toHaveCSS('order', '3');
+  await expect(root).toHaveCSS('height', '820px');
+  const focused = await page.evaluate(() => { window.keyboardFocus = document.activeElement; return editor.get(); });
+  await page.evaluate(() => {
+    keyboardViewport.height = 230;
+    keyboardViewport.dispatchEvent(new Event('resize'));
+    keyboardViewport.offsetTop = 80;
+    keyboardViewport.dispatchEvent(new Event('scroll'));
+  });
+  await expect(root).toHaveCSS('height', '206px');
+  await expect(root).toHaveCSS('top', '92px');
+  const bounds = await toolbar.boundingBox();
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(298);
+  expect(await page.evaluate(() => document.activeElement === keyboardFocus)).toBe(true);
+  expect(await page.evaluate(() => editor.get())).toBe(focused);
+  await page.screenshot({ path: testInfo.outputPath('keyboard-open.png') });
+  await page.evaluate(() => { keyboardViewport.height = 844; keyboardViewport.offsetTop = 0; keyboardViewport.dispatchEvent(new Event('resize')); });
+  await expect(root).toHaveCSS('height', '820px');
+  await page.keyboard.press('Escape');
+  await expect(toolbar).toHaveCSS('order', '0');
+  expect(await root.evaluate(element => element.style.getPropertyValue('--markian-viewport-height'))).toBe('');
+  await page.evaluate(() => { keyboardViewport.height = 300; keyboardViewport.dispatchEvent(new Event('resize')); });
+  expect(await root.evaluate(element => element.style.getPropertyValue('--markian-viewport-height'))).toBe('');
+  await page.evaluate(async () => {
+    await editor.execute('fullscreen');
+    const element = editor.element;
+    editor.destroy();
+    keyboardViewport.dispatchEvent(new Event('scroll'));
+    window.fullscreenCleanup = !element.classList.contains('markian-fullscreen') && !element.style.getPropertyValue('--markian-viewport-height');
+  });
+  expect(await page.evaluate(() => fullscreenCleanup)).toBe(true);
+});
+
 test('compact light/dark layout has bounded scroll areas', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#theme').check();

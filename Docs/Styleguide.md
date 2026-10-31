@@ -124,9 +124,9 @@ Focus anywhere inside the editor highlights its existing outer border without ch
 
 ## Responsive Layout and Accessibility
 
-Respond to editor container width, not only viewport width. Compact layouts enlarge touch targets, move the toolbar below the work area, and hide status. Wider layouts use compact controls; pinned controls retain their own sizing. Menus and panels must remain reachable without overlapping text.
+Respond to editor container width, not only viewport width. Compact layouts enlarge touch targets and hide status, but retain the configured toolbar placement. On smartphone-width viewports, only maximized editors automatically move the toolbar below the work area. Wider layouts use compact controls; pinned controls retain their own sizing. Menus and panels must remain reachable without overlapping text.
 
-Fullscreen preserves the same root and task. Use Maximize with outward arrows and Restore original size with inward arrows; pressed state follows actual expansion, including Escape restoration. Restore host layout and focus on exit.
+Fullscreen preserves the same root and task. The built-in overlay follows the visual viewport's size and position, keeping bottom controls above an on-screen keyboard without requiring page scrolling. Host-provided fullscreen callbacks retain ownership of their layout and keyboard handling. Use Maximize with outward arrows and Restore original size with inward arrows; pressed state follows actual expansion, including Escape restoration. Restore host layout and focus on exit. Simulated viewport checks do not establish real Android/Edge device conformance.
 
 Provide meaningful names, visible keyboard focus, predictable traversal, and focus restoration. Do not rely on hover or color alone. Respect reduced motion. Current checks do not establish full accessibility, screen-reader, real-device, or cross-browser conformance.
 

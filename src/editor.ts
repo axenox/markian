@@ -1249,7 +1249,28 @@ export class EditorInstance implements MarkianInstance {
     try {
       const restore = this.options.onFullscreenEnter
         ? await this.options.onFullscreenEnter({ instance: this, element: this.element, signal: entry.signal })
-        : (() => { this.element.classList.add('markian-fullscreen'); return () => this.element.classList.remove('markian-fullscreen'); })();
+        : (() => {
+          const viewport = this.host.ownerDocument.defaultView!;
+          const visual = viewport.visualViewport;
+          const update = () => {
+            this.element.style.setProperty('--markian-viewport-top', `${visual?.offsetTop ?? 0}px`);
+            this.element.style.setProperty('--markian-viewport-left', `${visual?.offsetLeft ?? 0}px`);
+            this.element.style.setProperty('--markian-viewport-width', `${visual?.width ?? viewport.innerWidth}px`);
+            this.element.style.setProperty('--markian-viewport-height', `${visual?.height ?? viewport.innerHeight}px`);
+          };
+          this.element.classList.add('markian-fullscreen');
+          update();
+          visual?.addEventListener('resize', update);
+          visual?.addEventListener('scroll', update);
+          viewport.addEventListener('resize', update);
+          return () => {
+            visual?.removeEventListener('resize', update);
+            visual?.removeEventListener('scroll', update);
+            viewport.removeEventListener('resize', update);
+            this.element.classList.remove('markian-fullscreen');
+            for (const property of ['top', 'left', 'width', 'height']) this.element.style.removeProperty(`--markian-viewport-${property}`);
+          };
+        })();
       if (typeof restore !== 'function') throw new TypeError('onFullscreenEnter must return a restore function.');
       if (entry.signal.aborted || this.destroyed) { restore(); return; }
       this.fullscreenRestore = restore;
