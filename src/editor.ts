@@ -8,8 +8,11 @@ import { commandButton } from './ui/controls';
 import { defaultToolbar, ToolbarItems, validateToolbar } from './ui/toolbar';
 import { searchPanel, destinationPanel } from './ui/panels';
 import { installEditing } from './editing';
+import { installTemplates, validateTemplates } from './templates';
+import { installMentions, validateTags } from './mentions';
 import { StaticSearch } from './ui/static-search';
 import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
+import { installTemplateStyles, templateStyles } from './render/template-styles';
 import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
@@ -84,7 +87,9 @@ export class EditorInstance implements MarkianInstance {
 
   constructor(private host: HTMLElement, private options: EditorOptions, private factories: ReadonlyMap<string, ExtensionFactory>) {
     validateMarkdown(options.markdown);
-    options = { ...options, markdownCssClasses: markdownClasses(options.markdownCssClasses) };
+    validateTemplates(options.templates, options.allowedHtml);
+    validateTags(options.tags);
+    options = { ...options, markdownCssClasses: markdownClasses(options.markdownCssClasses), allowedHtml: [...(options.allowedHtml ?? [])], templates: options.templates?.map(template => ({ ...template })), tags: options.tags?.map(rule => ({ ...rule })) };
     this.options = options;
     this.cssUrls = stylesheetUrls(options, host.ownerDocument);
     for (const [name, callback] of Object.entries(options)) if (name.startsWith('on') && callback !== undefined && typeof callback !== 'function') throw new TypeError(`${name} must be a callback function.`);
@@ -295,6 +300,7 @@ export class EditorInstance implements MarkianInstance {
   private async initialize(): Promise<void> {
     await loadStylesheets(this.element, this.cssUrls, this.lifetime.signal, dispose => this.cleanups.push(dispose));
     this.alive();
+    this.cleanups.push(installTemplateStyles(this.element, templateStyles(this.options.templates)));
     for (const [id, entry] of Object.entries(this.options.extensions ?? {})) {
       if (!entry || entry.enabled !== true) continue;
       const factory = this.factories.get(id);
@@ -331,9 +337,10 @@ export class EditorInstance implements MarkianInstance {
         if (!target) throw new Error('Only top-level code blocks support editing sessions.');
         this.openView(id, target);
       } } : undefined);
-    });
+    }, this.options.allowedHtml);
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
+    this.cleanups.push(installMentions(this, visual.view, this.options, error => this.report(error), match => this.emit('tag-click', 'user', undefined, { rule: match.rule, value: match.value, destination: match.destination })));
     visual.view.dom.classList.add(...this.options.markdownCssClasses!);
     this.initialized = true;
     try { visual.replace(this.source, true); }
@@ -429,8 +436,8 @@ export class EditorInstance implements MarkianInstance {
     return () => { handlers.delete(callback); };
   }
 
-  private emit(event: EventName, origin: string, error?: Error): void {
-    const payload: EditorEvent = { instance: this, origin, revision: this.revision, view: this.activeView, error };
+  private emit(event: EventName, origin: string, error?: Error, tag?: EditorEvent['tag']): void {
+    const payload: EditorEvent = { instance: this, origin, revision: this.revision, view: this.activeView, error, tag };
     for (const handler of this.listeners.get(event) ?? []) {
       try { handler(payload); } catch (failure) { if (event !== 'error') this.report(failure); }
     }
@@ -806,6 +813,7 @@ export class EditorInstance implements MarkianInstance {
       const expanded = command.id === 'fullscreen' && Boolean(this.fullscreenRestore);
       const label = command.id === 'fullscreen' ? (expanded ? 'Restore original size' : 'Maximize') : item.label ?? command.label;
       const button = commandButton(this.host.ownerDocument, label, expanded ? 'fullscreenExit' : item.icon ?? command.icon, () => { void this.execute(command.id).catch(error => this.report(error)); });
+      if (command.hint) button.title = command.hint;
       if (command.id === 'fullscreen') button.setAttribute('aria-pressed', String(expanded));
       button.disabled = !this.initialized || Boolean(command.mutates && this.readOnly) || command.enabled?.(this) === false;
       if (this.initialized && command.active) button.setAttribute('aria-pressed', String(command.active(this)));
@@ -1208,11 +1216,12 @@ export class EditorInstance implements MarkianInstance {
     });
     this.toolbarItems.register({ id: 'link:open', command: 'link:open' });
     installEditing(this, () => this.visual!.view, () => this.raw!, this.options, image => this.openDestination(image), item => this.toolbarItems.register(item));
+    installTemplates(this, this.options, () => this.visual!, () => this.raw!);
     for (const id of ['help', 'preview']) this.views.insert({
       id,
       mount: ({ element }) => {
         element.classList.add('markian-document', ...this.options.markdownCssClasses!);
-        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors);
+        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors, this.options.allowedHtml);
         if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';
           if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);

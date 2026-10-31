@@ -9,6 +9,7 @@ import type { Root, RootContent } from 'mdast';
 import type { State as HastState } from 'mdast-util-to-hast';
 import type { Element as HastElement, Root as HastRoot, RootContent as HastContent } from 'hast';
 import { colorSyntax, type TextColor } from './colors';
+import { inlineHtmlSyntax, type InlineHtml, type InlineHtmlTag } from './inline-html';
 
 export const documentLimit = 1_000_000;
 
@@ -22,9 +23,9 @@ export function validateMarkdown(markdown: string): void {
   if (markdown.length > documentLimit) throw new RangeError(`Markdown exceeds ${documentLimit} characters.`);
 }
 
-export function parseMarkdown(markdown: string): Root {
+export function parseMarkdown(markdown: string, allowedHtml: readonly InlineHtmlTag[] = []): Root {
   validateMarkdown(markdown);
-  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ['yaml', 'toml']).use(colorSyntax);
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ['yaml', 'toml']).use(colorSyntax).use(inlineHtmlSyntax(allowedHtml));
   return processor.runSync(processor.parse(markdown)) as Root;
 }
 
@@ -38,8 +39,8 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
-export function equivalentMarkdown(first: string, second: string): boolean {
-  return JSON.stringify(canonical(parseMarkdown(first.replace(/\r\n?/g, '\n')))) === JSON.stringify(canonical(parseMarkdown(second.replace(/\r\n?/g, '\n'))));
+export function equivalentMarkdown(first: string, second: string, allowedHtml: readonly InlineHtmlTag[] = []): boolean {
+  return JSON.stringify(canonical(parseMarkdown(first.replace(/\r\n?/g, '\n'), allowedHtml))) === JSON.stringify(canonical(parseMarkdown(second.replace(/\r\n?/g, '\n'), allowedHtml)));
 }
 
 export function markdownDifferences(first: string, second: string): string[] {
@@ -119,7 +120,7 @@ export function headings(markdown: string): Heading[] {
   return found;
 }
 
-export function renderMarkdown(markdown: string, softbreaks = false, allowTextColors = false): string {
+export function renderMarkdown(markdown: string, softbreaks = false, allowTextColors = false, allowedHtml: readonly InlineHtmlTag[] = []): string {
   const anchors = headings(markdown);
   let headingIndex = 0;
   return String(unified()
@@ -127,6 +128,7 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
     .use(remarkGfm)
     .use(remarkFrontmatter, ['yaml', 'toml'])
     .use(colorSyntax)
+    .use(inlineHtmlSyntax(allowedHtml))
     .use(() => (tree: Root) => {
       const walk = (node: Root | RootContent): void => {
         if (node.type === 'heading') node.data = { hProperties: { id: anchors[headingIndex++].id } };
@@ -156,6 +158,7 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
     })
     .use(remarkRehype, { handlers: {
       textColor: (state: HastState, node: TextColor): HastElement => ({ type: 'element', tagName: 'span', properties: allowTextColors ? { style: `color: ${node.color}` } : {}, children: state.all(node) }),
+      inlineHtml: (state: HastState, node: InlineHtml): HastElement => ({ type: 'element', tagName: node.tag, properties: {}, children: state.all(node) }),
     } })
     .use(() => (tree: HastRoot) => {
       const walk = (node: HastRoot | HastContent): void => {
@@ -169,7 +172,7 @@ export function renderMarkdown(markdown: string, softbreaks = false, allowTextCo
       };
       walk(tree);
     })
-    .use(rehypeSanitize, { ...defaultSchema, protocols: { ...defaultSchema.protocols, src: [...(defaultSchema.protocols?.src ?? []), 'data'] }, clobberPrefix: '', attributes: { ...defaultSchema.attributes, blockquote: ['dataAlertKind', 'dataAlertTitle'], span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
+    .use(rehypeSanitize, { ...defaultSchema, tagNames: [...(defaultSchema.tagNames ?? []), ...allowedHtml], protocols: { ...defaultSchema.protocols, src: [...(defaultSchema.protocols?.src ?? []), 'data'] }, clobberPrefix: '', attributes: { ...defaultSchema.attributes, blockquote: ['dataAlertKind', 'dataAlertTitle'], span: allowTextColors ? ['style'] : [], '*': [...(defaultSchema.attributes?.['*'] ?? []), 'id'] } })
     .use(rehypeStringify)
     .processSync(markdown));
 }

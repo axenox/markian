@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Templates and HTML</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/markian-viewer.css">
+    <style>.editor-host { height: 540px; min-width: 0; } .template-viewer { max-height: 300px; overflow: auto; }</style>
+  </head>
+  <body class="demo-workspace">
+    <header>
+      <a class="brand" href="index.html"><span class="brand-symbol" aria-hidden="true">m.</span>markian<span class="workspace-label">Templates</span></a>
+      <div class="demo-actions">
+        <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <label><input type="checkbox" id="read-only"> Read-only</label>
+      </div>
+    </header>
+    <main>
+      <div id="example" class="editor-host"></div>
+      <aside><h2>Viewer</h2><div id="viewer" class="template-viewer"></div><h2>Markdown</h2><pre id="value"></pre></aside>
+      <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
+    </main>
+    <script src="../dist/markian.min.js"></script>
+    <script src="../dist/markian-viewer.min.js"></script>
+    <script data-editor-init>
+      const markdown = '# Review notes\n\nPress <kbd>Enter</kbd> to confirm.\n\nThe selected wording <mark>needs attention</mark>.';
+      const allowedHtml = ['kbd', 'sub', 'sup', 'mark'];
+      const reviewIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 11l3 3 7-7-1.4-1.4L12 11.2 10.4 9.6Z M19 3H5v18h14v-6h-2v4H7V5h10v2h2Z"/></svg>';
+      const strongIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.6 10.8C16.5 10.2 17 9.3 17 8c0-2.2-1.8-4-4-4H7v16h6.5c2.5 0 4.5-2 4.5-4.5 0-2.2-1.2-3.9-2.4-4.7M10 7h3c.6 0 1 .4 1 1s-.4 1-1 1h-3V7m3.5 10H10v-5h3.5c.8 0 1.5.7 1.5 1.5v2c0 .8-.7 1.5-1.5 1.5Z"/></svg>';
+      const keyIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>button-pointer</title><path d="M20 20.5C20 21.3 19.3 22 18.5 22H13C12.6 22 12.3 21.9 12 21.6L8 17.4L8.7 16.6C8.9 16.4 9.2 16.3 9.5 16.3H9.7L12 18V9C12 8.4 12.4 8 13 8S14 8.4 14 9V13.5L15.2 13.6L19.1 15.8C19.6 16 20 16.6 20 17.1V20.5M20 2H4C2.9 2 2 2.9 2 4V12C2 13.1 2.9 14 4 14H8V12H4V4H20V12H18V14H20C21.1 14 22 13.1 22 12V4C22 2.9 21.1 2 20 2Z"/></svg>';
+      const highlightIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m15 3 6 6-9 9H6v-6Zm-8 10v3h3l8-8-3-3ZM3 20h18v2H3Z"/></svg>';
+      const annotationIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 3h16v14H9l-5 4V3m2 2v12l2-2h10V5H6m2 3h8v2H8V8m0 4h6v2H8v-2Z"/></svg>';
+      const templates = [
+        {
+          id: 'review',
+          label: 'Review checklist',
+          icon: reviewIcon,
+          hint: 'Insert a review checklist',
+          markdown: '## Review\n\n- [ ] Content\n- [ ] Links\n- [ ] Approval',
+        },
+        {
+          id: 'strong',
+          label: 'Strong emphasis',
+          icon: strongIcon,
+          markdown: '**{{selection}}**',
+        },
+        {
+          id: 'key',
+          label: 'Keyboard key',
+          icon: keyIcon,
+          hint: 'Wrap selected text as a keyboard key',
+          markdown: '<kbd>{{selection}}</kbd>',
+          css: 'kbd { background: var(--markian-soft); border-color: var(--markian-accent); box-shadow: 0 1px 0 var(--markian-accent); }',
+        },
+        {
+          id: 'highlight',
+          label: 'Highlight',
+          icon: highlightIcon,
+          markdown: '<mark>{{selection}}</mark>',
+          css: 'mark { padding: 0 3px; border-radius: 2px; color: var(--markian-text); background: var(--markian-soft); text-decoration: underline; text-decoration-color: var(--markian-accent); }',
+        },
+        {
+          id: 'annotation',
+          label: 'Annotation',
+          icon: annotationIcon,
+          markdown: 'Note: {{selection}} (review pending)',
+        },
+      ];
+      window.example = Markian.create(document.querySelector('#example'), {
+        markdown,
+        allowedHtml,
+        templates,
+        sidebarVisible: false,
+      });
+      window.exampleViewer = MarkianViewer.create(document.querySelector('#viewer'), {
+        markdown,
+        allowedHtml,
+        templates,
+      });
+      const show = () => {
+        const value = example.get();
+        document.querySelector('#value').textContent = value;
+        return exampleViewer.set(value);
+      };
+      example.on('change', show);
+      Promise.all([example.ready, exampleViewer.ready]).then(show);
+      document.querySelector('#theme').addEventListener('change', event => {
+        example.setTheme(event.target.value);
+        exampleViewer.setTheme(event.target.value);
+      });
+      document.querySelector('#read-only').addEventListener('change', event => example.setReadOnly(event.target.checked));
+    </script>
+    <script src="demo.js"></script>
+  </body>
+</html>

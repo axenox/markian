@@ -77,7 +77,21 @@ Read-only/disabled state blocks user mutations, not trusted host `set()`. A chan
 
 ### Events
 
-`EventName` is `change`, `draft`, `ready`, `mode`, `focus`, `blur`, `error`, or `save-request`. `EditorEvent` contains `{ instance, origin, revision, view, error? }`; `error` is an `Error` when reported.
+Subscribe with `editor.on(eventName, callback)`. Every callback receives an `EditorEvent` containing `{ instance, origin, revision, view, error?, tag? }`. Read the current Markdown with `event.instance.get()`; it is not included in the payload. The returned disposer unsubscribes that listener without affecting others.
+
+| Event name | When it fires | What you can do with it |
+| --- | --- | --- |
+| `change` | The complete current Markdown changes, including host replacements and pending drafts. Identical values do not notify again. | Mark the host form as dirty, synchronize a preview or form field, or schedule autosave. Use `origin` to distinguish host loads from edits and `revision` to track the value being saved. |
+| `draft` | A value change occurs while Source mode or a block editing session is active; it accompanies `change`. | Update draft indicators or display the complete document with pending edits using `get()`. Do not also save the same edit from both `change` and `draft`. |
+| `ready` | Initialization completes, including a preservation fallback to Source. | Enable host controls or perform initial setup. For reliable initialization sequencing, await `editor.ready` instead: a late listener misses this event, and initialization failure rejects the promise. |
+| `mode` | Document editing mode changes, or a specialized view opens or closes. | Update host view selectors, show view-specific controls, or track navigation using `view`. Navigation itself is not a content change. |
+| `focus` | Focus enters an element inside the editor, including moves between its internal controls. | Identify the active editor, show host editing controls, or update contextual UI. This is not limited to focus entering the whole editor from outside. |
+| `blur` | Focus leaves the editor rather than moving to another internal control. | Hide host contextual UI or trigger host validation. It is not a save-completion or idle signal. |
+| `error` | Markian reports an error, including a synchronous exception thrown by a non-error listener. The payload supplies `error: Error`. | Show an application notification or log diagnostic details with the current view and revision. Catch `editor.ready` rejection separately for initialization failures. |
+| `save-request` | Ctrl/Cmd+S is pressed inside the editor; Markian prevents the browser's default save action. | Run the host's save workflow: await `whenIdle()`, read `get()`, then persist it. Markian does not save to storage or serialize the host's requests. |
+| `tag-click` | A recognized tag is activated by pointer or keyboard. The payload supplies `tag: { rule, value, destination? }`. | Open a related record, navigate to a host destination, or show contextual details. It fires independently of the rule's `onClick`; choose one place for the same action to avoid running it twice. Neither notification changes content. |
+
+Listeners are notifications, not cancellable hooks. They run synchronously; Markian does not await returned promises. Async listeners must handle their own rejected promises, and host saving must guard against subsequent edits during storage operations.
 
 ```javascript
 const unsubscribe = editor.on('change', event => {
@@ -144,13 +158,15 @@ Returned disposers are idempotent and affect only their owned additions or remov
 
 | Type | Fields |
 | --- | --- |
-| `CommandDefinition` | Required `id`, `label`, `views: readonly string[]`, and `run(instance, payload?): void \| Promise<void>`; optional `icon`, `swatch`, `mutates`, `enabled(instance): boolean`, and `active(instance): boolean`. `views: ["*"]` supports any view. |
+| `CommandDefinition` | Required `id`, `label`, `views: readonly string[]`, and `run(instance, payload?): void \| Promise<void>`; optional `icon` (built-in alias or sanitized SVG string), `hint` (tooltip), `swatch`, `mutates`, `enabled(instance): boolean`, and `active(instance): boolean`. `views: ["*"]` supports any view. |
 | `ToolbarItem` | Required `id`; optional `command`, `label`, `icon`, `type`, `items`, `align`. See [toolbar fields](Configuration.md#toolbar). |
 | `ViewDefinition` | Required `id` and `mount(context): Disposer`; optional `focus()`, `resize()`, and `setReadOnly(value)`, all returning void. |
 | `RendererDefinition` | Required `id`, `language`, and `render(code: string, element: HTMLElement, context?): Disposer`; optional `visual: boolean` defaults to Preview-only behavior. Context can provide `open(view: string): void` for supported top-level targets. |
 | `StructuralNode` | Required `id`, ProseMirror `schema: NodeSpec`, `fromMarkdown(node: RootContent): Attrs \| null`, and `toMarkdown(node: ProseNode): RootContent`. Current bridge supports atomic mappings over existing mdast types. |
 
 `ViewContext` is `{ element: HTMLElement, signal: AbortSignal, session?: BlockSession }`. Extensions own rendering and must treat provider/document content as untrusted. See [writing extensions](Development/Writing_extensions.md) for initialization and cleanup rules.
+
+Configured templates register `template:<id>` commands for Visual/Source and a `templates` menu. Use the same `execute()` and toolbar APIs as other commands. Mention insertion, details and host actions use rule-local configuration callbacks; see [templates and mentions](Configuration.md#templates-and-inline-html) for their exported types and result shapes.
 
 ## Views and Block Sessions
 

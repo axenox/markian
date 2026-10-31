@@ -40,10 +40,11 @@
       <h2 id="viewer-label">Viewer</h2>
       <article id="viewer"></article>
     </section>
+    <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
   </main>
   <script src="../dist/markian.min.js"></script>
   <script src="../dist/markian-viewer.min.js"></script>
-  <script>
+  <script data-editor-init>
     const markdown = `# Field notes
 
 A **readable document** with [local navigation](#checklist).
@@ -98,5 +99,6 @@ graph LR
       document.querySelectorAll('.demo-actions input, .demo-actions button').forEach(control => { control.disabled = true; });
     });
   </script>
+  <script src="demo.js"></script>
 </body>
 </html>

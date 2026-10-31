@@ -6,6 +6,7 @@
     <title>Markian | Editor workspace</title>
     <link rel="stylesheet" href="demo.css">
     <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/markian-viewer.css">
     <style>
       .demo-main {
         height: calc(100dvh - 130px);
@@ -54,11 +55,13 @@
           <div id="secondary"></div>
         </div>
       </aside>
+      <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
     </main>
 
     <script src="../dist/markian.min.js"></script>
+    <script src="../dist/markian-viewer.min.js"></script>
     <script src="../dist/extensions/code.min.js"></script>
-    <script>
+    <script data-editor-init>
       const initialMarkdown = [
         '# Field notes',
         '',
@@ -122,5 +125,6 @@
         editor.setReadOnly(event.target.checked);
       });
     </script>
+    <script src="demo.js"></script>
   </body>
 </html>

@@ -45,3 +45,7 @@
 	.markian-document { padding: 18px; }
 }
 }
+
+@scope ([data-markian], [data-markian-viewer]) {
+  :where(.markian-document) kbd { display: inline-block; padding: 1px 5px; font-family: var(--markian-mono, Consolas, monospace); font-size: 0.85em; line-height: 1.5; vertical-align: baseline; color: var(--markian-text); background: var(--markian-code); border: 1px solid var(--markian-line); border-bottom-width: 2px; border-radius: 3px; box-shadow: 0 1px 0 var(--markian-line); }
+}

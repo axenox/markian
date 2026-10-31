@@ -68,7 +68,7 @@ Markdown is the public content format. Rendered HTML and engine documents are in
 - Visual import compares semantic Markdown trees. On initial incompatibility, exact source remains available in Source view with a diagnostic. Failed later imports retain the previous value or pending source. Diagnostics show up to five bounded structural differences and original node line locations.
 - Raw editing retains literal source, including unfinished syntax. The viewer always retains exact supplied source.
 - Unknown comments remain in Markdown but are invisible in normal rendering. Generated bodies stay readable without running providers. Loading a document never executes a placeholder provider.
-- Other raw HTML is inert in visual editing and omitted from sanitized Preview. General HTML allowlists, templates, and mentions are unfinished; opt-in bounded hex text color is a separate supported feature.
+- Configured attribute-free `kbd`, `sub`, `sup` and `mark` tags become editable inline formatting in Visual and safe output in Preview/viewer. Other raw HTML stays inert/opaque. Templates insert fixed or literal-selection Markdown through ordinary commands. Mention decorations and rule-local callbacks retain plain text or ordinary links; editor-only wrappers never enter saved Markdown. Opt-in bounded hex text color is a separate feature.
 - Front matter and resolved-reference differences may require Source view. Unsupported content must not silently disappear merely to fit the visual schema.
 - Mermaid remains an ordinary `mermaid` fence; invalid diagram syntax can still be saved as source.
 
@@ -81,6 +81,10 @@ Each editor owns its document, revision, selection, histories, callbacks, pendin
 Editor initialization waits for enabled extension initialization, configured stylesheets, engine construction, and initial import. Schema registration closes before engine construction. A rejected initialization restores the host. Preservation fallback to Source view instead resolves readiness and reports the incompatibility.
 
 Hosts load base editor/viewer CSS explicitly. Both entry points support replacement content stylesheets and additional document-wrapper classes; the editor also accepts theme stylesheets. Markian preserves configured wrapper classes as views and rendered documents change. These are ordinary page styles, not shadow-DOM isolation, so hosts must scope them. See the [style guide](Styleguide.md).
+
+Templates may add trusted CSS independently of their saved Markdown. Editor and viewer share the style parser and instance-owned CSS scopes, limited to document surfaces. Destroying an instance removes its template stylesheet. Hosts pass the same templates and bounded HTML policy to the viewer; the viewer uses only their styling and gains no editor dependency or commands. Keyboard-key defaults are shared content styling. CSS scoping is presentation isolation, not a sandbox for untrusted CSS.
+
+UI icon properties accept built-in names or bounded raw SVG strings. A shared control renderer sanitizes SVG to static shapes without scripts, embedded content, styles, links or resource references, while retaining ordinary button/menu accessibility and sizing. These icons never enter saved Markdown. Standalone viewers consume no editor icon configuration.
 
 ## Distribution and Status
 

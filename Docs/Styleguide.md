@@ -19,13 +19,14 @@ Give the host an explicit usable height. The editor fills it while retaining a u
 | Menu | A disclosed option set using `.markian-menu` and `.markian-menu-items`. Use labels and icons, nested flyouts, and visible selection state. |
 | Toolbar | The active view's commands. `.markian-toolbar` owns pinned controls; `.markian-floating` is used for contextual controls. |
 | Transient panel | A compact form in `.markian-popup` with `.markian-panel`, labels, status output, and `.markian-panel-actions`. Search and destination forms share this pattern. |
-| Suggestion list | `.markian-suggestions` with keyboard/pointer selection and distinct loading, empty, failure, and selected states. |
+| Suggestion list | `.markian-menu-items.markian-suggestions` with `.markian-button` rows, sharing regular dropdown surfaces, spacing, hover and focus. Keep keyboard/pointer selection and distinct loading, empty, failure, and selected states. |
 | Outline | `.markian-outline`, parsed heading buttons, compact title, and `aria-current="location"`. |
 | Status bar | `.markian-status` for view name and character count. Never put critical information only here; compact layouts hide it. |
 | Diagnostic | Bounded readable text describing a failure without replacing editable source or rendering error text as HTML. |
 | Color swatch | Compact labeled hex-color choice. Do not use text pills or an unrestricted CSS input. |
+| Mention | A compact Material-style chip with a lightly tinted background and inherited prose/link text color. Keep it inline without extra line height; wrappers are never persisted. Keyboard focus and touch provide the same text details as hover. |
 
-Use selected MDI icons; search replacement uses the existing Codicon outlines. Do not introduce a second icon system or duplicate similar-looking controls. Use text for clear actions where appropriate, not as a substitute for familiar formatting symbols.
+Use selected MDI icons for built-in controls; search replacement uses the existing Codicon outlines. Custom commands, toolbar items and templates can supply raw SVG through the shared sanitized icon renderer. Keep SVG in named variables rather than long configuration values. Use static geometry and `currentColor` where possible; shared sizing and the control label remain authoritative. Do not introduce a second icon system or duplicate similar-looking controls. Use text for clear actions where appropriate, not as a substitute for familiar formatting symbols. See the [icon policy](Configuration.md#icons).
 
 ## Toolbar and Menus
 
@@ -33,7 +34,7 @@ The default groups are History, Format, Insert, Document, and opposite-aligned U
 
 Groups generate separators only when they have visible content. Custom layouts and live contributions use the same recursive `group`/`menu` structure. Insertion targets explicit group IDs and optional direct-child ordering IDs. Missing groups are not created implicitly. See [toolbar configuration](Configuration.md#toolbar).
 
-Pinned controls reflect active state at the caret or selection. The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Table actions and code expansion use their own contextual controls. Code expansion is caret-contextual, not a default pinned command.
+Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Table actions and code expansion use their own contextual controls. Code expansion is caret-contextual, not a default pinned command.
 
 Floating controls must not cover selected text.
 
@@ -69,9 +70,15 @@ Search offers previous/next, count, case/word options, and replacement only when
 
 The outline is visible by default and starts with a compact Outline title. It omits a document title starting on source line 1. Its button reflects visibility with `aria-pressed`. Heading navigation retains visibility and scrolls the active visual/source surface. Specialized views hide it temporarily without resetting the choice. Even in narrow layouts, document and outline remain adjacent independently scrolling areas, not an overlapping drawer.
 
+Mention suggestions reuse the regular dropdown menu surface and full-width menu rows, without bordered pills or the form-panel pointer. They sit beside the active caret in a native popover, clamp to the viewport and scroll internally. Link/image suggestion lists use the same menu classes within their destination form. Up/Down highlights a mention choice and Enter accepts it; Escape dismisses. Details retain the separate text panel and remain available in read-only editors. Template choices use the ordinary toolbar menu, configured captions/icons and hint tooltips.
+
 ## Document Presentation
 
 Use consistent spacing in Visual, Preview, and viewer output. Code is monospaced and preserves meaningful whitespace. Hidden comments remain invisible without deleting source. Comment-only visual paragraphs occupy no space; mixed text/comment paragraphs remain visible.
+
+Runnable examples place an initialization reference below the primary experience as an unframed full-width section. A standalone Markian viewer renders the page's actual inline initialization source as a code block, removing only the common outer script indentation while preserving nested indentation. Its code surface scrolls internally and follows the page theme. Shared demo assets stay outside the reusable library contract.
+
+Keyboard keys use compact monospace text, a fine border, a raised lower edge and a subtle shadow rather than looking like ordinary prose. Keep this presentation shared across editable content, Preview and the viewer. Template-specific CSS belongs to trusted template configuration and is scoped to instance-local document content. Prefer theme variables and reuse the same definitions in editor and viewer; never persist presentation CSS or editor wrappers in Markdown. Exact key dimensions belong in the [visual editor component guide](Development/Components/Visual_editor.md).
 
 Base editor CSS removes accidental outer paragraph margins inside lists and table cells. Content CSS can refine the fallback paragraph spacing. Packaged content styling keeps lists and tables compact, with clear indentation and separation between items and paragraphs. Hosts should not duplicate structural normalization in a theme.
 

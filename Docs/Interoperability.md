@@ -63,3 +63,11 @@ Markdown is the exchange format for whole documents. Source view is the appropri
 Rich HTML from other editors can only retain formatting supported by Markian's Markdown model. Fonts, page layout, and application-specific document features are not a portable Markdown contract. Clipboard support is not a full document importer for Word, Google Docs, or their native file formats.
 
 Rendering also depends on the receiving Markdown implementation. For example, tables and task lists require compatible Markdown extensions, and a Mermaid fence requires a renderer. Markian does not save generated preview HTML in place of Markdown.
+
+## Templates and Mentions
+
+Templates save their ordinary Markdown body. Selection wrappers substitute literal text rather than recursively expanding syntax. Configured `kbd`, `sub`, `sup` and `mark` stencils save those HTML elements and escaped content, never toolbar or editor wrappers. Receiving renderers may strip HTML or style it differently; enable the same bounded `allowedHtml` setting in a Markian viewer to display it. Pass the same trusted template definitions to the viewer to apply their CSS; CSS and template IDs are never saved in the document. Keyboard keys retain their shared default appearance with the viewer base stylesheet, while other renderers choose their own styling. Arbitrary attributes, embedded CSS and script execution are not supported stencil formats.
+
+Mention highlighting and details are presentation only. Plain-text rules retain values such as `#123`; explicitly linked suggestions save ordinary Markdown links. With `legacyLinks: true`, configured rules recognize existing `[@label]()` and linked mentions without rewriting them to private widget syntax. Other renderers display the text/links without needing Markian or its callbacks. Empty links remain empty links; Markian does not invent a destination.
+
+Source mode preserves these values literally but offers no mention autocomplete. Browser fixtures cover editing, undo, Visual/Source round trips, plain/link exports and local providers; they do not establish host adapter or independent GitHub/GitLab conformance.

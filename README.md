@@ -1,6 +1,6 @@
 # Markian
 
-Markian is a framework-independent Markdown editor and lightweight viewer. It stores ordinary Markdown and provides visual editing, source editing, tables, an outline, search, and optional code and Mermaid workspaces.
+Markian is a framework-independent Markdown editor and lightweight viewer. It stores ordinary Markdown and provides visual/source editing, tables, an outline, search, templates, mentions, and optional code and Mermaid workspaces.
 
 The library is under development. Current APIs are documented below; unfinished features and acceptance checks are tracked in the [implementation plan](Docs/Requirements/Plan.md). Browser coverage does not yet establish cross-browser, real-device, screen-reader, or restrictive-CSP conformance.
 
@@ -94,7 +94,7 @@ This example enables Mermaid alongside Code. Full renderer, safety, and workspac
 </script>
 ```
 
-Callbacks connect host services; renderers and views add presentation; schema mappings extend supported structure. See [customization examples](Docs/Extensibility.md) and the contributor guide to [writing extensions](Docs/Development/Writing_extensions.md). Templates, mentions, general HTML allowlists, and generated-region providers are not current configuration options.
+Callbacks connect host services; renderers and views add presentation; schema mappings extend supported structure. See [customization examples](Docs/Extensibility.md) and the contributor guide to [writing extensions](Docs/Development/Writing_extensions.md). Core [templates](Examples/templates.html) and [mentions](Examples/mentions.html) need no optional script or backend. Inline HTML is limited to explicitly enabled attribute-free tags; generated-region providers remain unfinished.
 
 ## API
 

@@ -1,5 +1,5 @@
 import { type EditorView, type ProseNode } from './prose';
-import type { StructuralNode, SearchOptions, SearchMatch } from '../types';
+import type { StructuralNode, SearchOptions, SearchMatch, InlineHtmlTag } from '../types';
 export interface VisualEngine {
     view: EditorView;
     parse(markdown: string): ProseNode;
@@ -11,4 +11,4 @@ export interface VisualEngine {
     replaceSearch(replacement: string, all?: boolean): void;
     destroy(): Promise<void>;
 }
-export declare function createVisual(element: HTMLElement, structures: readonly StructuralNode[], readOnly: () => boolean, changed: (markdown: string) => void, selectionChanged: () => void, documentBase?: string, allowTextColors?: boolean, renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined): Promise<VisualEngine>;
+export declare function createVisual(element: HTMLElement, structures: readonly StructuralNode[], readOnly: () => boolean, changed: (markdown: string) => void, selectionChanged: () => void, documentBase?: string, allowTextColors?: boolean, renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined, allowedHtml?: readonly InlineHtmlTag[]): Promise<VisualEngine>;

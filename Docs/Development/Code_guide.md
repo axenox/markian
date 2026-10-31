@@ -11,6 +11,8 @@ This guide maps current source responsibilities for contributors. Public concept
 | [types.ts](../../src/types.ts) | Public options, handles, registries, sessions, events, and extension contracts. |
 | [editor.ts](../../src/editor.ts) | Document projection, revision/events, view stack, host/forms, providers, permissions, and disposal. |
 | [editing.ts](../../src/editing.ts) | Formatting/table commands and schema-aware GFM operations. |
+| [templates.ts](../../src/templates.ts) | Template validation, literal selection escaping and active Visual/Source command insertion. |
+| [mentions.ts](../../src/mentions.ts) | Bounded prefix matching, source-neutral ProseMirror decorations and rule-local suggestion/detail/action callbacks with cancellation and keyboard routing. |
 | [registry.ts](../../src/registry.ts) | Ordered owned registrations and disposal. |
 | [styles.ts](../../src/styles.ts) | Stylesheet URL validation, ordered loading, and owned link cleanup. |
 | [search.ts](../../src/search.ts) | Bounded literal Unicode-aware matching independent of engines. |
@@ -19,9 +21,11 @@ This guide maps current source responsibilities for contributors. Public concept
 | [source.ts](../../src/engines/source.ts) | CodeMirror buffers, selection, history, search, and permissions. |
 | [markdown.ts](../../src/render/markdown.ts) | GFM parsing, safe rendering, semantic comparison, mismatch diagnostics, URLs, and heading IDs. |
 | [colors.ts](../../src/render/colors.ts) | Shared bounded opt-in hex-color syntax. |
+| [inline-html.ts](../../src/render/inline-html.ts) | Shared attribute-free inline HTML policy and mdast mapping, independent of editor engines. |
+| [template-styles.ts](../../src/render/template-styles.ts) | Shared template CSS type, browser rule parsing, document-only instance scoping and stylesheet cleanup. No editor engine dependency. |
 | [mermaid-runtime.ts](../../src/mermaid-runtime.ts) | Explicit host loading, API validation, bounds and isolated serialized rendering returning Mermaid's original SVG. |
 | [toolbar.ts](../../src/ui/toolbar.ts) | Declarative default layout, validation, and group-local contribution projection. |
-| [controls.ts](../../src/ui/controls.ts) | Shared buttons and recursive toolbar/menu controls. |
+| [controls.ts](../../src/ui/controls.ts) | Shared button icons, built-in aliases and bounded DOMPurify-sanitized raw SVG; used by recursive toolbar/menu controls. |
 | [panels.ts](../../src/ui/panels.ts) | Search/destination forms, suggestions, validation, focus, and lookup cancellation. |
 | [static-search.ts](../../src/ui/static-search.ts) | Disposable Help/Preview highlights without Markdown mutation. |
 | [viewer.ts](../../src/viewer.ts) | Separate viewer factory, exact source, safe render lifecycle, resources, adapters, and host restoration. |

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Mentions and tags</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/markian-viewer.css">
+    <style>.editor-host { height: 540px; min-width: 0; }</style>
+  </head>
+  <body class="demo-workspace">
+    <header>
+      <a class="brand" href="index.html"><span class="brand-symbol" aria-hidden="true">m.</span>markian<span class="workspace-label">Mentions</span></a>
+      <div class="demo-actions">
+        <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <label><input type="checkbox" id="read-only"> Read-only</label>
+        <label><input type="checkbox" id="failure"> Lookup failure</label>
+        <label><input type="checkbox" id="delay"> Delayed results</label>
+      </div>
+    </header>
+    <main>
+      <div id="example" class="editor-host"></div>
+      <aside><h2>Markdown</h2><pre id="value"></pre><h2>Activity</h2><pre id="activity"></pre></aside>
+      <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
+    </main>
+    <script src="../dist/markian.min.js"></script>
+    <script src="../dist/markian-viewer.min.js"></script>
+    <script data-editor-init>
+      const tickets = [
+        { label: 'Ticket 123: Review', value: '#123' },
+        { label: 'Ticket 456: Release', value: '#456' },
+      ];
+      const testCases = [
+        { label: 'Test case 123: Mention routing', value: '#TC123' },
+        { label: 'Test case 456: Keyboard selection', value: '#TC456' },
+      ];
+      const users = [
+        { label: 'Alex', value: '@alex', destination: '#alex' },
+        { label: 'Casey', value: '@casey', destination: '#casey' },
+      ];
+      const topics = [
+        { label: 'Documentation', value: '##docs' },
+        { label: 'Testing', value: '##testing' },
+      ];
+      const activity = document.querySelector('#activity');
+      const lookup = (items, query) => {
+        const results = items.filter(item => (item.label + item.value).toLowerCase().includes(query.toLowerCase()));
+        if (document.querySelector('#failure').checked) return Promise.reject(new Error('Local lookup failed'));
+        return document.querySelector('#delay').checked ? new Promise(resolve => setTimeout(() => resolve(results), 700)) : results;
+      };
+      const testCaseRule = {
+        color: '#227761',
+        onSuggest: async ({ query, rule }) => (await lookup(testCases, query)).map(result => ({
+          ...result,
+          value: rule.prefix + result.value.slice(3),
+        })),
+        onHover: ({ query }) => ({ title: 'Test case ' + query, description: 'Verification checklist' }),
+        onClick: ({ value }) => {
+          activity.textContent = 'Test case opened: ' + value;
+        },
+      };
+      window.example = Markian.create(document.querySelector('#example'), {
+        markdown: [
+          '# Team notes',
+          '',
+          'Review #123 with @alex under ##docs. Verify #TC123 and #tc456 before release.',
+          '',
+          'Existing [@casey]() and [@alex](#alex) mentions.',
+          '',
+          '`@code #999` and https://example.test/#fragment remain ordinary code and URLs.',
+          '',
+          '## Alex',
+          '',
+          'Reviewer.',
+          '',
+          '## Casey',
+          '',
+          'Author.',
+        ].join('\n'),
+        sidebarVisible: false,
+        tags: [
+          {
+            id: 'ticket',
+            prefix: '#',
+            color: '#16669a',
+            onSuggest: ({ query }) => lookup(tickets, query),
+            onHover: ({ query }) => ({ title: 'Ticket ' + query, description: 'Review queue' }),
+            onClick: ({ value }) => {
+              activity.textContent = 'Ticket opened: ' + value;
+            },
+          },
+          ...['#TC', '#tc'].map(prefix => ({
+            ...testCaseRule,
+            id: 'test-case-' + prefix.slice(1),
+            prefix,
+          })),
+          {
+            id: 'user',
+            prefix: '@',
+            storage: 'link',
+            legacyLinks: true,
+            color: '#a82736',
+            onSuggest: ({ query }) => lookup(users, query),
+            onHover: ({ query }) => ({ title: query, description: 'Team member' }),
+            onClick: ({ value }) => {
+              activity.textContent = 'User selected: ' + value;
+            },
+          },
+          {
+            id: 'topic',
+            prefix: '##',
+            color: '#227761',
+            onSuggest: ({ query }) => lookup(topics, query),
+            onHover: ({ query }) => ({ title: 'Topic: ' + query }),
+            onClick: ({ value }) => {
+              activity.textContent = 'Topic selected: ' + value;
+            },
+          },
+        ],
+      });
+      const show = () => {
+        document.querySelector('#value').textContent = example.get();
+      };
+      example.on('change', show);
+      example.ready.then(show);
+      document.querySelector('#theme').addEventListener('change', event => example.setTheme(event.target.value));
+      document.querySelector('#read-only').addEventListener('change', event => example.setReadOnly(event.target.checked));
+    </script>
+    <script src="demo.js"></script>
+  </body>
+</html>

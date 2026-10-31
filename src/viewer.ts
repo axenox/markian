@@ -1,6 +1,9 @@
 import DOMPurify from 'dompurify';
 import { headings, renderMarkdown, safeUrl, validateMarkdown } from './render/markdown';
 import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
+import { validateInlineHtml, type InlineHtmlTag } from './render/inline-html';
+import { installTemplateStyles, templateStyles, type TemplateStyle } from './render/template-styles';
+export type { TemplateStyle } from './render/template-styles';
 import './viewer.css';
 
 export { headings };
@@ -31,6 +34,8 @@ export interface ViewerOptions {
   markdownCssClasses?: readonly string[];
   softbreaks?: boolean;
   allowTextColors?: boolean;
+  allowedHtml?: readonly InlineHtmlTag[];
+  templates?: readonly TemplateStyle[];
   mermaid?: boolean;
   documentBase?: string;
   onResourceResolve?: (context: ViewerResourceContext) => string | null;
@@ -61,6 +66,9 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
   if (mounted.has(host) || host.querySelector(':scope > [data-markian-viewer]')) throw new Error('Viewer host is already mounted.');
   const initial = options.markdown ?? '';
   validateMarkdown(initial);
+  validateInlineHtml(options.allowedHtml);
+  const templateCss = templateStyles(options.templates);
+  const allowedHtml = [...(options.allowedHtml ?? [])];
   let theme = themeValue(options.theme ?? 'light');
   for (const name of ['softbreaks', 'allowTextColors', 'mermaid'] as const) {
     if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
@@ -118,7 +126,7 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
     const content = document.createElement('div');
     content.className = 'markian-document';
     content.classList.add(...classes);
-    content.innerHTML = renderMarkdown(next, options.softbreaks, options.allowTextColors);
+    content.innerHTML = renderMarkdown(next, options.softbreaks, options.allowTextColors, allowedHtml);
     for (const node of content.querySelectorAll<HTMLAnchorElement | HTMLImageElement>('a, img')) {
       const kind = node.tagName === 'IMG' ? 'image' : 'link';
       const attribute = kind === 'image' ? 'src' : 'href';
@@ -216,6 +224,7 @@ export function create(host: HTMLElement, options: ViewerOptions = {}): Viewer {
   };
   let ready: Promise<void>;
   try {
+    styleCleanups.push(installTemplateStyles(element, templateCss));
     ready = Promise.all([render(initial), loadStylesheets(host, cssUrls, stylesLifetime.signal, dispose => styleCleanups.push(dispose))]).then(() => undefined);
     ready = ready.catch(error => { destroy(); throw error; });
   }

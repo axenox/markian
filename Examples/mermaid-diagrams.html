@@ -6,6 +6,7 @@
     <title>Markian | Mermaid diagrams</title>
     <link rel="stylesheet" href="demo.css">
     <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/markian-viewer.css">
     <link rel="stylesheet" href="../dist/extensions/mermaid.css">
     <style>
       .editor-host {
@@ -39,11 +40,13 @@
       <section class="editor-host" aria-label="Diagram editor">
         <div id="diagram-editor"></div>
       </section>
+      <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
     </main>
 
     <script src="../dist/markian.min.js"></script>
+    <script src="../dist/markian-viewer.min.js"></script>
     <script src="../dist/extensions/mermaid.min.js"></script>
-    <script>
+    <script data-editor-init>
       const markdown = [
         '# Release workflow',
         '',
@@ -71,7 +74,7 @@
           mermaid: {
             enabled: true,
             config: {
-                source: '../host-assets/mermaid.min.js',
+              source: '../host-assets/mermaid.min.js',
             },
           },
         },
@@ -85,5 +88,6 @@
         diagramEditor.setReadOnly(event.target.checked);
       });
     </script>
+    <script src="demo.js"></script>
   </body>
 </html>

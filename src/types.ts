@@ -1,16 +1,21 @@
 import type { RootContent } from 'mdast';
 import type { Attrs, NodeSpec, Node as ProseNode } from 'prosemirror-model';
+import type { InlineHtmlTag } from './render/inline-html';
+export type { InlineHtmlTag } from './render/inline-html';
+import type { TemplateStyle } from './render/template-styles';
+export type { TemplateStyle } from './render/template-styles';
 
 export type Mode = 'visual' | 'raw';
 export type Theme = 'light' | 'dark';
 export type Disposer = () => void;
-export type EventName = 'change' | 'draft' | 'ready' | 'mode' | 'focus' | 'blur' | 'error' | 'save-request';
+export type EventName = 'change' | 'draft' | 'ready' | 'mode' | 'focus' | 'blur' | 'error' | 'save-request' | 'tag-click';
 export interface EditorEvent {
   instance: MarkianInstance;
   origin: string;
   revision: number;
   view: string;
   error?: Error;
+  tag?: { rule: TagRule; value: string; destination?: string };
 }
 export interface SetOptions {
   origin?: string;
@@ -20,6 +25,7 @@ export interface SetOptions {
 export interface CommandDefinition {
   id: string;
   label: string;
+  hint?: string;
   icon?: string;
   swatch?: string;
   views: readonly string[];
@@ -112,8 +118,37 @@ export interface ProviderContext {
 export interface DestinationSuggestion { label: string; destination: string; }
 export interface LinkInspection { status: 'exists' | 'missing' | 'unknown'; headings?: readonly { id: string; label: string }[]; }
 export interface ImageResult { destination: string; alt?: string; }
+export interface TemplateDefinition extends TemplateStyle {
+  id: string;
+  label: string;
+  markdown: string;
+  hint?: string;
+  icon?: string;
+}
+export interface TagSuggestion { label: string; value: string; destination?: string; }
+export interface TagDetails { title: string; description?: string; }
+export interface TagContext extends ProviderContext {
+  rule: TagRule;
+  value: string;
+  destination?: string;
+}
+export interface TagRule {
+  id: string;
+  prefix: string;
+  priority?: number;
+  maxLength?: number;
+  storage?: 'plain' | 'link';
+  legacyLinks?: boolean;
+  color?: string;
+  onSuggest?(context: TagContext): readonly TagSuggestion[] | Promise<readonly TagSuggestion[]>;
+  onHover?(context: TagContext): TagDetails | Promise<TagDetails>;
+  onClick?(context: TagContext): void | Promise<void>;
+}
 export interface EditorOptions {
   markdown: string;
+  templates?: readonly TemplateDefinition[];
+  allowedHtml?: readonly InlineHtmlTag[];
+  tags?: readonly TagRule[];
   initialMode?: Mode;
   sidebarVisible?: boolean;
   theme?: Theme;

@@ -1,4 +1,7 @@
 import { headings } from './render/markdown';
+import { type InlineHtmlTag } from './render/inline-html';
+import { type TemplateStyle } from './render/template-styles';
+export type { TemplateStyle } from './render/template-styles';
 import './viewer.css';
 export { headings };
 export type { Heading } from './render/markdown';
@@ -24,6 +27,8 @@ export interface ViewerOptions {
     markdownCssClasses?: readonly string[];
     softbreaks?: boolean;
     allowTextColors?: boolean;
+    allowedHtml?: readonly InlineHtmlTag[];
+    templates?: readonly TemplateStyle[];
     mermaid?: boolean;
     documentBase?: string;
     onResourceResolve?: (context: ViewerResourceContext) => string | null;

@@ -5,6 +5,33 @@ import { findMatches } from '../src/search';
 import { defaultToolbar, ToolbarItems, validateToolbar } from '../src/ui/toolbar';
 import type { ToolbarEntry } from '../src/types';
 import { markdownClasses } from '../src/styles';
+import { expandTemplate, validateTemplates } from '../src/templates';
+import { matchTags, validateTags } from '../src/mentions';
+
+test('mention matching prioritizes literal prefixes and excludes URLs and email', () => {
+  const rules = [{ id: 'ticket', prefix: '#' }, { id: 'topic', prefix: '##' }, { id: 'user', prefix: '@' }];
+  assert.deepEqual(matchTags('#123 ##topic @user https://example.test/#hidden www.example.test/@hidden user@example.test', rules).map(match => [match.rule.id, match.value]), [['ticket', '#123'], ['topic', '##topic'], ['user', '@user']]);
+  assert.equal(matchTags('##topic', [{ id: 'first', prefix: '#', priority: 5 }, ...rules.slice(1)])[0].rule.id, 'first');
+  assert.equal(matchTags('@abcdef', [{ id: 'user', prefix: '@', maxLength: 3 }]).length, 0);
+  assert.equal(matchTags('word#123', rules).length, 0);
+  for (const invalid of [{ id: 'bad', prefix: '' }, { id: 'bad', prefix: '@', color: 'url(x)' }, { id: 'bad', prefix: '@', onHover: 'code' }, { id: 'bad', prefix: '@', maxLength: 101 }]) assert.throws(() => validateTags([invalid] as unknown as import('../src/types').TagRule[]), TypeError);
+});
+
+test('configured inline HTML renders escaped content without permitting attributes or scripts', () => {
+  const markdown = 'Press <kbd>&lt;Enter&gt; &amp; **now**</kbd> then <sup>2</sup>.';
+  assert.match(renderMarkdown(markdown, false, false, ['kbd', 'sup']), /<kbd>&#x3C;Enter> &#x26; <strong>now<\/strong><\/kbd>/);
+  assert.doesNotMatch(renderMarkdown('<kbd onclick="bad()">x</kbd><script>bad()</script>', false, false, ['kbd']), /onclick|<script|<kbd/);
+  assert.doesNotMatch(renderMarkdown(markdown), /<kbd|<sup/);
+});
+
+test('templates expand literal selections and reject executable or unsupported contexts', () => {
+  assert.deepEqual(expandTemplate('<kbd>{{selection}}</kbd>', '', ['kbd']), { markdown: '<kbd></kbd>', caret: 5 });
+  assert.equal(expandTemplate('**{{selection}}**', '{{selection}} <script> & *word*').markdown, '**\\{\\{selection\\}\\} &lt;script&gt; &amp; \\*word\\***');
+  assert.equal(expandTemplate('Fixed body', 'ignored').markdown, 'Fixed body');
+  assert.equal(expandTemplate('{{selection}}', '- item\n+ other\n1. ordered\n===').markdown, '\\- item\n\\+ other\n1\\. ordered\n\\=\\=\\=');
+  for (const markdown of ['[label]({{selection}})', '<kbd title="{{selection}}">text</kbd>', '<script>bad</script>', '<img src="x">']) assert.throws(() => expandTemplate(markdown, 'text', ['kbd']), TypeError);
+  assert.throws(() => validateTemplates([{ id: 'one', label: 'One', markdown: '<kbd>x</kbd>' }]), TypeError);
+});
 
 test('Markdown wrapper classes validate individual tokens and copy host configuration', () => {
   const classes = ['markdown-body', 'host-content', 'markdown-body'];

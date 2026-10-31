@@ -2446,3 +2446,402 @@ for (const fixture of corpus) test(`preservation corpus: ${fixture.name}`, async
     expect(await page.evaluate(() => window.compromised)).toBeUndefined();
   }
 });
+
+async function createW8Editor(page, options) {
+  await page.evaluate(async options => {
+    const host = document.createElement('div'); host.style.height = '450px';
+    document.querySelector('main').prepend(host);
+    window.w8Editor = Markian.create(host, options);
+    w8Editor.element.classList.add('w8-editor');
+    await w8Editor.ready;
+  }, options);
+  return page.locator('.w8-editor');
+}
+
+test('raw SVG icons sanitize templates, commands and nested menus', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (request.url().includes('icons.invalid')) requests.push(request.url()); });
+  const icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 0 20 20" width="900" height="900" onload="window.svgExecuted=true"><title>Untrusted title</title><style>body{display:none}</style><script>window.svgExecuted=true</script><image href="https://icons.invalid/image.svg"/><use href="https://icons.invalid/use.svg#shape"/><foreignObject><div xmlns="http://www.w3.org/1999/xhtml"><img src="https://icons.invalid/image.png"/></div></foreignObject><a href="https://icons.invalid/link"><g id="shared-icon"><path d="M5 1h18v18H5Z" fill="url(https://icons.invalid/paint.svg#color)"/><circle cx="10" cy="10" r="2" fill="currentColor"/></g></a></svg>';
+  const root = await createW8Editor(page, { markdown: 'Start', templates: [{ id: 'svg', label: 'SVG template', icon, markdown: 'Inserted' }] });
+  await page.evaluate(icon => {
+    window.svgCalls = 0;
+    w8Editor.getCommands().insert({ id: 'svg-command', label: 'SVG command', icon, views: ['visual'], run: () => { window.svgCalls++; } });
+    w8Editor.getToolbar().insert({ id: 'svg-command', command: 'svg-command' }, 'insert');
+    w8Editor.getToolbar().insert({ id: 'svg-menu', type: 'menu', label: 'SVG menu', icon, items: ['svg-command'] }, 'insert');
+  }, icon);
+  const icons = root.locator('svg[focusable="false"]');
+  expect(await icons.count()).toBeGreaterThanOrEqual(4);
+  for (const svg of await icons.all()) {
+    await expect(svg).toHaveAttribute('viewBox', '4 0 20 20');
+    await expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(await svg.getAttribute('width')).toBeNull();
+    expect(await svg.getAttribute('height')).toBeNull();
+    await expect(svg.locator('script, style, image, use, foreignObject, a, title, [id], [onload], [href]')).toHaveCount(0);
+    expect(await svg.locator('path').getAttribute('fill')).toBeNull();
+    await expect(svg.locator('circle')).toHaveAttribute('fill', 'currentColor');
+  }
+  const command = await revealCommand(root, 'svg-command');
+  await command.click();
+  expect(await page.evaluate(() => window.svgCalls)).toBe(1);
+  await (await revealCommand(root, 'template:svg')).click();
+  expect(await page.evaluate(() => w8Editor.get())).toContain('Inserted');
+  expect(await page.evaluate(() => window.svgExecuted)).toBeUndefined();
+  expect(requests).toEqual([]);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('raw SVG icons reject malformed and oversized configuration', async ({ page }) => {
+  const failures = await page.evaluate(async () => {
+    const failures = [];
+    for (const icon of ['<svg>', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 24"><path d="M0 0h1"/></svg>', '<svg xmlns="http://www.w3.org/2000/svg">' + ' '.repeat(20000) + '</svg>']) {
+      const host = document.createElement('div'); document.querySelector('main').append(host);
+      let instance;
+      try { instance = Markian.create(host, { markdown: 'Text', templates: [{ id: 'bad', label: 'Bad', icon, markdown: 'Text' }] }); await instance.ready; failures.push(false); }
+      catch (error) { failures.push(/SVG|viewBox/.test(error.message)); }
+      finally { instance?.destroy(); host.remove(); }
+    }
+    return failures;
+  });
+  expect(failures).toEqual([true, true, true]);
+});
+
+test('W8 templates automatically join the regular toolbar with a distinct icon', async ({ page }) => {
+  await expect(page.locator('[data-markian] summary').filter({ hasText: /^Templates$/ })).toHaveCount(0);
+  const root = await createW8Editor(page, { markdown: 'Start', templates: [{ id: 'fixed', label: 'Fixed note', markdown: 'Fixed note' }] });
+  const summary = root.locator('summary').filter({ hasText: /^Templates$/ });
+  await expect(summary).toHaveCount(1);
+  const icon = await summary.locator('svg path').first().getAttribute('d');
+  expect(icon).toBeTruthy();
+  expect(icon).not.toBe(await root.locator('[data-command="code"] svg path').first().getAttribute('d'));
+  await (await revealCommand(root, 'template:fixed')).click();
+  expect(await page.evaluate(() => w8Editor.get())).toContain('Fixed note');
+});
+
+test('W8 template CSS stays scoped and survives preview and viewer updates', async ({ page }) => {
+  await page.addStyleTag({ url: '/dist/markian-viewer.css' });
+  await page.addScriptTag({ url: '/dist/markian-viewer.min.js' });
+  const markdown = 'Press <kbd>Enter</kbd> now';
+  const templates = [{ id: 'key', label: 'Key', markdown: '<kbd>{{selection}}</kbd>', css: 'kbd { border-radius: 7px; background-color: rgb(10, 90, 100); } button { outline: 7px solid red; }' }];
+  const baseline = await page.locator('style[data-markian-template-styles]').count();
+  const root = await createW8Editor(page, { markdown, allowedHtml: ['kbd'], templates });
+  await page.evaluate(async ({ markdown, templates }) => {
+    const styled = document.createElement('div'); styled.id = 'styled-viewer';
+    const plain = document.createElement('div'); plain.id = 'plain-viewer';
+    document.querySelector('main').append(styled, plain);
+    window.styledViewer = MarkianViewer.create(styled, { markdown, allowedHtml: ['kbd'], templates });
+    window.plainViewer = MarkianViewer.create(plain, { markdown, allowedHtml: ['kbd'] });
+    await Promise.all([styledViewer.ready, plainViewer.ready]);
+  }, { markdown, templates });
+  const appearance = element => {
+    const css = getComputedStyle(element);
+    return [css.borderRadius, css.backgroundColor, css.borderTopWidth, css.borderBottomWidth, css.display];
+  };
+  const key = root.locator('.ProseMirror kbd');
+  expect(await key.evaluate(appearance)).toEqual(['7px', 'rgb(10, 90, 100)', '1px', '2px', 'inline-block']);
+  expect(await page.locator('#styled-viewer kbd').evaluate(appearance)).toEqual(await key.evaluate(appearance));
+  expect(await page.locator('#plain-viewer kbd').evaluate(appearance)).not.toEqual(await key.evaluate(appearance));
+  expect(await root.locator('button').first().evaluate(element => getComputedStyle(element).outlineWidth)).not.toBe('7px');
+  await page.evaluate(async () => { await w8Editor.execute('preview'); await styledViewer.set('Press <kbd>Esc</kbd> now'); await styledViewer.setTheme('dark'); });
+  expect(await root.locator('.markian-view kbd').evaluate(appearance)).toEqual(['7px', 'rgb(10, 90, 100)', '1px', '2px', 'inline-block']);
+  await expect(page.locator('#styled-viewer kbd')).toHaveText('Esc');
+  expect(await page.locator('#styled-viewer kbd').evaluate(appearance)).toEqual(['7px', 'rgb(10, 90, 100)', '1px', '2px', 'inline-block']);
+  expect(await page.evaluate(() => w8Editor.get())).toBe(markdown);
+  const rejected = await page.evaluate(() => {
+    try { MarkianViewer.create(document.createElement('div'), { templates: [{ css: '@media print { kbd { color: red; } }' }] }); return false; }
+    catch (error) { return error.message.includes('flat style rules'); }
+  });
+  expect(rejected).toBe(true);
+  await page.evaluate(() => { w8Editor.destroy(); styledViewer.destroy(); plainViewer.destroy(); });
+  await expect(page.locator('style[data-markian-template-styles]')).toHaveCount(baseline);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W8 templates wrap literal selection with safe HTML and single-step undo', async ({ page }) => {
+  const root = await createW8Editor(page, { markdown: 'Press Enter now', allowedHtml: ['kbd'], toolbar: [{ id: 'insert', type: 'group', items: ['templates', 'link'] }], templates: [
+    { id: 'key', label: 'Key', hint: 'Keyboard key', markdown: '<kbd>{{selection}}</kbd>' },
+    { id: 'bold', label: 'Strong', markdown: '**{{selection}}**' },
+    { id: 'fixed', label: 'Fixed note', markdown: 'Fixed note' },
+  ] });
+  await expect(root.locator('summary').filter({ hasText: /^Templates$/ })).toHaveCount(1);
+  await page.evaluate(() => { w8Editor.search({ query: 'Enter' }); w8Editor.selectSearch(0); });
+  await (await revealCommand(root, 'template:key')).click();
+  await expect(root.locator('.ProseMirror kbd')).toHaveText('Enter');
+  expect(await page.evaluate(() => w8Editor.get())).toBe('Press <kbd>Enter</kbd> now');
+  await page.evaluate(() => w8Editor.execute('undo'));
+  expect(await page.evaluate(() => w8Editor.get())).toBe('Press Enter now');
+  await page.evaluate(async () => {
+    await w8Editor.execute('redo');
+    w8Editor.setMode('raw'); w8Editor.setMode('visual');
+  });
+  await expect(root.locator('.ProseMirror kbd')).toHaveText('Enter');
+  await page.evaluate(() => w8Editor.execute('preview'));
+  await expect(root.locator('.markian-view kbd')).toHaveText('Enter');
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W8 empty HTML and Markdown templates keep typing at their placeholder', async ({ page }) => {
+  const root = await createW8Editor(page, { markdown: 'Start', allowedHtml: ['kbd'], templates: [
+    { id: 'key', label: 'Key', markdown: '<kbd>{{selection}}</kbd>' },
+    { id: 'sentence', label: 'Sentence', markdown: 'Before {{selection}} after' },
+  ] });
+  const prose = root.locator('.ProseMirror');
+  await prose.click(); await page.keyboard.press('End');
+  await page.evaluate(() => w8Editor.execute('template:key'));
+  await page.keyboard.type('Tab');
+  await expect(prose.locator('kbd')).toHaveText('Tab');
+  await page.evaluate(() => w8Editor.set('Start', { resetHistory: true }));
+  await prose.click(); await page.keyboard.press('End');
+  await page.evaluate(() => w8Editor.execute('template:sentence'));
+  await page.keyboard.type('middle');
+  expect(await page.evaluate(() => w8Editor.get())).toContain('Before middle after');
+});
+
+test('W8 source templates escape literal text, position caret and block read-only insertion', async ({ page }) => {
+  const root = await createW8Editor(page, { markdown: '<literal> {{selection}}', initialMode: 'raw', allowedHtml: ['kbd'], templates: [
+    { id: 'bold', label: 'Strong', markdown: '**{{selection}}**' },
+    { id: 'key', label: 'Key', markdown: '<kbd>{{selection}}</kbd>' },
+  ] });
+  await root.locator('.cm-content').focus(); await page.keyboard.press('Control+Home'); await page.keyboard.press('Control+Shift+End');
+  await page.evaluate(() => w8Editor.execute('template:bold'));
+  expect(await page.evaluate(() => w8Editor.get())).toBe('**&lt;literal&gt; \\{\\{selection\\}\\}**');
+  await page.evaluate(() => { w8Editor.set('', { pending: 'discard', resetHistory: true }); });
+  await root.locator('.cm-content').focus();
+  await page.evaluate(() => w8Editor.execute('template:key'));
+  await page.keyboard.type('Esc');
+  expect(await page.evaluate(() => w8Editor.get())).toBe('<kbd>Esc</kbd>');
+  expect(await page.evaluate(async () => { w8Editor.setReadOnly(true); return w8Editor.execute('template:key'); })).toBe(false);
+});
+
+test('W8 mentions preserve plain and legacy link source and dispatch separate accessible handlers', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div'); host.style.height = '450px'; document.querySelector('main').prepend(host);
+    window.tagCalls = []; window.tagEvents = [];
+    window.w8Editor = Markian.create(host, { markdown: 'Ticket #123 and @alex. Legacy [@casey]() and [@robin](people/robin).\n\n`@code #999` and https://example.test/#url', tags: [
+      { id: 'ticket', prefix: '#', color: '#16669a', onClick: context => tagCalls.push(['ticket', context.value]), onHover: context => ({ title: 'Ticket ' + context.query, description: '<b>Literal details</b>' }) },
+      { id: 'user', prefix: '@', legacyLinks: true, onClick: context => tagCalls.push(['user', context.value]), onHover: context => ({ title: 'User ' + context.query }) },
+    ] });
+    w8Editor.element.classList.add('w8-editor'); w8Editor.on('tag-click', event => tagEvents.push(event.tag.value)); await w8Editor.ready;
+  });
+  const root = page.locator('.w8-editor');
+  await expect(root.locator('[data-markian-tag]')).toHaveCount(4);
+  const ticket = root.locator('[data-markian-tag="ticket"]');
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(theme => w8Editor.setTheme(theme), theme);
+    const chips = await root.evaluate(root => {
+      const tags = [...root.querySelectorAll('[data-markian-tag]')];
+      const styles = tags.map(tag => {
+        const style = getComputedStyle(tag);
+        const parent = getComputedStyle(tag.parentElement);
+        return {
+          color: style.color, regularColor: parent.color,
+          background: style.backgroundColor, display: style.display,
+          lineHeight: style.lineHeight, regularLineHeight: parent.lineHeight,
+          verticalPadding: [style.paddingTop, style.paddingBottom],
+          border: style.borderBottomWidth,
+          tint: tag.style.getPropertyValue('--markian-tag-color'),
+        };
+      });
+      const paragraph = tags[0].closest('p');
+      const surface = paragraph.parentElement.cloneNode(false);
+      surface.removeAttribute('contenteditable');
+      surface.style.cssText = 'position:fixed;visibility:hidden;width:1000px;white-space:nowrap';
+      const probe = paragraph.cloneNode(true);
+      surface.append(probe); root.append(surface);
+      const chipHeight = probe.getBoundingClientRect().height;
+      probe.querySelectorAll('.markian-tag').forEach(tag => tag.classList.remove('markian-tag'));
+      const plainHeight = probe.getBoundingClientRect().height;
+      surface.remove();
+      return { styles, chipHeight, plainHeight };
+    });
+    for (const style of chips.styles) {
+      expect(style.color).toBe(style.regularColor);
+      expect(style.background).not.toBe('rgba(0, 0, 0, 0)');
+      expect(style.display).toBe('inline');
+      expect(style.lineHeight).toBe(style.regularLineHeight);
+      expect(style.verticalPadding).toEqual(['0px', '0px']);
+      expect(style.border).toBe('0px');
+    }
+    expect(chips.styles[0].tint).toBe('#16669a');
+    expect(chips.styles[1].tint).toBe('');
+    expect(chips.styles[0].background).not.toBe(chips.styles[1].background);
+    expect(chips.chipHeight).toBe(chips.plainHeight);
+  }
+  await ticket.focus();
+  await expect(root.locator('.markian-tag-details')).toContainText('Ticket 123');
+  await expect(root.locator('.markian-tag-details b')).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await root.locator('[data-markian-tag="user"]').first().click();
+  await expect.poll(() => page.evaluate(() => tagCalls)).toEqual([['ticket', '#123'], ['user', '@alex']]);
+  expect(await page.evaluate(() => tagEvents)).toEqual(['#123', '@alex']);
+  const value = await page.evaluate(() => w8Editor.get());
+  expect(value).toContain('[@casey]()'); expect(value).toContain('[@robin](people/robin)');
+  await page.evaluate(() => { w8Editor.setReadOnly(true); w8Editor.setMode('raw'); w8Editor.setMode('visual'); });
+  await expect(root.locator('[data-markian-tag]')).toHaveCount(4);
+  expect(await page.evaluate(() => w8Editor.get())).toBe(value);
+});
+
+test('W8 mention suggestions use keyboard selection, plain or link storage and undo', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div'); host.style.height = '450px'; document.querySelector('main').prepend(host);
+    window.w8Editor = Markian.create(host, { markdown: 'Start ', tags: [
+      { id: 'ticket', prefix: '#', onSuggest: () => [{ label: 'Ticket 123', value: '#123' }, { label: 'Ticket 456', value: '#456' }] },
+      { id: 'user', prefix: '@', storage: 'link', legacyLinks: true, onSuggest: () => [{ label: 'Alex', value: '@alex', destination: 'people/alex' }] },
+    ] });
+    w8Editor.element.classList.add('w8-editor'); await w8Editor.ready;
+  });
+  const root = page.locator('.w8-editor'); const prose = root.locator('.ProseMirror');
+  await prose.click(); await page.keyboard.press('End'); await page.keyboard.type(' #');
+  await expect(root.locator('.markian-tag-suggestions button')).toHaveCount(2);
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => w8Editor.get())).toContain('#456');
+  await page.evaluate(() => w8Editor.execute('undo'));
+  expect(await page.evaluate(() => w8Editor.get())).not.toContain('#456');
+  await page.evaluate(() => w8Editor.set('Start', { resetHistory: true }));
+  await prose.click(); await page.keyboard.press('End'); await page.keyboard.type(' @');
+  await expect(root.locator('.markian-tag-suggestions button')).toHaveCount(1);
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => w8Editor.get())).toContain('[@alex](people/alex)');
+  await expect(root.locator('[data-markian-tag="user"]')).toHaveCount(1);
+});
+
+test('W8 stale mention suggestions and details cannot cross rules, permissions or destroyed instances', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div'); host.style.height = '450px'; document.querySelector('main').prepend(host);
+    window.tagSignals = []; window.resolveOld = undefined;
+    window.w8Editor = Markian.create(host, { markdown: 'Start', tags: [
+      { id: 'ticket', prefix: '#', onSuggest: context => { tagSignals.push(context.signal); return new Promise(resolve => { window.resolveOld = resolve; }); } },
+      { id: 'user', prefix: '@', onSuggest: () => [{ label: 'Current user', value: '@current' }], onHover: () => new Promise(resolve => { window.resolveDetails = resolve; }) },
+    ] }); w8Editor.element.classList.add('w8-editor'); await w8Editor.ready;
+  });
+  const root = page.locator('.w8-editor'); const prose = root.locator('.ProseMirror');
+  await prose.click(); await page.keyboard.press('End'); await page.keyboard.type(' #');
+  await expect.poll(() => page.evaluate(() => typeof resolveOld)).toBe('function');
+  await page.keyboard.press('Backspace'); await page.keyboard.type('@');
+  await expect(root.locator('.markian-tag-suggestions')).toContainText('Current user');
+  await page.evaluate(() => resolveOld([{ label: 'Obsolete ticket', value: '#123' }]));
+  await expect(root.locator('.markian-tag-suggestions')).not.toContainText('Obsolete ticket');
+  expect(await page.evaluate(() => tagSignals[0].aborted)).toBe(true);
+  await page.evaluate(() => w8Editor.setReadOnly(true));
+  await expect(root.locator('.markian-tag-suggestions')).toHaveCount(0);
+  await page.evaluate(() => w8Editor.set('Mention @current', { resetHistory: true }));
+  await root.locator('[data-markian-tag]').focus();
+  await expect.poll(() => page.evaluate(() => typeof window.resolveDetails)).toBe('function');
+  await page.evaluate(() => { w8Editor.destroy(); resolveDetails({ title: 'Too late' }); });
+  await expect(page.locator('.markian-tag-details')).toHaveCount(0);
+});
+
+test('W8 mention provider failures stay visible without changing source', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div'); host.style.height = '450px'; document.querySelector('main').prepend(host);
+    window.w8Editor = Markian.create(host, { markdown: 'Start', tags: [{ id: 'user', prefix: '@', onSuggest: () => { throw new Error('Local lookup failed'); } }] });
+    w8Editor.element.classList.add('w8-editor'); await w8Editor.ready;
+  });
+  const root = page.locator('.w8-editor');
+  await root.locator('.ProseMirror').click(); await page.keyboard.press('End'); await page.keyboard.type(' @');
+  await expect(root.locator('.markian-tag-suggestions')).toContainText('Local lookup failed');
+  expect(await page.evaluate(() => w8Editor.get())).toContain('Start @');
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W8 viewer shares bounded HTML policy without editor wrappers', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/markian-viewer.min.js' });
+  await page.evaluate(async () => {
+    const host = document.createElement('article'); document.querySelector('main').prepend(host);
+    window.w8Viewer = MarkianViewer.create(host, { markdown: 'Press <kbd>&lt;Enter&gt;</kbd> and <mark>review</mark>.', allowedHtml: ['kbd', 'mark'] });
+    await w8Viewer.ready;
+  });
+  await expect(page.locator('[data-markian-viewer] kbd')).toHaveText('<Enter>');
+  await expect(page.locator('[data-markian-viewer] mark')).toHaveText('review');
+  expect(await page.evaluate(() => w8Viewer.get())).toBe('Press <kbd>&lt;Enter&gt;</kbd> and <mark>review</mark>.');
+  await page.evaluate(() => w8Viewer.destroy());
+});
+
+for (const width of [1100, 390]) {
+  test(`example initialization viewers render live source at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const filename of ['minimal-editor', 'editor-workspace', 'mermaid-diagrams', 'mentions', 'templates', 'viewer']) {
+      await page.goto(`/Examples/${filename}.html`);
+      await page.evaluate(() => window.demoInitViewer.ready);
+      const source = await page.locator('script[data-editor-init]').textContent();
+      await expect(page.locator('[data-demo-init] [data-markian-viewer] pre > code')).toHaveText(source.trim());
+      await expect(page.locator('[data-demo-init] [data-markian-viewer] pre > code')).toContainText('Markian.create(');
+      const displayed = await page.locator('[data-demo-init] [data-markian-viewer] pre > code').textContent();
+      expect(displayed).toMatch(/^const /);
+      expect(displayed).toMatch(/\nwindow\.(?:example|editor|diagramEditor|viewer) =/);
+      expect(displayed).toMatch(/\n {2}markdown[,:]/);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(browserErrors.get(page)).toEqual([]);
+    }
+  });
+}
+
+for (const width of [1100, 390]) {
+  test(`W8 examples run primary interactions at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const requests = [];
+    page.on('request', request => requests.push(request.url()));
+    await page.goto('/Examples/templates.html');
+    await page.evaluate(async () => { await example.ready; example.search({ query: 'wording' }); example.selectSearch(0); });
+    const templateRoot = page.locator('[data-markian]');
+    await (await revealCommand(templateRoot, 'template:key')).click();
+    await expect(templateRoot.locator('kbd').filter({ hasText: 'wording' })).toBeVisible();
+    await page.locator('#theme').selectOption('dark');
+    await expect(templateRoot).toHaveAttribute('data-theme', 'dark');
+    await page.screenshot({ path: testInfo.outputPath('templates.png'), fullPage: true });
+    await page.locator('#read-only').check();
+    expect(await page.evaluate(() => example.execute('template:review'))).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.goto('/Examples/mentions.html');
+    await page.evaluate(async () => { await example.ready; });
+    const mentionRoot = page.locator('[data-markian]');
+    await mentionRoot.locator('[data-markian-tag="ticket"]').first().click();
+    await expect(page.locator('#activity')).toHaveText('Ticket opened: #123');
+    await mentionRoot.locator('[data-markian-tag="user"]').first().focus();
+    await expect(mentionRoot.locator('.markian-tag-details')).toContainText('Team member');
+    await page.screenshot({ path: testInfo.outputPath('mentions.png'), fullPage: true });
+    await page.locator('#theme').selectOption('dark');
+    await expect(mentionRoot).toHaveAttribute('data-theme', 'dark');
+    await page.screenshot({ path: testInfo.outputPath('mentions-dark.png'), fullPage: true });
+    await mentionRoot.locator('.ProseMirror p').last().click(); await page.keyboard.press('End'); await page.keyboard.type(' @');
+    await expect(mentionRoot.locator('.markian-tag-suggestions button')).toHaveCount(2);
+    const menuStyles = await mentionRoot.evaluate(root => {
+      const regular = root.querySelector('.markian-menu-items:not(.markian-suggestions)');
+      const suggestions = root.querySelector('.markian-tag-suggestions');
+      const pick = (element, properties) => {
+        const styles = getComputedStyle(element);
+        return properties.map(property => styles.getPropertyValue(property));
+      };
+      const surface = ['padding', 'border-radius', 'border-top-width', 'box-shadow', 'background-color'];
+      const row = ['padding', 'border-radius', 'border-top-width', 'min-height', 'font-size', 'background-color'];
+      return {
+        regular: pick(regular, surface), suggestions: pick(suggestions, surface),
+        regularRow: pick(regular.querySelector('.markian-button'), row), suggestionRow: pick(suggestions.querySelector('button:last-child'), row),
+      };
+    });
+    expect(menuStyles.suggestions).toEqual(menuStyles.regular);
+    expect(menuStyles.suggestionRow).toEqual(menuStyles.regularRow);
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => example.get())).toContain('[@alex](#alex)');
+    await page.keyboard.type(' #12');
+    await expect(mentionRoot.locator('.markian-tag-suggestions button')).toHaveText(['Ticket 123: Review']);
+    await page.keyboard.press('Backspace'); await page.keyboard.press('Backspace'); await page.keyboard.type('tc');
+    await expect(mentionRoot.locator('.markian-tag-suggestions button')).toHaveText(['Test case 123: Mention routing', 'Test case 456: Keyboard selection']);
+    await page.keyboard.type('12');
+    await expect(mentionRoot.locator('.markian-tag-suggestions button')).toHaveText(['Test case 123: Mention routing']);
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => example.get())).toContain('#tc123');
+    await page.keyboard.type(' #TC');
+    await expect(mentionRoot.locator('.markian-tag-suggestions button')).toHaveText(['Test case 123: Mention routing', 'Test case 456: Keyboard selection']);
+    await page.keyboard.press('Enter');
+    await mentionRoot.locator('[data-markian-tag="test-case-TC"]').last().click();
+    await expect(page.locator('#activity')).toHaveText('Test case opened: #TC123');
+    await page.locator('#failure').check();
+    await mentionRoot.locator('.ProseMirror p').last().click(); await page.keyboard.press('End'); await page.keyboard.type(' #');
+    await expect(mentionRoot.locator('.markian-tag-suggestions')).toContainText('Local lookup failed');
+    await page.locator('#read-only').check();
+    await expect(mentionRoot.locator('.markian-tag-suggestions')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(requests.filter(url => /host-assets|extensions\//.test(url))).toEqual([]);
+    expect(browserErrors.get(page)).toEqual([]);
+  });
+}

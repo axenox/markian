@@ -6,10 +6,12 @@ Serve the package directory with a static HTTP server and open the [example inde
 | --- | --- |
 | [Minimal editor](../Examples/minimal-editor.html) | Textarea mounting, change subscription, form value, native reset, and destruction. |
 | [Editor workspace](../Examples/editor-workspace.html) | Themes, read-only inspection, and optional Code workspace. |
+| [Templates and HTML](../Examples/templates.html) | Automatic regular-toolbar registration, custom SVG icons held in variables, fixed checklist insertion, literal selection wrappers, keyboard-key/highlight CSS shared with a synchronized standalone viewer, source output, themes and permissions. |
+| [Mentions and tags](../Examples/mentions.html) | Competing prefixes: `#12` suggests tickets; `#TC` and `#tc` suggest test cases using a shared provider and explicit case aliases. Separate local user/topic callbacks, plain/link storage, legacy mentions, accessible details, delayed/error results and read-only inspection. |
 | [Mermaid diagrams](../Examples/mermaid-diagrams.html) | Explicit Mermaid activation, multiple diagrams, themes, read-only inspection, pan/zoom, and source/preview workspace. |
 | [Editor/viewer comparison](../Examples/viewer.html) | Shared Markdown/theme with equal desktop panes and stacked narrow-screen panes. |
 
-Each named page keeps mount sizing, configuration, sample Markdown, and JavaScript inline. Shared [demo.css](../Examples/demo.css) provides the page shell, branding, controls, and local font. Neither demo styles nor its masthead are library dependencies. Examples are included in package archives.
+Each named page keeps mount sizing, configuration, sample Markdown, and initialization JavaScript inline. All six runnable pages include an additional standalone Markian viewer containing that actual initialization source as a JavaScript code block. Shared [demo.js](../Examples/demo.js) reads the marked script rather than duplicating its configuration, removes the outer HTML indentation, and follows the selected page theme. Shared [demo.css](../Examples/demo.css) provides the page shell, branding, controls, local font, and bounded reference surface. Demo assets are not library dependencies. Examples are included in package archives.
 
 ## Mermaid Runtime
 

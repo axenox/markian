@@ -8,9 +8,10 @@ import Papa from 'papaparse';
 import { CellSelection, Fragment, Slice, TableMap, selectedRect } from './prose';
 import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
 import { equivalentMarkdown, markdownDifferences, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
-import type { StructuralNode, SearchOptions, SearchMatch } from '../types';
+import type { StructuralNode, SearchOptions, SearchMatch, InlineHtmlTag } from '../types';
 import { findMatches } from '../search';
 import { colorSyntax, type TextColor } from '../render/colors';
+import { inlineHtmlSyntax, type InlineHtml } from '../render/inline-html';
 
 export interface VisualEngine {
   view: EditorView;
@@ -56,6 +57,7 @@ export async function createVisual(
   documentBase?: string,
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
+  allowedHtml: readonly InlineHtmlTag[] = [],
 ): Promise<VisualEngine> {
   let editor: Editor;
   let replacing = false;
@@ -239,6 +241,9 @@ export async function createVisual(
     ctx.set(rootCtx, element);
     ctx.set(defaultValueCtx, '');
     ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, bullet: '-' as const }));
+    ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, handlers: { ...options.handlers,
+      inlineHtml: (node: InlineHtml, _parent: unknown, state: MarkdownState, info: Info) => `<${node.tag}>${state.containerPhrasing(node, info)}</${node.tag}>`,
+    } }));
     if (allowTextColors) ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, handlers: { ...options.handlers,
       textColor: (node: TextColor, _parent: unknown, state: MarkdownState, info: Info) => `<span style="color:${node.color}">${state.containerPhrasing(node, info)}</span>`,
     } }));
@@ -330,6 +335,19 @@ export async function createVisual(
       },
     })));
   }
+  if (allowedHtml.length) {
+    editor.use($remark('markian-inline-html', () => inlineHtmlSyntax(allowedHtml)));
+    for (const tag of allowedHtml) editor.use($mark(`html_${tag}`, () => ({
+      inclusive: true,
+      parseDOM: [{ tag, getAttrs: node => (node as HTMLElement).attributes.length ? false : {} }],
+      toDOM: () => [tag, 0],
+      parseMarkdown: {
+        match: node => node.type === 'inlineHtml' && node.tag === tag,
+        runner: (state, node, type) => { state.openMark(type); state.next(node.children); state.closeMark(type); },
+      },
+      toMarkdown: { match: mark => mark.type.name === `html_${tag}`, runner: (state, mark) => { state.withMark(mark, 'inlineHtml', undefined, { tag }); } },
+    })));
+  }
   if (allowTextColors) {
     editor.use($remark('markian-colors', () => colorSyntax));
     editor.use($mark('text_color', () => ({
@@ -366,7 +384,7 @@ export async function createVisual(
     const node = editor.action(ctx => ctx.get(parserCtx)(markdown));
     if (!safeDocument(node)) throw new Error('Unsafe URLs cannot be opened in visual mode. Source has been retained.');
     const serialized = serialize(node);
-    if (!equivalentMarkdown(markdown, serialized)) {
+    if (!equivalentMarkdown(markdown, serialized, allowedHtml)) {
       throw new Error('This document contains content not supported by visual mode. Source has been retained. First round-trip differences: ' + markdownDifferences(markdown, serialized).join(' '));
     }
     return node;

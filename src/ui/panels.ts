@@ -86,7 +86,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
   headingLabel.hidden = image;
   panel.append(headingLabel);
   const suggestions = document.createElement('div');
-  suggestions.className = 'markian-suggestions';
+  suggestions.className = 'markian-menu-items markian-suggestions';
   const status = document.createElement('output');
   status.setAttribute('aria-live', 'polite');
   panel.append(status, suggestions);
@@ -139,6 +139,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = result.label;
+        button.className = 'markian-button';
         button.addEventListener('click', () => { destination.value = result.destination; void inspect(request); });
         suggestions.append(button);
       }
