@@ -2680,6 +2680,51 @@ test('W8 mentions preserve plain and legacy link source and dispatch separate ac
   expect(await page.evaluate(() => w8Editor.get())).toBe(value);
 });
 
+test('W8 mention details have equal padding and stay closed over click suggestions', async ({ page }) => {
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.id = 'mention-tooltip-host'; host.style.height = '400px';
+    document.querySelector('main').prepend(host);
+    window.tooltipEditor = Markian.create(host, { markdown: 'Review #123 ', tags: [{
+      id: 'ticket', prefix: '#', suggestOnClick: true,
+      onHover: () => ({ title: 'Ticket: #123' }),
+      onSuggest: () => [{ label: 'Review record', value: '#123' }]
+    }] });
+    tooltipEditor.element.classList.add('mention-tooltip-editor');
+    await tooltipEditor.ready;
+  });
+  const root = page.locator('.mention-tooltip-editor');
+  const chip = root.locator('[data-markian-tag]');
+  const details = root.locator('.markian-tag-details');
+  const original = await page.evaluate(() => tooltipEditor.get());
+  for (const width of [960, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.mouse.move(0, 0); await chip.hover();
+    await expect(details.locator('strong')).toHaveText('Ticket: #123');
+    for (const side of ['top', 'right', 'bottom', 'left']) await expect(details).toHaveCSS(`padding-${side}`, '12px');
+    await expect(details.locator(':scope > *')).toHaveCount(1);
+    const spacing = await details.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      const title = element.firstElementChild.getBoundingClientRect();
+      return { top: title.top - bounds.top, bottom: bounds.bottom - title.bottom };
+    });
+    expect(spacing.top).toBeCloseTo(spacing.bottom, 1);
+    await chip.click();
+    await expect(root.locator('.markian-tag-suggestions button')).toHaveText(['Review record']);
+    await page.mouse.move(0, 0); await chip.hover(); await chip.focus();
+    await expect(details).toHaveCount(0);
+    expect(await page.evaluate(() => tooltipEditor.get())).toBe(original);
+    await root.locator('.markian-tag-suggestions').screenshot({ path: test.info().outputPath(`mention-menu-${width}.png`) });
+    await page.keyboard.press('Escape');
+  }
+  await page.evaluate(() => tooltipEditor.setReadOnly(true));
+  await page.mouse.move(0, 0); await chip.hover();
+  await expect(details.locator('strong')).toHaveText('Ticket: #123');
+  await chip.click();
+  await expect(root.locator('.markian-tag-suggestions')).toHaveCount(0);
+  await expect(details).toBeVisible();
+});
+
 test('W8 mention suggestions use keyboard selection, plain or link storage and undo', async ({ page }) => {
   await page.evaluate(async () => {
     const host = document.createElement('div'); host.style.height = '450px'; document.querySelector('main').prepend(host);

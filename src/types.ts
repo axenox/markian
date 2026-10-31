@@ -135,10 +135,12 @@ export interface TagContext extends ProviderContext {
 export interface TagRule {
   id: string;
   prefix: string;
+  textRegex?: string;
   priority?: number;
   maxLength?: number;
   storage?: 'plain' | 'link';
   legacyLinks?: boolean;
+  suggestOnClick?: boolean;
   color?: string;
   onSuggest?(context: TagContext): readonly TagSuggestion[] | Promise<readonly TagSuggestion[]>;
   onHover?(context: TagContext): TagDetails | Promise<TagDetails>;

@@ -17,6 +17,15 @@ test('mention matching prioritizes literal prefixes and excludes URLs and email'
   for (const invalid of [{ id: 'bad', prefix: '' }, { id: 'bad', prefix: '@', color: 'url(x)' }, { id: 'bad', prefix: '@', onHover: 'code' }, { id: 'bad', prefix: '@', maxLength: 101 }]) assert.throws(() => validateTags([invalid] as unknown as import('../src/types').TagRule[]), TypeError);
 });
 
+test('mention text regex filters the body independently of its literal prefix', () => {
+  const rules = [{ id: 'ticket', prefix: '#', textRegex: '\\d*' }];
+  validateTags(rules);
+  assert.deepEqual(matchTags('# #123 #abc #12abc #456.', rules).map(match => match.value), ['#', '#123', '#456']);
+  assert.deepEqual(matchTags('#abc', [{ id: 'ticket', prefix: '#', textRegex: '.*' }]).map(match => match.value), ['#abc']);
+  assert.throws(() => validateTags([{ id: 'bad', prefix: '#', textRegex: '[' }]), SyntaxError);
+  assert.throws(() => validateTags([{ id: 'bad', prefix: '#', textRegex: 'x'.repeat(501) }]), TypeError);
+});
+
 test('configured inline HTML renders escaped content without permitting attributes or scripts', () => {
   const markdown = 'Press <kbd>&lt;Enter&gt; &amp; **now**</kbd> then <sup>2</sup>.';
   assert.match(renderMarkdown(markdown, false, false, ['kbd', 'sup']), /<kbd>&#x3C;Enter> &#x26; <strong>now<\/strong><\/kbd>/);

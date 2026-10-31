@@ -72,6 +72,10 @@ The outline is visible by default and starts with a compact Outline title. It om
 
 Mention suggestions reuse the regular dropdown menu surface and full-width menu rows, without bordered pills or the form-panel pointer. They sit beside the active caret in a native popover, clamp to the viewport and scroll internally. Link/image suggestion lists use the same menu classes within their destination form. Up/Down highlights a mention choice and Enter accepts it; Escape dismisses. Details retain the separate text panel and remain available in read-only editors. Template choices use the ordinary toolbar menu, configured captions/icons and hint tooltips.
 
+Rules can opt into `suggestOnClick`: pointer or keyboard activation then opens the same suggestion menu for the complete tag, rather than a partial body determined by the caret. Activation itself never changes the saved text. Read-only tags keep details without offering insertion.
+
+Details are dismissed when suggestions open and remain suppressed during hover/focus while that menu is visible. Tooltips use equal padding on all four sides; title-only details omit the empty description and its gap.
+
 ## Document Presentation
 
 Use consistent spacing in Visual, Preview, and viewer output. Code is monospaced and preserves meaningful whitespace. Hidden comments remain invisible without deleting source. Comment-only visual paragraphs occupy no space; mixed text/comment paragraphs remain visible.

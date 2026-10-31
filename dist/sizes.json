@@ -2,9 +2,9 @@
   "compression": "Independent resources; gzip level 9, Brotli default quality 11. Bytes, not KiB. No editor or viewer optional features enabled in baseline totals.",
   "assets": {
     "markian.min.js": {
-      "bytes": 984810,
-      "gzip": 308018,
-      "brotli": 258103
+      "bytes": 985501,
+      "gzip": 308257,
+      "brotli": 258350
     },
     "markian.css": {
       "bytes": 13113,
@@ -49,9 +49,9 @@
   },
   "totals": {
     "editor": {
-      "bytes": 1002755,
-      "gzip": 312315,
-      "brotli": 261777
+      "bytes": 1003446,
+      "gzip": 312554,
+      "brotli": 262024
     },
     "viewer": {
       "bytes": 220683,
@@ -59,9 +59,9 @@
       "brotli": 60453
     },
     "combined": {
-      "bytes": 1223438,
-      "gzip": 382188,
-      "brotli": 322230
+      "bytes": 1224129,
+      "gzip": 382427,
+      "brotli": 322477
     }
   },
   "budget": {

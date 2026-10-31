@@ -159,11 +159,13 @@ Every `tags[]` entry uses these fields. Rules are copied at construction; callba
 | --- | --- | --- |
 | `id` | Required | Unique 1-60 word/hyphen-character rule ID. |
 | `prefix` | Required | Literal non-whitespace prefix, 1-8 characters; no backslash, backtick, or angle brackets. |
+| `textRegex` | Unset | Optional JavaScript regex source, without delimiters, up to 500 characters. Must match the complete bounded tag body, excluding the prefix. Use `\\d*` for numbers and an empty query immediately after the prefix. It does not expand the allowed body characters. |
 | `priority` | `0` | Integer from -1000 to 1000. Higher wins; ties prefer longer prefixes, then configuration order. |
 | `maxLength` | `64` | Body limit, 1-100 characters, excluding the prefix. Bodies contain Unicode letters/numbers, underscores and hyphens. |
 | `color` | Theme accent | Optional six-digit hex background tint for the compact Visual chip. Text retains its regular prose/link color; presentation never enters Markdown. |
 | `storage` | `"plain"` | Suggestions insert ordinary text; `"link"` requires a safe destination and inserts an ordinary Markdown link. |
 | `legacyLinks` | `false` | Recognize existing prefixed empty/ordinary links without converting their source. Enable for Power UI-style `[@label]()` mentions. |
+| `suggestOnClick` | `false` | In an editable Visual view, pointer or keyboard tag activation opens suggestions using the complete tag body as `query`. Click events/handlers still run; read-only activation keeps details without insertion suggestions. |
 | `onSuggest` | Unset | Sync/async structured suggestions during Visual typing. |
 | `onHover` | Unset | Sync/async text details for pointer hover, keyboard focus and touch activation. |
 | `onClick` | Unset | Rule-specific host action for pointer/touch or Enter/Space activation. |
@@ -181,7 +183,7 @@ tags: [
 ]
 ```
 
-Each callback receives the shared provider context plus `{ rule, value, destination? }`; `query` excludes the prefix. There is no nested callback object, global type switch, or built-in request transport. Suggestions return up to 100 `{ label, value, destination? }` entries. Labels are bounded to 500 characters; values must start with the rule's prefix and fit its limit. Details return `{ title, description? }`, bounded to 500/2000 characters and rendered as text, not HTML. `onClick` returns void or a promise of void.
+Each callback receives the shared provider context plus `{ rule, value, destination? }`; `query` excludes the prefix. There is no nested callback object, global type switch, or built-in request transport. Suggestions return up to 100 `{ label, value, destination? }` entries. Labels are bounded to 500 characters; values must match the rule's prefix, body characters, optional `textRegex` and length limit. Details return `{ title, description? }`, bounded to 500/2000 characters and rendered as text, not HTML. `onClick` returns void or a promise of void.
 
 Visual matching excludes code, inline HTML stencils, URL/email text and ordinary links, except explicitly recognized legacy mentions. A mention starts at a text boundary, not inside a word. Visual suggestions debounce by 150ms; Up/Down chooses and Enter inserts, while Escape dismisses. Loading, empty and failure states retain document text. Results are rejected after query/rule/revision/view/permission changes or destruction, even if a callback ignores its signal. Read-only/disabled editors keep details and host actions but not suggestions or insertion. Source view edits the literal Markdown; it has no mention popup. Preview/viewer use ordinary text/link rendering without mention callbacks.
 

@@ -40,6 +40,8 @@ Markian owns editing, presentation, validation, cancellation signals, and reject
 
 General host callbacks are flat options such as `onImageInsert` and `onLinkSuggest`. They are trusted functions supplied by application code, never strings evaluated from Markdown. The viewer has a separate callback contract. See [configuration](Configuration.md).
 
+Mention rules may opt into `suggestOnClick` to request their existing suggestion provider with the complete activated tag value. Markian owns that menu and its cancellation/permission handling; hosts still own lookup filtering and transport.
+
 Before saving, hosts await `whenIdle()` and then read `get()`. They must also serialize or recheck edits during their own asynchronous storage operation. Failed current-document image insertions block the save gate until retried or explicitly removed.
 
 ## Extensions and Dependencies
