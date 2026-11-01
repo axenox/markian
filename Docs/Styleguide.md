@@ -80,7 +80,7 @@ Details are dismissed when suggestions open and remain suppressed during hover/f
 
 Use consistent spacing in Visual, Preview, and viewer output. Code is monospaced and preserves meaningful whitespace. Hidden comments remain invisible without deleting source. Comment-only visual paragraphs occupy no space; mixed text/comment paragraphs remain visible.
 
-Runnable examples place an initialization reference below the primary experience as an unframed full-width section. A standalone Markian viewer renders the page's actual inline initialization source as a code block, removing only the common outer script indentation while preserving nested indentation. Its code surface scrolls internally and follows the page theme. Shared demo assets stay outside the reusable library contract.
+Runnable examples place an initialization reference below the primary experience as an unframed full-width section. A standalone Markian viewer renders the page's actual inline initialization source as a highlighted code block, removing only the common outer script indentation while preserving nested indentation. Syntax spans reuse the Code stylesheet's token colors in both editors and opt-in viewers; changing the theme changes those colors without altering the source. Its code surface scrolls internally and follows the page theme. Shared demo assets stay outside the reusable library contract.
 
 Keyboard keys use compact monospace text, a fine border, a raised lower edge and a subtle shadow rather than looking like ordinary prose. Keep this presentation shared across editable content, Preview and the viewer. Template-specific CSS belongs to trusted template configuration and is scoped to instance-local document content. Prefer theme variables and reuse the same definitions in editor and viewer; never persist presentation CSS or editor wrappers in Markdown. Exact key dimensions belong in the [visual editor component guide](Development/Components/Visual_editor.md).
 
@@ -95,6 +95,12 @@ Delete at the end of the paragraph before a table, or Backspace at the start of 
 Alert quotes retain ordinary `> [!TYPE]` source markers. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes.
 
 Backtick inline-code typing and submitted backtick/tilde fences should behave like ordinary Markdown editing, without invisible inserted characters. Enter continues lists; Enter on an empty item exits or lifts it. Code-block typing stays literal.
+
+## Code Workspace
+
+Expanded code uses the same bounded shell and Back-first toolbar as other tasks. Keep Undo/Redo in History, indentation in Format, and language choices in the shared Code language menu. The source surface owns its scrolling and line-number gutter; a compact diagnostic/retry row stays outside it. Avoid a second editor frame or a programming-language sidebar.
+
+Highlighted visual fences retain literal text with floating expansion/retry controls on hover/focus and visible touch controls. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
 
 ## Mermaid Workspace
 

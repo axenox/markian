@@ -2,9 +2,9 @@
   "compression": "Independent resources; gzip level 9, Brotli default quality 11. Bytes, not KiB. No editor or viewer optional features enabled in baseline totals.",
   "assets": {
     "markian.min.js": {
-      "bytes": 985501,
-      "gzip": 308257,
-      "brotli": 258350
+      "bytes": 987217,
+      "gzip": 308792,
+      "brotli": 258660
     },
     "markian.css": {
       "bytes": 13113,
@@ -45,13 +45,68 @@
       "bytes": 2354,
       "gzip": 768,
       "brotli": 600
+    },
+    "extensions/code.min.js": {
+      "bytes": 56642,
+      "gzip": 22555,
+      "brotli": 19425
+    },
+    "extensions/code.css": {
+      "bytes": 2363,
+      "gzip": 594,
+      "brotli": 489
+    },
+    "extensions/languages/javascript.min.js": {
+      "bytes": 27938,
+      "gzip": 10735,
+      "brotli": 9763
+    },
+    "extensions/languages/typescript.min.js": {
+      "bytes": 29195,
+      "gzip": 11128,
+      "brotli": 10122
+    },
+    "extensions/languages/json.min.js": {
+      "bytes": 22193,
+      "gzip": 8732,
+      "brotli": 7920
+    },
+    "extensions/languages/css.min.js": {
+      "bytes": 33639,
+      "gzip": 12663,
+      "brotli": 11288
+    },
+    "extensions/languages/html.min.js": {
+      "bytes": 23480,
+      "gzip": 9087,
+      "brotli": 8242
+    },
+    "extensions/languages/php.min.js": {
+      "bytes": 27713,
+      "gzip": 10667,
+      "brotli": 9642
+    },
+    "extensions/languages/sql.min.js": {
+      "bytes": 27170,
+      "gzip": 10784,
+      "brotli": 9687
+    },
+    "extensions/languages/python.min.js": {
+      "bytes": 24934,
+      "gzip": 9751,
+      "brotli": 8845
+    },
+    "extensions/languages/yaml.min.js": {
+      "bytes": 23447,
+      "gzip": 9138,
+      "brotli": 8305
     }
   },
   "totals": {
     "editor": {
-      "bytes": 1003446,
-      "gzip": 312554,
-      "brotli": 262024
+      "bytes": 1005162,
+      "gzip": 313089,
+      "brotli": 262334
     },
     "viewer": {
       "bytes": 220683,
@@ -59,9 +114,9 @@
       "brotli": 60453
     },
     "combined": {
-      "bytes": 1224129,
-      "gzip": 382427,
-      "brotli": 322477
+      "bytes": 1225845,
+      "gzip": 382962,
+      "brotli": 322787
     }
   },
   "budget": {

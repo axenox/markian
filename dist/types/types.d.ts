@@ -83,6 +83,8 @@ export interface BlockTarget {
 export interface BlockSession {
     get(): string;
     set(value: string): void;
+    getLanguage(): string;
+    setLanguage(language: string): void;
     readonly target: BlockTarget;
 }
 export interface ViewContext {
@@ -107,6 +109,9 @@ export interface RendererDefinition {
 }
 export interface SourceHandle {
     get(): string;
+    getLanguage(): string;
+    setLanguage(language: string): void;
+    setHighlights(tokens: readonly SourceToken[]): void;
     search(options: SearchOptions): readonly SearchMatch[];
     select(from: number, to?: number): void;
     replaceSearch(replacement: string, all?: boolean): void;
@@ -117,6 +122,17 @@ export interface SourceHandle {
     resize(): void;
     setReadOnly(value: boolean): void;
     destroy(): void;
+}
+export interface SourceToken {
+    from: number;
+    to: number;
+    className: string;
+}
+export interface SourceOptions {
+    tabWidth?: number;
+    label?: string;
+    language?: string;
+    onLanguageChange?(language: string): void;
 }
 export interface Extension {
     init(instance: MarkianInstance, config: unknown, signal: AbortSignal): Disposer | Promise<Disposer>;
@@ -245,7 +261,7 @@ export interface MarkianInstance {
         markdown: string;
     }>;
     insertCodeBlock(value: string, language: string): void;
-    createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void): SourceHandle;
+    createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void, options?: SourceOptions): SourceHandle;
     getCodeTarget(): BlockTarget | null;
     getActiveSession(): BlockSession | null;
     openView(id: string, target?: BlockTarget): void;

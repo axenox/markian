@@ -317,6 +317,7 @@ test('Mermaid no-op Back, conflicts, deleted targets and permission transitions 
   await page.evaluate(() => { window.oldDiagramTarget = diagramEditor.getActiveSession().target; });
   await root.getByRole('button', { name: 'Back', exact: true }).click();
   expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await root.locator('.markian-diagram').first().hover();
   await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
   await page.evaluate(() => diagramEditor.getActiveSession().set('flowchart LR\n A --> Changed'));
   const draft = await page.evaluate(() => diagramEditor.get());
@@ -1290,6 +1291,246 @@ test('Code draft survives Help, applies once, and undo restores the parent', asy
   expect(await page.evaluate(() => editor.get())).toBe(draft);
   await page.evaluate(() => editor.execute('undo'));
   expect(await page.evaluate(() => editor.get())).not.toContain('revised');
+});
+
+test('W14 language metadata has local history, projected saves, Help suspension and one-step Back', async ({ page }) => {
+  await page.locator('.ProseMirror pre code').first().click();
+  await page.evaluate(() => editor.execute('code:expand'));
+  const before = await page.evaluate(() => editor.get());
+  await page.evaluate(() => { window.codeChanges = 0; editor.on('change', () => codeChanges++); });
+  await page.evaluate(() => editor.execute('code:language:javascript'));
+  const draft = await page.evaluate(async () => { await editor.whenIdle(); return editor.get(); });
+  expect(draft).toContain('```javascript\nhello, world');
+  expect(await page.evaluate(() => editor.getActiveSession().getLanguage())).toBe('javascript');
+  await page.evaluate(() => editor.execute('code:undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(before);
+  await page.evaluate(() => editor.execute('code:redo'));
+  expect(await page.evaluate(() => editor.get())).toBe(draft);
+  await page.evaluate(() => editor.execute('help'));
+  expect(await page.evaluate(() => editor.execute('code:language:python'))).toBe(false);
+  expect(await page.evaluate(() => editor.get())).toBe(draft);
+  await page.evaluate(() => editor.back());
+  await page.evaluate(() => editor.setDisabled(true));
+  expect(await page.evaluate(() => editor.execute('code:language:python'))).toBe(false);
+  expect(await page.evaluate(() => { try { editor.back(); return false; } catch { return true; } })).toBe(true);
+  await page.evaluate(() => editor.setDisabled(false));
+  const changes = await page.evaluate(() => codeChanges);
+  await page.evaluate(() => editor.back());
+  expect(await page.evaluate(() => codeChanges)).toBe(changes);
+  expect(await page.evaluate(() => editor.get())).toBe(draft);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(before);
+});
+
+test('W14 selected offline language packs highlight literal source and deduplicate independent instances', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (request.url().includes('/extensions/languages/')) requests.push(new URL(request.url()).pathname); });
+  const samples = { javascript: 'const value = "text";', typescript: 'const value: string = "text";', json: '{"value": true}', css: 'body { color: red; }', html: '<div title="safe">text</div>', php: '<?php echo "text";', sql: 'SELECT name FROM items WHERE id = 1;', python: 'def value():\n    return "text"', yaml: 'value: true' };
+  await page.evaluate(async samples => {
+    window.codeEditors = Object.entries(samples).map(([language, value]) => {
+      const mount = document.createElement('div');
+      mount.style.height = '300px';
+      document.querySelector('main').append(mount);
+      const instance = Markian.create(mount, { markdown: '```' + language + '\n' + value + '\n```', extensions: { code: { enabled: true } } });
+      instance.element.classList.add('code-pack-test');
+      return instance;
+    });
+    await Promise.all(codeEditors.map(instance => instance.ready));
+  }, samples);
+  for (const [language, value] of Object.entries(samples)) {
+    const code = page.locator(`.code-pack-test .ProseMirror code.language-${language}`);
+    await expect(code.locator('[class^="tok-"]').first()).toBeAttached();
+    await expect(code).toHaveText(value);
+  }
+  expect(requests).toHaveLength(9);
+  expect(new Set(requests).size).toBe(9);
+  await page.evaluate(async () => {
+    const mount = document.createElement('div'); document.querySelector('main').append(mount);
+    window.codeDuplicate = Markian.create(mount, { markdown: '```javascript\nconst second = 2;\n```', theme: 'dark', extensions: { code: { enabled: true } } });
+    codeDuplicate.element.classList.add('code-duplicate'); await codeDuplicate.ready;
+  });
+  await expect(page.locator('.code-duplicate .tok-keyword')).toBeAttached();
+  expect(requests).toHaveLength(9);
+  const original = await page.locator('.code-pack-test').first().locator('.tok-keyword').evaluate(element => getComputedStyle(element).color);
+  const dark = await page.locator('.code-duplicate .tok-keyword').evaluate(element => getComputedStyle(element).color);
+  expect(dark).not.toBe(original);
+  await page.evaluate(() => { codeEditors.forEach(instance => { instance.destroy(); instance.destroy(); }); });
+  await expect(page.locator('.code-duplicate .tok-keyword')).toBeAttached();
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 Tab width, indent history, escape and source deletion remain literal', async ({ page }) => {
+  await page.evaluate(async () => {
+    const mount = document.createElement('div'); mount.style.height = '400px'; document.querySelector('main').prepend(mount);
+    window.tabCode = Markian.create(mount, { markdown: '```text\nconst value = 1;\n```', extensions: { code: { enabled: true, config: { tabWidth: 4 } } } });
+    tabCode.element.classList.add('tab-code'); await tabCode.ready;
+  });
+  const root = page.locator('.tab-code');
+  await root.locator('.ProseMirror pre code').click();
+  await expect.poll(() => page.evaluate(() => tabCode.getCodeTarget() !== null)).toBe(true);
+  await page.evaluate(() => tabCode.execute('code:expand'));
+  await page.evaluate(() => tabCode.execute('code:language:javascript'));
+  await expect(root.locator('.cm-content .tok-keyword')).toBeAttached();
+  await root.locator('.cm-content').click();
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => tabCode.getActiveSession().get())).toBe('    const value = 1;');
+  await page.evaluate(() => tabCode.execute('code:undo'));
+  expect(await page.evaluate(() => tabCode.getActiveSession().get())).toBe('const value = 1;');
+  await page.evaluate(() => tabCode.execute('code:indent'));
+  expect(await page.evaluate(() => tabCode.getActiveSession().get())).toBe('    const value = 1;');
+  await page.evaluate(() => tabCode.execute('code:outdent'));
+  expect(await page.evaluate(() => tabCode.getActiveSession().get())).toBe('const value = 1;');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  expect(await root.locator('.cm-content').evaluate(element => element.contains(document.activeElement))).toBe(false);
+  await root.locator('.cm-content').click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Backspace');
+  expect(await page.evaluate(() => tabCode.getActiveSession().get())).toBe('');
+  await page.keyboard.type('literal ``` *text*\n');
+  const draft = await page.evaluate(() => tabCode.get());
+  expect(draft).toContain('literal ``` *text*');
+  await page.evaluate(() => tabCode.back());
+  expect(await page.evaluate(() => tabCode.get())).toBe(draft);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 failed and incompatible language assets retain source and retry', async ({ page }) => {
+  let requests = 0;
+  await page.route('**/retry-code.js', route => {
+    requests++;
+    return requests === 1 ? route.fulfill({ status: 404, body: '' }) : route.fulfill({ contentType: 'application/javascript', body: readFileSync(new URL('../dist/extensions/languages/javascript.min.js', import.meta.url), 'utf8') });
+  });
+  await page.evaluate(async () => {
+    const mount = document.createElement('div'); mount.style.height = '400px'; document.querySelector('main').prepend(mount);
+    window.retryCode = Markian.create(mount, { markdown: '```javascript\nconst safe = "<img src=x onerror=alert(1)>";\n```', extensions: { code: { enabled: true, config: { languages: [{ id: 'javascript', label: 'JavaScript', source: '/retry-code.js' }] } } } });
+    retryCode.element.classList.add('retry-code'); await retryCode.ready;
+  });
+  const root = page.locator('.retry-code');
+  const before = await page.evaluate(() => retryCode.get());
+  await expect(root.locator('.markian-code-status')).toContainText('Could not load');
+  await root.locator('.markian-code-preview').hover();
+  await root.getByRole('button', { name: 'Retry highlighting' }).click();
+  await expect(root.locator('.tok-keyword')).toBeAttached();
+  expect(await page.evaluate(() => retryCode.get())).toBe(before);
+  expect(requests).toBe(2);
+  await expect(root.locator('img')).toHaveCount(0);
+  await page.route('**/wrong-code.js', route => route.fulfill({ contentType: 'application/javascript', body: 'window.MarkianCodeLanguage_javascript = { highlighter: { apiVersion: 1, version: "0.0.0", language: "javascript", highlight: () => [] } };' }));
+  expect(await page.evaluate(async () => {
+    try { await MarkianCode.loadCodeLanguage(document, { id: 'javascript', label: 'JavaScript', source: '/wrong-code.js' }); return ''; }
+    catch (error) { return error.message; }
+  })).toContain('Incompatible bundled highlighter version');
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 highlighting offsets preserve leading whitespace and reject stale asynchronous results', async ({ page }) => {
+  const slices = await page.evaluate(async () => {
+    const highlighter = await MarkianCode.loadCodeLanguage(document, { id: 'javascript', label: 'JavaScript', source: '/dist/extensions/languages/javascript.min.js' });
+    const value = '\n    const value = "text";\n';
+    return (await highlighter.highlight(value)).filter(token => token.className === 'tok-keyword').map(token => value.slice(token.from, token.to));
+  });
+  expect(slices).toEqual(['const']);
+  await page.evaluate(async () => {
+    window.tokenRequests = [];
+    const mount = document.createElement('div'); mount.style.height = '400px'; document.querySelector('main').prepend(mount);
+    window.asyncCode = Markian.create(mount, { markdown: '```javascript\nconst first = 1;\n```', extensions: { code: { enabled: true, config: { languages: [{ id: 'javascript', label: 'JavaScript', highlighter: {
+      apiVersion: 1, version: 'host-1', language: 'javascript', highlight: value => new Promise(resolve => tokenRequests.push({ value, resolve })),
+    } }] } } } });
+    asyncCode.element.classList.add('async-code'); await asyncCode.ready;
+  });
+  await expect.poll(() => page.evaluate(() => tokenRequests.length)).toBe(1);
+  await page.evaluate(() => asyncCode.set('```javascript\nconst next = 2;\n```', { pending: 'discard' }));
+  await expect.poll(() => page.evaluate(() => tokenRequests.length)).toBe(2);
+  await page.evaluate(() => tokenRequests[0].resolve([{ from: 6, to: 11, className: 'tok-keyword' }]));
+  await expect(page.locator('.async-code .tok-keyword')).toHaveCount(0);
+  await page.evaluate(() => { asyncCode.setReadOnly(true); tokenRequests[1].resolve([{ from: 0, to: 5, className: 'tok-keyword' }]); });
+  await expect(page.locator('.async-code .tok-keyword')).toHaveText('const');
+  expect(await page.evaluate(() => asyncCode.get())).toContain('const next = 2;');
+  await page.evaluate(() => { asyncCode.setReadOnly(false); asyncCode.set('```javascript\nconst last = 3;\n```'); });
+  await expect.poll(() => page.evaluate(() => tokenRequests.length)).toBe(3);
+  await page.evaluate(() => { asyncCode.destroy(); tokenRequests[2].resolve([{ from: 0, to: 5, className: 'tok-keyword' }]); });
+  await expect(page.locator('.async-code')).toHaveCount(0);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 Codiware enables Code automatically and saves language drafts without Mermaid', async ({ page }) => {
+  await page.route('**/codiware-markdown-adapter.js', route => route.fulfill({ contentType: 'application/javascript', body: readFileSync(new URL('../../../kabachello/codiware/public/js/editors/MarkdownEditor.js', import.meta.url), 'utf8') }));
+  await page.route('**/test-codiware/css/markian-theme.css', route => route.fulfill({ contentType: 'text/css', body: readFileSync(new URL('../../../kabachello/codiware/public/css/markian-theme.css', import.meta.url), 'utf8') }));
+  await page.evaluate(async () => {
+    window.CODIWARE_BOOT = { extensions: { 'codiware.markdown': {
+      'INCLUDES.MARKIAN_JS': '/dist/markian.min.js', 'INCLUDES.MARKIAN_CSS': '/dist/markian.css',
+      'INCLUDES.THEME_CSS': [], 'MARKIAN.MERMAID': false,
+    } } };
+    window.CODIWARE_ASSET_BASE_APP = '/test-codiware';
+    const mount = document.createElement('div'); mount.style.height = '400px'; document.querySelector('main').prepend(mount);
+    const { MarkdownEditor } = await import('/codiware-markdown-adapter.js');
+    window.codiwareCode = new MarkdownEditor(mount, { toasts: { error: message => { throw new Error(message); } } });
+    await codiwareCode.load('```javascript\nconst file = 1;\n```', { path: 'notes.md' });
+    codiwareCode.editor.element.classList.add('codiware-code-test');
+  });
+  const root = page.locator('.codiware-code-test');
+  await expect(root.locator('.tok-keyword')).toHaveText('const');
+  await root.locator('.markian-code-preview').hover();
+  await root.getByRole('button', { name: 'Expand code block', exact: true }).first().click();
+  await expect(root).toHaveAttribute('data-view', 'code');
+  await page.evaluate(() => codiwareCode.editor.execute('code:language:python'));
+  expect(await page.evaluate(async () => { await codiwareCode.beforeSave(); return codiwareCode.getContent(); })).toContain('```python');
+  expect(await page.evaluate(() => codiwareCode.isDirty())).toBe(true);
+  await page.evaluate(() => { codiwareCode.destroy(); codiwareCode.destroy(); });
+  await expect(root).toHaveCount(0);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 no-op Back and bounded highlighting preserve source and permissions', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => { if (request.url().includes('/extensions/languages/')) requests.push(request.url()); });
+  await page.evaluate(async () => {
+    const mount = document.createElement('div'); mount.style.height = '400px'; document.querySelector('main').prepend(mount);
+    window.boundedCode = Markian.create(mount, { markdown: '```javascript\nconst large = 123;\n```', extensions: { code: { enabled: true, config: { maxCharacters: 1 } } } });
+    boundedCode.element.classList.add('bounded-code'); await boundedCode.ready;
+    window.boundedChanges = 0; boundedCode.on('change', () => boundedChanges++);
+  });
+  const root = page.locator('.bounded-code');
+  await expect(root.locator('.markian-code-status')).toContainText('limit exceeded');
+  const before = await page.evaluate(() => boundedCode.get());
+  await root.locator('.markian-code-preview').hover();
+  await root.getByRole('button', { name: 'Expand code block', exact: true }).first().click();
+  await page.evaluate(() => boundedCode.setReadOnly(true));
+  await root.locator('.cm-content').click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Backspace');
+  expect(await page.evaluate(() => boundedCode.get())).toBe(before);
+  await page.evaluate(() => boundedCode.back());
+  expect(await page.evaluate(() => boundedChanges)).toBe(0);
+  expect(await page.evaluate(() => boundedCode.get())).toBe(before);
+  expect(requests).toEqual([]);
+  const errors = await page.evaluate(async () => {
+    const failures = [];
+    for (const config of [{ tabWidth: 0 }, { languages: [{ id: 'javascript', label: 'JS' }, { id: 'javascript', label: 'Duplicate' }] }, { maxLines: 5001 }]) {
+      const mount = document.createElement('div'); document.querySelector('main').append(mount);
+      const instance = Markian.create(mount, { markdown: 'Retained', extensions: { code: { enabled: true, config } } });
+      try { await instance.ready; } catch (error) { failures.push(error.message); }
+      instance.destroy();
+    }
+    return failures;
+  });
+  expect(errors).toHaveLength(3);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('W14 disabled and core-only fences request no language assets', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => requests.push(request.url()));
+  await page.evaluate(async () => {
+    window.noCode = [undefined, { code: { enabled: false, config: { languageBase: '/must-not-load/' } } }].map(extensions => {
+      const mount = document.createElement('div'); document.querySelector('main').append(mount);
+      return Markian.create(mount, { markdown: '```javascript\nconst normal = 1;\n```', extensions });
+    });
+    await Promise.all(noCode.map(instance => instance.ready));
+  });
+  expect(requests.filter(url => /extensions\/languages|must-not-load/.test(url))).toEqual([]);
+  expect(await page.evaluate(() => noCode.every(instance => !instance.getCommands().items().some(command => command.id === 'code:expand')))).toBe(true);
 });
 
 test('pending block replacements are explicit and permissions preserve drafts', async ({ page }) => {
@@ -2802,18 +3043,33 @@ test('W8 viewer shares bounded HTML policy without editor wrappers', async ({ pa
 });
 
 for (const width of [1100, 390]) {
-  test(`example initialization viewers render live source at ${width}px`, async ({ page }) => {
+  test(`example initialization viewers render highlighted live source at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const filename of ['minimal-editor', 'editor-workspace', 'mermaid-diagrams', 'mentions', 'templates', 'viewer']) {
+    for (const filename of ['minimal-editor', 'editor-workspace', 'code-blocks', 'mermaid-diagrams', 'mentions', 'templates', 'viewer']) {
       await page.goto(`/Examples/${filename}.html`);
       await page.evaluate(() => window.demoInitViewer.ready);
       const source = await page.locator('script[data-editor-init]').textContent();
       await expect(page.locator('[data-demo-init] [data-markian-viewer] pre > code')).toHaveText(source.trim());
       await expect(page.locator('[data-demo-init] [data-markian-viewer] pre > code')).toContainText('Markian.create(');
       const displayed = await page.locator('[data-demo-init] [data-markian-viewer] pre > code').textContent();
-      expect(displayed).toMatch(/^const /);
+      expect(displayed).toMatch(/^(?:const |Markian\.registerExtension\()/);
       expect(displayed).toMatch(/\nwindow\.(?:example|editor|diagramEditor|viewer) =/);
       expect(displayed).toMatch(/\n {2}markdown[,:]/);
+      const indent = source.split('\n').find(line => line.trim()).match(/^[\t ]*/)[0];
+      expect(displayed.trimEnd()).toBe(source.split('\n').map(line => line.startsWith(indent) ? line.slice(indent.length) : line).join('\n').trim());
+      const viewer = page.locator('[data-demo-init] [data-markian-viewer]');
+      const keyword = viewer.locator('.tok-keyword').first();
+      await expect(keyword).toHaveText('const');
+      await expect(keyword).toHaveCSS('color', 'rgb(146, 80, 155)');
+      await expect(viewer.locator('.markian-toolbar, .cm-editor')).toHaveCount(0);
+      await expect(viewer.locator('pre')).toHaveCSS('max-height', '480px');
+      await expect(viewer.locator('pre')).toHaveCSS('overflow', 'auto');
+      await page.evaluate(() => demoInitViewer.setTheme('dark'));
+      await expect(keyword).toHaveCSS('color', 'rgb(221, 160, 221)');
+      if (filename === 'minimal-editor') {
+        await viewer.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: testInfo.outputPath(`configuration-${width}.png`), fullPage: true });
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       expect(browserErrors.get(page)).toEqual([]);
     }

@@ -30,11 +30,14 @@ This guide maps current source responsibilities for contributors. Public concept
 | [static-search.ts](../../src/ui/static-search.ts) | Disposable Help/Preview highlights without Markdown mutation. |
 | [viewer.ts](../../src/viewer.ts) | Separate viewer factory, exact source, safe render lifecycle, resources, adapters, and host restoration. |
 | [viewer-mermaid.ts](../../src/viewer-mermaid.ts) | Optional render-only viewer adapter, not editor UI. |
-| [extensions/code.ts](../../src/extensions/code.ts) | Public-API proof of expanded code editing and block-session projection. |
+| [extensions/code.ts](../../src/extensions/code.ts) | Public-API Code workspace, language catalogue/loader, bounded token rendering, retry, local source/language history and block-session projection. |
+| [extensions/code-language.ts](../../src/extensions/code-language.ts) | Isolated Highlight.js instance and grammar-to-source-token adapter for separately built language assets; no editing engine imports. |
 | [extensions/mermaid.ts](../../src/extensions/mermaid.ts) | Optional diagram renderer/workspace, pan/zoom, source handles, help, and teardown. |
 | [style.css](../../src/style.css) | Scoped editor shell and structural editing styles. Shared typography lives in [content.css](../../src/render/content.css). |
 
 Build scripts live in `Scripts`, runnable examples in `Examples`, and current tests in `Tests`.
+
+`Scripts/build.mjs` creates one virtual entry per selected Code grammar. Each grammar includes only syntax highlighting and its small token adapter, not CodeMirror, Milkdown or ProseMirror. The actual module-graph gate rejects editing engines in those assets. Compatible language URLs share retained promises; failures evict cache entries so Retry works. Highlighting uses source tokens rather than injecting host-provided HTML, and obsolete results cannot update disposed or replaced surfaces. Core owns undoable language metadata so extensions do not maintain a competing document/history model.
 
 ## Dependency Boundaries
 

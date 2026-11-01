@@ -20,9 +20,66 @@
   "extensions": {
     "code": {
       "script": "extensions/code.min.js",
+      "stylesheet": "extensions/code.css",
+      "types": "types/extensions/code.d.ts",
       "global": "MarkianCode.codeExtension",
       "requires": "0.1.0",
-      "dependencies": []
+      "dependencies": [
+        {
+          "name": "highlight.js",
+          "version": "11.12.0",
+          "bundled": true,
+          "apiVersion": 1,
+          "loading": "Only the selected fence language; no editing engines in language assets",
+          "languages": [
+            {
+              "id": "javascript",
+              "script": "extensions/languages/javascript.min.js",
+              "global": "MarkianCodeLanguage_javascript.highlighter"
+            },
+            {
+              "id": "typescript",
+              "script": "extensions/languages/typescript.min.js",
+              "global": "MarkianCodeLanguage_typescript.highlighter"
+            },
+            {
+              "id": "json",
+              "script": "extensions/languages/json.min.js",
+              "global": "MarkianCodeLanguage_json.highlighter"
+            },
+            {
+              "id": "css",
+              "script": "extensions/languages/css.min.js",
+              "global": "MarkianCodeLanguage_css.highlighter"
+            },
+            {
+              "id": "html",
+              "script": "extensions/languages/html.min.js",
+              "global": "MarkianCodeLanguage_html.highlighter"
+            },
+            {
+              "id": "php",
+              "script": "extensions/languages/php.min.js",
+              "global": "MarkianCodeLanguage_php.highlighter"
+            },
+            {
+              "id": "sql",
+              "script": "extensions/languages/sql.min.js",
+              "global": "MarkianCodeLanguage_sql.highlighter"
+            },
+            {
+              "id": "python",
+              "script": "extensions/languages/python.min.js",
+              "global": "MarkianCodeLanguage_python.highlighter"
+            },
+            {
+              "id": "yaml",
+              "script": "extensions/languages/yaml.min.js",
+              "global": "MarkianCodeLanguage_yaml.highlighter"
+            }
+          ]
+        }
+      ]
     },
     "mermaid": {
       "script": "extensions/mermaid.min.js",
@@ -64,9 +121,49 @@
     }
   },
   "assets": {
+    "extensions/code.css": {
+      "sha256": "cb6723d779045ebf0d6feb05e86d8bfef66efc3e78701081f15dc2d170e06499",
+      "bytes": 2363
+    },
     "extensions/code.min.js": {
-      "sha256": "a879e054696092cf4aa2692ffa0c423d6ef4c6c998f4cd25bccea1935c2bdcdd",
-      "bytes": 1212
+      "sha256": "257384b5763bc13a321afa479a034cb1e2aa803c781854aeb4ad4077dd0c908e",
+      "bytes": 56642
+    },
+    "extensions/languages/css.min.js": {
+      "sha256": "12f2d1c59b689a4c423c07cba03894f1b0452fbacbd6d43c4aaf912722e868e1",
+      "bytes": 33639
+    },
+    "extensions/languages/html.min.js": {
+      "sha256": "8eb25552ff04ac27dd32b8701ab8a5217a1546c42035103b6bd1291d806ff068",
+      "bytes": 23480
+    },
+    "extensions/languages/javascript.min.js": {
+      "sha256": "019f49eeb171c676e8020e412173f30c4ab654b7d410429a78f8a5dc49d80883",
+      "bytes": 27938
+    },
+    "extensions/languages/json.min.js": {
+      "sha256": "6f25812c70b28c7fd09d84da32d7656b1a1cf12babc8064ed08d097cdd3bedd9",
+      "bytes": 22193
+    },
+    "extensions/languages/php.min.js": {
+      "sha256": "3cb6055511f4e49dabaa9a3a4ad50078aef80518e7d9ca5f0ef3c4116d7e77d2",
+      "bytes": 27713
+    },
+    "extensions/languages/python.min.js": {
+      "sha256": "8e57833c1b9ae353aaee0aed8915ecb7ad7c8ade23b3338d9deb5f300a235531",
+      "bytes": 24934
+    },
+    "extensions/languages/sql.min.js": {
+      "sha256": "ff7b6a6a31739ab2cc0293a4e603de34ebaeb8a239f3e29b72af1ca85192d5d2",
+      "bytes": 27170
+    },
+    "extensions/languages/typescript.min.js": {
+      "sha256": "7f6ff2e3e5eaef9e504d006ea2c7e39ea578ef721e2263220458a05fc8a56aab",
+      "bytes": 29195
+    },
+    "extensions/languages/yaml.min.js": {
+      "sha256": "87aa18484a602f8441efbbdf0cb7b98e97f201179a0d86a5dc5862bdd3b01654",
+      "bytes": 23447
     },
     "extensions/mermaid.css": {
       "sha256": "ba20058cfc76e3b10e178cedcb4e2e79b1e7caeb8a6eb5090a221c1e92954a04",
@@ -101,12 +198,12 @@
       "bytes": 13113
     },
     "markian.min.js": {
-      "sha256": "8457c6a85217c6e6886049cbf5f874cda80facc00091da30a3e7b6ac1c473a8e",
-      "bytes": 985501
+      "sha256": "f05962f5429df031880987d1cfac3fb623cc407d0077721aec0b5de7b535d7de",
+      "bytes": 987217
     },
     "sizes.json": {
-      "sha256": "5dea28bd32b49d1aa25fa132efaab7ea5c798b845c36e05943f486ac414e66ed",
-      "bytes": 1807
+      "sha256": "cd63114dfb2596df6b93c33030f5d18c1f876757271e0d589a7e088fb9112998",
+      "bytes": 3033
     },
     "types/browser.d.ts": {
       "sha256": "4e824115ddb540ce8cdfb4fa43f9faff075ef4f5522fbae2f6bf0e73474f0ccf",
@@ -117,24 +214,28 @@
       "bytes": 414
     },
     "types/editor.d.ts": {
-      "sha256": "4a0dfe1bfb8a39652ba0afeb7d0ee0eb10974ed82ae1d07ec71159b61059db17",
-      "bytes": 4011
+      "sha256": "e48b343f10edfe745c8812b77e7899d894ab707503e64ec7612bd08c5a03a536",
+      "bytes": 4051
     },
     "types/engines/prose.d.ts": {
       "sha256": "e36307df94d7ef1b51fa22e28590002b1ca2ebfafb672cd9471054e7b3b2ad3f",
       "bytes": 1012
     },
     "types/engines/source.d.ts": {
-      "sha256": "a766d28e09297c030cae11f1f830420f75bf04de9f4f3410f03e87a8f5b4150c",
-      "bytes": 678
+      "sha256": "b4d2f0c09def8b9a604721f1d8a6f22ad705891c453e135ed21468dd82113d36",
+      "bytes": 880
     },
     "types/engines/visual.d.ts": {
       "sha256": "daeea3136022d9dafbbe2f9f8c44d0f6dc035d20e5f95c7e7a2c48790b2e1648",
       "bytes": 1021
     },
+    "types/extensions/code-language.d.ts": {
+      "sha256": "805e83eec3931b1ac5a7ef2d9b4ed94d473364c40a6d30996db3746158ef0cf2",
+      "bytes": 282
+    },
     "types/extensions/code.d.ts": {
-      "sha256": "d63456d2f10a25cfc77059acd40246e8e62df17ded0a4ea51f324e385916e218",
-      "bytes": 104
+      "sha256": "8c9317e9a46159cbb4a388cea583e5e26813f208f0d0ac2d83427293cfbe6b80",
+      "bytes": 1150
     },
     "types/extensions/mermaid.d.ts": {
       "sha256": "798152b5f3da5b651a776059fbb9da901db7a85136e3e706f6e27afd9cfd9291",
@@ -185,8 +286,8 @@
       "bytes": 840
     },
     "types/types.d.ts": {
-      "sha256": "0afce182233460e12f417e992e14c2ec756fa26e3fe648a14b95c2ece6cfde7a",
-      "bytes": 7994
+      "sha256": "b58cf584494f98b31a55bdec099d8e6cb6f6658a778849a59ba87fd4b6ab4a72",
+      "bytes": 8450
     },
     "types/ui/controls.d.ts": {
       "sha256": "2237e2eab3d1de379a71d19cd7c06417e335a1beaa52b4a085622563e8b0e66a",

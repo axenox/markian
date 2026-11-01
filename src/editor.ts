@@ -13,7 +13,7 @@ import { installMentions, validateTags } from './mentions';
 import { StaticSearch } from './ui/static-search';
 import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
 import { installTemplateStyles, templateStyles } from './render/template-styles';
-import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
+import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, SourceOptions, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
   id: string;
@@ -354,8 +354,8 @@ export class EditorInstance implements MarkianInstance {
   get(): string {
     this.alive();
     const session = this.frames.find(frame => frame.session)?.session;
-    if (session && session.get() !== session.target.value) {
-      return this.source.slice(0, session.target.from) + fence(session.get(), session.target.language) + this.source.slice(session.target.to);
+    if (session && (session.get() !== session.target.value || session.getLanguage() !== session.target.language)) {
+      return this.source.slice(0, session.target.from) + fence(session.get(), session.getLanguage()) + this.source.slice(session.target.to);
     }
     return this.mode === 'raw' && this.raw ? this.raw.get() : this.source;
   }
@@ -491,17 +491,20 @@ export class EditorInstance implements MarkianInstance {
     return true;
   }
 
-  createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void): SourceHandle {
+  createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void, options: SourceOptions = {}): SourceHandle {
     this.alive();
     validateMarkdown(value);
     if (!this.element.contains(element)) throw new Error('Source editors must mount within their owning instance.');
     const source = new SourceEditor(element, value, this.readOnly, next => {
       if (!this.readOnly && !this.destroyed) changed(next);
-    });
+    }, () => {}, { ...options, onLanguageChange: language => { if (!this.readOnly && !this.destroyed) options.onLanguageChange?.(language); } });
     let disposed = false;
     const editable = () => !this.readOnly && !disposed && this.frames.at(-1)?.element.contains(element);
     const handle: SourceHandle = {
       get: () => source.get(),
+      getLanguage: () => source.getLanguage(),
+      setLanguage: language => { if (editable()) source.setLanguage(language); },
+      setHighlights: tokens => { if (!disposed) source.setHighlights(tokens); },
       search: options => source.search(options),
       select: (from, to) => source.select(from, to),
       replaceSearch: (replacement, all) => { if (editable()) source.replaceSearch(replacement, all); },
@@ -670,8 +673,18 @@ export class EditorInstance implements MarkianInstance {
     const element = this.host.ownerDocument.createElement('div');
     element.className = 'markian-view';
     let draft = target?.value ?? '';
+    let language = target?.language ?? '';
     const session: BlockSession | undefined = target ? {
       target: Object.freeze({ ...target }), get: () => draft,
+      getLanguage: () => language,
+      setLanguage: value => {
+        this.usable();
+        if (this.readOnly || this.frames.at(-1)?.session !== session) throw new Error('Block session is not editable in the active view.');
+        if (typeof value !== 'string' || !/^[a-zA-Z0-9_+#.-]{0,80}$/.test(value)) throw new TypeError('Invalid code language.');
+        if (value === language) return;
+        language = value;
+        this.changed('user');
+      },
       set: value => {
         this.usable();
         if (this.readOnly) throw new Error('The editor is read-only.');
@@ -699,7 +712,7 @@ export class EditorInstance implements MarkianInstance {
       if (this.mode === 'raw') this.setMode('visual');
       return;
     }
-    if (frame.session && frame.session.get() !== frame.session.target.value) {
+    if (frame.session && (frame.session.get() !== frame.session.target.value || frame.session.getLanguage() !== frame.session.target.language)) {
       if (frame.baseline !== this.source) throw new Error('The target document changed. The draft is retained; choose an explicit host replacement policy.');
       if (this.readOnly) throw new Error('Unlock the editor before applying this draft. The draft is retained.');
       const value = this.get();

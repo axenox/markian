@@ -230,13 +230,51 @@ An omitted/disabled entry contributes nothing. Loading and registration alone do
 
 ### Code
 
-Script: `dist/extensions/code.min.js`. Factory: `MarkianCode.codeExtension`, normally registered as `code`.
+Script: `dist/extensions/code.min.js`. CSS: `dist/extensions/code.css`. Factory: `MarkianCode.codeExtension`, normally registered as `code`.
 
 ```json
-{ "enabled": false, "config": {} }
+{ "enabled": false, "config": { "tabWidth": 2, "maxCharacters": 100000, "maxLines": 5000 } }
 ```
 
-There are no local options; the current factory ignores `config`. It supplies expanded top-level code-block editing, not language packs. It requires no additional stylesheet or renderer URL.
+| Local option | Default | Description |
+| --- | --- | --- |
+| `tabWidth` | `2` | Integer 1-8; both Tab display width and inserted indentation. |
+| `maxCharacters` | `100000` | Highlighting limit per fence; integer 1-100000. Larger blocks retain editable plain source. |
+| `maxLines` | `5000` | Highlighting limit per fence; integer 1-5000. |
+| `languageBase` | `languages/` beside the loaded Code script | Trusted HTTP(S) base for optional assets. Set explicitly when evaluating scripts inline. Query parameters propagate to language URLs. |
+| `languages` | Selected bundled language list below | Array replacing the default language catalogue, including `[]` for no highlighting. |
+
+The bundled catalogue contains JavaScript (`javascript`, alias `js`), TypeScript (`typescript`, `ts`), JSON (`json`), CSS (`css`), HTML/XML (`html`, `xml`), PHP (`php`), SQL (`sql`), Python (`python`, `py`), and YAML (`yaml`, `yml`). Each loads its own `dist/extensions/languages/<id>.min.js` only when an enabled editor presents that language. The grammar version is Highlight.js 11.12.0; assets use token API 1. Plain-text fences load no language asset. Unknown languages retain source and can be inspected in the expanded workspace.
+
+Each language entry is `{ id, label, aliases?: string[], source?: string, highlighter?: CodeHighlighter }`. IDs/aliases are unique lowercase fence identifiers; plain-text and Mermaid names are reserved. `source` overrides the base-derived URL. A supplied `highlighter` takes precedence and loads no script. It provides `{ apiVersion: 1, version: string, language: id, highlight(source) }`, returning a token array or promise. Tokens are ordered, nonoverlapping `{ from, to, className }` source offsets with bounded `tok-*` classes, never HTML. Host adapters may use their own version strings; bundled URL assets must match the bundled grammar version.
+
+Highlighting failures are nonfatal and expose Retry highlighting. Compatible URL loads are deduplicated per document and retained after editor disposal; rejected loads can be retried. Syntax presentation does not change source, history, or dirty state. Expanded language changes do change the ordinary fence and participate in local undo/redo and the one-step Back commit. See [Code usage](Extensibility.md#code).
+
+For example, enable only PHP, JavaScript, HTML, and JSON. Load core and Code JS/CSS first and provide a `#notes` host:
+
+```javascript
+Markian.registerExtension('code', MarkianCode.codeExtension);
+
+const editor = Markian.create(document.querySelector('#notes'), {
+  markdown: '',
+  extensions: {
+    code: {
+      enabled: true,
+      config: {
+        tabWidth: 4,
+        languages: [
+          { id: 'php', label: 'PHP' },
+          { id: 'javascript', label: 'JavaScript', aliases: ['js'] },
+          { id: 'html', label: 'HTML' },
+          { id: 'json', label: 'JSON' },
+        ],
+      },
+    },
+  },
+});
+```
+
+This replaces the default catalogue. Both `javascript` and `js` fences use the JavaScript asset; the other languages use their matching IDs. Assets resolve beside the Code script and load only when needed.
 
 ### Mermaid
 

@@ -8,10 +8,12 @@ import { chromium } from '@playwright/test';
 import { createHash } from 'node:crypto';
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const viewerOnly = process.argv.includes('--viewer');
+const codeOnly = process.argv.includes('--code');
 const [pack] = JSON.parse(execFileSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], { encoding: 'utf8', shell: process.platform === 'win32' }));
 const paths = new Set(pack.files.map(file => file.path));
 for (const path of ['dist/markian.min.js', 'dist/markian.css', 'dist/markian-viewer.min.js', 'dist/markian-viewer.css', 'dist/types/viewer.d.ts', 'dist/extensions/viewer-mermaid.min.js', 'dist/types/viewer-mermaid.d.ts', 'dist/sizes.json', 'dist/extensions/code.min.js', 'dist/extensions/mermaid.min.js', 'dist/extensions/mermaid.css', 'dist/types/extensions/mermaid.d.ts', 'dist/types/index.d.ts', 'dist/manifest.json', 'includes.json', 'Examples/index.html', 'Examples/minimal-editor.html', 'Examples/mermaid-diagrams.html', 'Examples/viewer.html']) assert.ok(paths.has(path), `Missing package file: ${path}`);
 assert.ok(!paths.has('dist/THIRD_PARTY_NOTICES.txt'), 'includes.json replaces the legacy notices artifact.');
+for (const path of ['dist/extensions/code.css', 'dist/types/extensions/code.d.ts', 'Examples/code-blocks.html', ...['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml'].map(language => `dist/extensions/languages/${language}.min.js`)]) assert.ok(paths.has(path), `Missing Code package file: ${path}`);
 assert.ok(![...paths].some(path => path.startsWith('dist/dependencies/')), 'Mermaid must be supplied by the host, not shipped in the archive.');
 assert.ok(![...paths].some(path => /^(node_modules|src|Tests)\//.test(path)));
 console.log(`npm archive validated: ${pack.files.length} files, ${pack.size} bytes.`);
@@ -75,7 +77,26 @@ try {
 	assert.equal(await page.locator('[data-markian-viewer] h1').textContent(), 'Replacement');
 	await page.evaluate(() => { viewer.destroy(); viewer.destroy(); });
 	assert.equal(await page.locator('[data-markian-viewer]').count(), 0);
-	if (!viewerOnly) {
+	if (codeOnly) {
+		await page.goto(`http://127.0.0.1:${server.address().port}/installed/markian/Examples/code-blocks.html`);
+		await page.evaluate(() => window.example.ready);
+		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-javascript .tok-keyword'));
+		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-sql .tok-keyword'));
+		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-python .tok-keyword'));
+		for (const language of ['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml']) {
+			assert.equal(await page.evaluate(async language => {
+				const source = new URL(`../dist/extensions/languages/${language}.min.js`, document.baseURI).href;
+				return (await MarkianCode.loadCodeLanguage(document, { id: language, label: language, source })).language;
+			}, language), language);
+		}
+		await page.locator('.markian-code-preview').first().hover();
+		await page.getByRole('button', { name: 'Expand code block', exact: true }).first().click();
+		assert.equal(await page.evaluate(() => example.activeView), 'code');
+		await page.evaluate(() => example.execute('code:language:typescript'));
+		assert.match(await page.evaluate(() => example.get()), /```typescript/);
+		assert.ok(!requests.some(path => /mermaid\.min\.js/.test(path)), 'Code package must be independent of Mermaid.');
+	}
+	if (!viewerOnly && !codeOnly) {
 	await page.goto(`http://127.0.0.1:${server.address().port}/Examples/minimal-editor.html`);
 	assert.match(await page.evaluate(async () => { await window.example.ready; return window.example.get(); }), /A note/);
 	await page.goto(`http://127.0.0.1:${server.address().port}/Examples/mermaid-diagrams.html`);

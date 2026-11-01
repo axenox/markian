@@ -177,17 +177,21 @@ Configured templates register `template:<id>` commands for Visual/Source and a `
 | `getActiveSession()` | `BlockSession \| null` | Current or suspended block draft. |
 | `openView(id: string, target?: BlockTarget)` | `void` | Mount a registered view, optionally with a validated block session. Stale/conflicting/deleted targets throw. |
 | `back()` | `void` | Restore the previous view; a changed block draft commits once. Without a view frame, returns raw mode to Visual. |
-| `createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void)` | `SourceHandle` | Mount core CodeMirror inside the instance root. Intended for custom views. |
+| `createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void, options?: SourceOptions)` | `SourceHandle` | Mount core CodeMirror inside the instance root. Intended for custom views. |
 
 `BlockTarget` is `{ from, to, language, value, revision }`. Numeric `from`/`to` identify source offsets; obtain targets from Markian rather than inventing them. Only top-level fences currently support sessions.
 
-`BlockSession` exposes readonly `target`, `get(): string`, and `set(value: string): void`. Setting requires the active editable block view. Help may suspend that session but cannot mutate it. The editor's `get()` projects the full document with its draft before commit. Conflicts retain drafts rather than overwriting changed documents.
+`BlockSession` exposes readonly `target`, `get(): string`, `set(value: string): void`, `getLanguage(): string`, and `setLanguage(language: string): void`. Setting requires the active editable block view. Languages are empty for an unlabelled fence or at most 80 letters/digits/underscore/plus/hash/dot/hyphen characters. Help may suspend that session but cannot mutate it. The editor's `get()` projects the full document with its text and language drafts before commit. Conflicts retain drafts rather than overwriting changed documents.
+
+`SourceOptions` is `{ tabWidth?: number, label?: string, language?: string, onLanguageChange?: (language: string) => void }`. Defaults are width 2, label `Markdown source`, empty language, and no language callback. Tab width is an integer from 1-8. Text uses `changed`; language changes notify `onLanguageChange`, including local undo/redo. Bind both to the owning block session when supporting editable fence metadata.
 
 ### Source Handles
 
 | Method | Return | Behavior |
 | --- | --- | --- |
 | `get()` | `string` | Current source text. |
+| `getLanguage()` / `setLanguage(language: string)` | `string` / `void` | Read or undoably change local language metadata; changing requires active editable source. |
+| `setHighlights(tokens: readonly SourceToken[])` | `void` | Replace presentation-only token spans without content events/history. Tokens contain valid source offsets and bounded `tok-*` classes. |
 | `search(options: SearchOptions)` | `readonly SearchMatch[]` | Search this source buffer. |
 | `select(from: number, to?: number)` | `void` | Select source offsets; omitted end means a caret. |
 | `replaceSearch(replacement: string, all?: boolean)` | `void` | Replace a selected match/all when active and editable. |

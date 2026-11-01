@@ -48,7 +48,7 @@ Before saving, hosts await `whenIdle()` and then read `get()`. They must also se
 
 Register trusted editor extension factories once, then enable them separately for each instance. Registration alone does not activate a feature or load its optional dependencies. Unknown enabled IDs are configuration errors. Applications and extensions use the same commands, registries, views, and source handles.
 
-The bundled Code extension provides expanded block editing. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
+The bundled Code extension provides expanded block editing and lazy syntax highlighting. Separate selected Highlight.js language assets return source-offset tokens, not another editor engine or stored HTML. Core CodeMirror retains source selection, indentation and local history, including undoable fence-language metadata. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
 
 Hosts supply the Mermaid renderer. See [Mermaid configuration](Configuration.md#mermaid) for integration and the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md) for implementation details.
 

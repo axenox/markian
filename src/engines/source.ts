@@ -1,29 +1,57 @@
-import { EditorState, Compartment } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, drawSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo, indentMore, indentLess, indentWithTab } from '@codemirror/commands';
+import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, drawSelection, Decoration } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap, isolateHistory, invertedEffects, undo, redo, indentMore, indentLess, indentWithTab } from '@codemirror/commands';
+import { indentUnit } from '@codemirror/language';
 import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { findMatches } from '../search';
-import type { SearchMatch, SearchOptions } from '../types';
+import type { SearchMatch, SearchOptions, SourceOptions, SourceToken } from '../types';
+
+const languageEffect = StateEffect.define<string>();
+const languageField = StateField.define<string>({
+  create: () => '',
+  update: (value, transaction) => transaction.effects.find(effect => effect.is(languageEffect))?.value ?? value,
+});
 
 export class SourceEditor {
   readonly view: EditorView;
   private permissions = new Compartment();
+  private highlights = new Compartment();
   private query: SearchOptions = { query: '' };
 
-  constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected: () => void = () => {}) {
+  constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected: () => void = () => {}, options: SourceOptions = {}) {
+    const tabWidth = options.tabWidth ?? 2;
+    if (!Number.isInteger(tabWidth) || tabWidth < 1 || tabWidth > 8) throw new TypeError('Source tabWidth must be an integer from 1 to 8.');
     this.view = new EditorView({
       parent: element,
       state: EditorState.create({ doc: value, extensions: [
         history(), lineNumbers(), drawSelection(), search(), keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+        EditorState.tabSize.of(tabWidth), indentUnit.of(' '.repeat(tabWidth)), languageField.init(() => options.language ?? ''),
+        invertedEffects.of(transaction => transaction.effects.some(effect => effect.is(languageEffect)) ? [languageEffect.of(transaction.startState.field(languageField))] : []),
+        this.highlights.of([]),
         this.permissions.of(EditorState.readOnly.of(readOnly)),
-        EditorView.contentAttributes.of({ 'aria-label': 'Markdown source' }),
-        EditorView.updateListener.of(update => { if (update.docChanged) changed(update.state.doc.toString()); if (update.selectionSet) selected(); }),
+        EditorView.contentAttributes.of({ 'aria-label': options.label ?? 'Markdown source' }),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) { this.setHighlights([]); changed(update.state.doc.toString()); }
+          if (update.state.field(languageField) !== update.startState.field(languageField)) options.onLanguageChange?.(update.state.field(languageField));
+          if (update.selectionSet) selected();
+        }),
         EditorView.theme({ '&': { height: '100%' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--markian-mono)' }, '.cm-content': { padding: '20px 12px' } }),
       ] }),
     });
   }
 
   get(): string { return this.view.state.doc.toString(); }
+  getLanguage(): string { return this.view.state.field(languageField); }
+  setLanguage(language: string): void {
+    if (!this.view.state.readOnly && language !== this.getLanguage()) this.view.dispatch({ effects: languageEffect.of(language), annotations: isolateHistory.of('full') });
+  }
+  setHighlights(tokens: readonly SourceToken[]): void {
+    const ranges = tokens.map(token => {
+      if (!Number.isInteger(token.from) || !Number.isInteger(token.to) || token.from < 0 || token.to <= token.from || token.to > this.view.state.doc.length || !/^tok-[a-z-]+(?: tok-[a-z-]+)*$/.test(token.className)) throw new TypeError('Invalid source highlighting token.');
+      return Decoration.mark({ class: token.className }).range(token.from, token.to);
+    });
+    this.view.dispatch({ effects: this.highlights.reconfigure(EditorView.decorations.of(Decoration.set(ranges, true))) });
+  }
   search(options: SearchOptions): SearchMatch[] {
     this.query = options;
     this.view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: options.query, caseSensitive: options.caseSensitive, wholeWord: options.wholeWord, literal: true })) });

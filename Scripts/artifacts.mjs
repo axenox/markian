@@ -4,7 +4,8 @@ import { gzipSync, brotliCompressSync } from 'node:zlib';
 
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const sizes = {};
-for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css']) {
+const codeLanguages = ['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml'];
+for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css', 'extensions/code.min.js', 'extensions/code.css', ...codeLanguages.map(language => `extensions/languages/${language}.min.js`)]) {
   const bytes = await readFile(`dist/${path}`);
   sizes[path] = { bytes: bytes.length, gzip: gzipSync(bytes, { level: 9 }).length, brotli: brotliCompressSync(bytes).length };
 }
@@ -39,7 +40,9 @@ await writeFile('dist/manifest.json', JSON.stringify({
   core: { script: 'markian.min.js', stylesheet: 'markian.css', contentStylesheet: 'markdown-github.css', types: 'types/index.d.ts' },
   viewer: { script: 'markian-viewer.min.js', stylesheet: 'markian-viewer.css', types: 'types/viewer.d.ts', global: 'MarkianViewer', dependencies: [], measurements: 'sizes.json' },
   extensions: {
-    code: { script: 'extensions/code.min.js', global: 'MarkianCode.codeExtension', requires: pkg.version, dependencies: [] },
+    code: { script: 'extensions/code.min.js', stylesheet: 'extensions/code.css', types: 'types/extensions/code.d.ts', global: 'MarkianCode.codeExtension', requires: pkg.version,
+      dependencies: [{ name: 'highlight.js', version: pkg.devDependencies['highlight.js'], bundled: true, apiVersion: 1, loading: 'Only the selected fence language; no editing engines in language assets',
+        languages: codeLanguages.map(language => ({ id: language, script: `extensions/languages/${language}.min.js`, global: `MarkianCodeLanguage_${language}.highlighter` })) }] },
     mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,
       dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, requiredApi: ['initialize', 'render'], external: true, loading: 'host-configured source URL or supplied renderer adapter' }] },
     viewerMermaid: { script: 'extensions/viewer-mermaid.min.js', stylesheet: 'extensions/viewer-mermaid.css', types: 'types/viewer-mermaid.d.ts', global: 'MarkianViewerMermaid.createRenderer', requires: pkg.version,

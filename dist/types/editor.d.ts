@@ -1,6 +1,6 @@
 import { Items } from './registry';
 import { ToolbarItems } from './ui/toolbar';
-import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, StructuralNode, Theme, ViewDefinition, SearchOptions, SearchMatch } from './types';
+import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, SourceOptions, StructuralNode, Theme, ViewDefinition, SearchOptions, SearchMatch } from './types';
 export declare class EditorInstance implements MarkianInstance {
     private host;
     private options;
@@ -87,7 +87,7 @@ export declare class EditorInstance implements MarkianInstance {
     private ensureRaw;
     private dropRaw;
     execute(id: string, payload?: unknown): Promise<boolean>;
-    createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void): SourceHandle;
+    createSourceEditor(element: HTMLElement, value: string, changed: (value: string) => void, options?: SourceOptions): SourceHandle;
     private searchEngine;
     search(options: SearchOptions): readonly SearchMatch[];
     selectSearch(index: number): void;

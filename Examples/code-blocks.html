@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Markian | Code blocks</title>
+    <link rel="stylesheet" href="demo.css">
+    <link rel="stylesheet" href="../dist/markian.css">
+    <link rel="stylesheet" href="../dist/markian-viewer.css">
+    <link rel="stylesheet" href="../dist/extensions/code.css">
+    <style>
+      .demo-main { height: 65dvh; min-height: 400px; }
+    </style>
+  </head>
+  <body class="demo-workspace">
+    <header>
+      <a class="brand" href="index.html" aria-label="Markian examples"><span class="brand-symbol" aria-hidden="true">m.</span>markian<span class="workspace-label">Code blocks</span></a>
+      <div class="demo-actions">
+        <label><input id="readonly" type="checkbox">Read only</label>
+        <label><input id="theme" type="checkbox">Dark</label>
+        <button id="snapshot" type="button">Get Markdown</button>
+      </div>
+    </header>
+    <main>
+      <div class="demo-main"><div id="example"></div></div>
+      <aside><h2>Markdown</h2><pre id="value"></pre></aside>
+      <section class="demo-init"><h2>Editor initialization</h2><div data-demo-init></div></section>
+    </main>
+    <script src="../dist/markian.min.js"></script>
+    <script src="../dist/markian-viewer.min.js"></script>
+    <script src="../dist/extensions/code.min.js"></script>
+    <script data-editor-init>
+      Markian.registerExtension('code', MarkianCode.codeExtension);
+
+      window.example = Markian.create(document.querySelector('#example'), {
+        markdown: [
+          '# Release scripts', '',
+          '## JavaScript', '',
+          '```javascript',
+          'const items = ["draft", "review", "release"];',
+          'items.forEach(item => console.log(item));',
+          '```', '',
+          '## Database query', '',
+          '```sql',
+          'SELECT name, status FROM items WHERE status = \'ready\';',
+          '```', '',
+          '## Python', '',
+          '```python',
+          'def ready(items):',
+          '    return [item for item in items if item["ready"]]',
+          '```', '',
+        ].join('\n'),
+        extensions: { code: { enabled: true, config: { tabWidth: 4 } } },
+      });
+
+      const value = document.querySelector('#value');
+      const showValue = () => { value.textContent = example.get(); };
+      example.on('change', showValue);
+      example.ready.then(showValue).catch(error => { value.textContent = error.message; });
+      document.querySelector('#snapshot').addEventListener('click', showValue);
+      document.querySelector('#theme').addEventListener('change', event => example.setTheme(event.target.checked ? 'dark' : 'light'));
+      document.querySelector('#readonly').addEventListener('change', event => example.setReadOnly(event.target.checked));
+    </script>
+    <script src="demo.js"></script>
+  </body>
+</html>
