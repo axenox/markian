@@ -126,7 +126,7 @@
       "bytes": 2363
     },
     "extensions/code.min.js": {
-      "sha256": "257384b5763bc13a321afa479a034cb1e2aa803c781854aeb4ad4077dd0c908e",
+      "sha256": "9b52ba28f9656aff5144c223c41e6b8de3f0e80f815fad352ccbe7d357226218",
       "bytes": 56642
     },
     "extensions/languages/css.min.js": {
@@ -166,8 +166,8 @@
       "bytes": 23447
     },
     "extensions/mermaid.css": {
-      "sha256": "ba20058cfc76e3b10e178cedcb4e2e79b1e7caeb8a6eb5090a221c1e92954a04",
-      "bytes": 2354
+      "sha256": "ecbc97c761d25ceca60b7478f24e471d953df45bf1555991d0ec69303710634d",
+      "bytes": 2342
     },
     "extensions/mermaid.min.js": {
       "sha256": "7da30ab292f1ddc0ce3cb8127320faf407d61143eb50a27168c7277ef23617e4",
@@ -194,15 +194,15 @@
       "bytes": 215352
     },
     "markian.css": {
-      "sha256": "143cf9987118c921823a460492b1123633bb60fb9100dce65d6596d9a892f836",
-      "bytes": 13113
+      "sha256": "b727c649b1a16f17ddfa3b65c493118756331cdbddaf16c7dc1e2a0e3c60f7ce",
+      "bytes": 13760
     },
     "markian.min.js": {
-      "sha256": "f05962f5429df031880987d1cfac3fb623cc407d0077721aec0b5de7b535d7de",
-      "bytes": 987217
+      "sha256": "3b686ecc2f30da0ce5e5fb2ce8d4d0dda3cd8cce13f26df980df88f37cf2d8e0",
+      "bytes": 988745
     },
     "sizes.json": {
-      "sha256": "cd63114dfb2596df6b93c33030f5d18c1f876757271e0d589a7e088fb9112998",
+      "sha256": "416502b129522dfe6d1df4bbcff598ebcd50dca76261327e19a91be4e4656edf",
       "bytes": 3033
     },
     "types/browser.d.ts": {
@@ -222,8 +222,8 @@
       "bytes": 1012
     },
     "types/engines/source.d.ts": {
-      "sha256": "b4d2f0c09def8b9a604721f1d8a6f22ad705891c453e135ed21468dd82113d36",
-      "bytes": 880
+      "sha256": "b9ff9413d952422efa8be83d3f28dc2fcb03fd74522a72574bfd8d91ac05ec90",
+      "bytes": 1006
     },
     "types/engines/visual.d.ts": {
       "sha256": "daeea3136022d9dafbbe2f9f8c44d0f6dc035d20e5f95c7e7a2c48790b2e1648",
@@ -298,8 +298,8 @@
       "bytes": 596
     },
     "types/ui/static-search.d.ts": {
-      "sha256": "333e704ec8564ae327821242ab0fc0175c18c455951bd03dc6bc3dcc5588a08e",
-      "bytes": 327
+      "sha256": "b50422bc2fddbbc5d18ed546d872cd517d827deb1c38920c61b55843dfb8d724",
+      "bytes": 417
     },
     "types/ui/toolbar.d.ts": {
       "sha256": "c337ac9568f8c18a5ac67dd595de485d13327a11fd4d988ab6909a6b83fa13da",

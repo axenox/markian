@@ -47,6 +47,8 @@
 .markian-visual > .milkdown { min-height: 100%; }
 .markian-visual .ProseMirror { min-height: 100%; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
 .markian-visual .ProseMirror-selectednode { outline: 2px solid var(--markian-accent); }
+.markian-visual a { cursor: text; }
+.markian-link-navigation .markian-visual a, .markian[data-readonly='true'] .markian-visual a { cursor: pointer; }
 .markian .cm-editor { color: var(--markian-text); background: var(--markian-surface); }
 .markian .cm-gutters { color: var(--markian-muted); background: var(--markian-code); border-right-color: var(--markian-line); }
 .markian .cm-cursor { border-left-color: var(--markian-text); }
@@ -63,8 +65,8 @@
 .markian-menu > summary { display: flex; position: relative; align-items: center; justify-content: center; width: var(--markian-button-size, 32px); height: var(--markian-button-size, 32px); padding: 0; border-radius: 4px; cursor: pointer; list-style: none; }
 .markian-menu > summary::-webkit-details-marker { display: none; }
 .markian-menu > summary svg { flex: 0 0 var(--markian-icon-size, 20px); width: var(--markian-icon-size, 20px); height: var(--markian-icon-size, 20px); fill: currentColor; }
-.markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary { width: var(--markian-toolbar-button-width, var(--markian-button-size, 28px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 28px)); }
-.markian-toolbar > .markian-button > svg:not(.markian-menu-chevron), .markian-toolbar > .markian-menu > summary > svg:not(.markian-menu-chevron) { flex-basis: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); width: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); height: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); }
+.markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary, .markian-floating > .markian-button { width: var(--markian-toolbar-button-width, var(--markian-button-size, 28px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 28px)); }
+.markian-toolbar > .markian-button > svg:not(.markian-menu-chevron), .markian-toolbar > .markian-menu > summary > svg:not(.markian-menu-chevron), .markian-floating > .markian-button > svg { flex-basis: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); width: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); height: var(--markian-toolbar-icon-size, var(--markian-icon-size, 18px)); }
 .markian-menu[open] > summary, .markian-menu > summary:hover { background: var(--markian-soft); }
 .markian-menu-items { position: fixed; inset: auto; margin: 0; z-index: 8; display: flex; flex-direction: column; width: max-content; min-width: 180px; max-width: 320px; max-height: 300px; overflow: auto; padding: 4px; border: 1px solid var(--markian-line); border-radius: 4px; color: var(--markian-text); background: var(--markian-surface); box-shadow: 0 4px 12px #0002; }
 .markian-menu-items[popover]:not(:popover-open) { display: none; }
@@ -76,7 +78,7 @@
 .markian-menu-items .markian-menu-chevron { flex: 0 0 16px; width: 16px; margin-left: auto; }
 .markian-menu-items:has(> .markian-swatch) { display: grid; grid-template-columns: repeat(5, 28px); gap: 6px; min-width: 0; padding: 8px; }
 .markian-menu-items > .markian-swatch { width: 28px; height: 28px; min-height: 28px; border: 1px solid var(--markian-line); }
-.markian-floating { position: absolute; z-index: 3; top: 54px; right: 16px; display: flex; flex-wrap: wrap; max-width: calc(100% - 32px); padding: 3px; border: 1px solid var(--markian-line); border-radius: 4px; background: var(--markian-surface); box-shadow: 0 2px 8px #0002; }
+.markian-floating { position: absolute; z-index: 3; top: 54px; right: 16px; display: flex; align-items: center; gap: 2px; height: var(--markian-toolbar-height, 40px); max-width: calc(100% - 32px); overflow-x: auto; scrollbar-width: none; padding: var(--markian-toolbar-padding, 4px 6px); border: 1px solid var(--markian-line); border-radius: 4px; background: var(--markian-surface); box-shadow: 0 2px 8px #0002; }
 .markian-panel { position: relative; z-index: 5; display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px 12px; max-height: 55%; overflow: auto; background: var(--markian-surface); border-bottom: 1px solid var(--markian-line); }
 .markian-panel label { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px; }
 .markian-panel label:has(input[type='checkbox']) { flex-direction: row; align-items: center; }
@@ -97,10 +99,12 @@
 .markian-tag-details { overflow-wrap: anywhere; }
 .markian-popup { position: fixed; inset: auto; margin: 0; padding: 0; border: 0; overflow: visible; width: min(360px, calc(100vw - 16px)); color: var(--markian-text); background: transparent; }
 .markian-popup:not(:popover-open) { display: none; }
+.markian-popup[data-anchor-command='search']:not(:focus-within):not(:hover) { opacity: .7; }
 .markian-popup::before { content: ''; position: absolute; z-index: 1; left: calc(var(--markian-tip-left, 20px) - 5px); top: -5px; width: 10px; height: 10px; border-top: 1px solid var(--markian-line); border-left: 1px solid var(--markian-line); background: var(--markian-surface); transform: rotate(45deg); pointer-events: none; }
 .markian-popup[data-side='above']::before { top: auto; bottom: -5px; transform: rotate(225deg); }
 .markian-search, .markian-destination { position: relative; width: 100%; max-height: none; display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 16px; gap: 12px; border: 1px solid var(--markian-line); border-radius: 6px; box-shadow: 0 6px 20px #0002; }
-.markian-search > label:has(input[type='text']), .markian-destination > label, .markian-destination > output, .markian-destination > .markian-suggestions { grid-column: 1 / -1; }
+.markian-search-row, .markian-destination > label, .markian-destination > output, .markian-destination > .markian-suggestions { grid-column: 1 / -1; }
+.markian-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 4px; }
 .markian-search input:not([type='checkbox']), .markian-destination input:not([type='checkbox']), .markian-destination select { max-width: none; min-height: 34px; }
 .markian-destination input:not([type='checkbox']) { height: 34px; }
 .markian-destination input[type='file']::file-selector-button { height: 100%; padding: 0 6px; font: inherit; }
@@ -109,6 +113,7 @@
 .markian-panel-actions > output { margin-right: auto; }
 .markian-panel-actions > button:last-child { margin-left: auto; }
 .markian-match { background: #ffe295; color: #242824; }
+.markian .markian-match-current { background: Highlight; color: HighlightText; }
 .markian-outline { display: none; order: 1; flex: 0 0 200px; max-width: 40%; min-width: 0; padding: 10px 4px; overflow: auto; border-left: 1px solid var(--markian-line); background: var(--markian-surface); }
 .markian-outline-open .markian-outline { display: block; }
 .markian-outline-title { margin: 0; padding: 0 8px 6px; font: inherit; font-size: 12px; font-weight: 600; line-height: normal; }
@@ -133,9 +138,10 @@
 .markian .markian-alert-marker { display: none; }
 @container (max-width: 480px) {
   .markian-toolbar { flex-basis: var(--markian-toolbar-height, 50px); }
+  .markian-floating { height: var(--markian-toolbar-height, 50px); }
   .markian-button { width: var(--markian-button-size, 40px); height: var(--markian-button-size, 40px); }
   .markian-menu > summary { width: var(--markian-button-size, 40px); height: var(--markian-button-size, 40px); }
-  .markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary { width: var(--markian-toolbar-button-width, var(--markian-button-size, 40px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 40px)); }
+  .markian-toolbar > .markian-button, .markian-toolbar > .markian-menu > summary, .markian-floating > .markian-button { width: var(--markian-toolbar-button-width, var(--markian-button-size, 40px)); height: var(--markian-toolbar-button-height, var(--markian-button-size, 40px)); }
   .markian-panel { padding: 8px; gap: 6px; }
   .markian-panel > label:has(input[type='text']) { flex-basis: 115px; }
   .markian-search, .markian-destination { padding: 12px; gap: 10px; }

@@ -209,7 +209,9 @@ export async function createVisual(
     key: searchKey,
     state: {
       init: () => DecorationSet.empty,
-      apply: transaction => DecorationSet.create(transaction.doc, matches(transaction.doc).map(match => Decoration.inline(match.from, match.to, { class: 'markian-match' }))),
+      apply: transaction => DecorationSet.create(transaction.doc, matches(transaction.doc).map(match => Decoration.inline(match.from, match.to, {
+        class: match.from === transaction.selection.from && match.to === transaction.selection.to ? 'markian-match markian-match-current' : 'markian-match',
+      }))),
     },
     props: { decorations: state => searchKey.getState(state) },
   }), new Plugin({
@@ -294,6 +296,14 @@ export async function createVisual(
         selectionChanged();
       },
       handleDOMEvents: {
+        mousedown: (_view, event) => {
+          const mouse = event as MouseEvent;
+          const anchor = (event.target as Element).closest('a');
+          if (mouse.button !== 0 || !anchor || !(readOnly() || mouse.ctrlKey || mouse.metaKey) || !safeUrl(anchor.getAttribute('href') ?? '')) return false;
+          // Stop ProseMirror's modifier-click node selection before the click opens the link.
+          event.preventDefault();
+          return true;
+        },
         click: (view, event) => {
           const checkbox = (event.target as Element).closest<HTMLInputElement>('input[type="checkbox"]');
           if (checkbox) {
@@ -405,7 +415,16 @@ export async function createVisual(
       for (const checkbox of element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) checkbox.disabled = readOnly();
     },
     search(options) { query = options; view.dispatch(view.state.tr.setMeta('search', true)); return matches(view.state.doc); },
-    select(from, to = from) { view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)).scrollIntoView()); },
+    /** Selects and reveals a match without taking focus from search or scrolling the host. */
+    select(from, to = from) {
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+      // ProseMirror's scrollIntoView ignores selections while focus is in the search panel.
+      const match = view.coordsAtPos(from);
+      const bounds = element.getBoundingClientRect();
+      if (match.top < bounds.top || match.bottom > bounds.top + element.clientHeight) {
+        element.scrollTo({ top: element.scrollTop + match.top - bounds.top - element.clientTop - (element.clientHeight - (match.bottom - match.top)) / 2, behavior: 'instant' });
+      }
+    },
     replaceSearch(replacement, all = false) {
       if (readOnly()) return;
       const selection = view.state.selection;

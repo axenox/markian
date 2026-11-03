@@ -36,7 +36,7 @@ Groups generate separators only when they have visible content. Custom layouts a
 
 Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Table actions and code expansion use their own contextual controls. Code expansion is caret-contextual, not a default pinned command.
 
-Floating controls must not cover selected text.
+Floating controls must not cover selected text. All toolbar placements share the same height, control dimensions, icon sizes and padding, including compact host themes. Floating toolbars stay on one row and scroll horizontally if their controls do not fit.
 
 Views with Back place it first, followed by a separator, and omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
 
@@ -60,13 +60,17 @@ Read-only/disabled editors retain selection, copying, search without replacement
 
 The standalone viewer has no editor controls or frame. Its root is `[data-markian-viewer].markian-viewer`, with instance-local theme and shared `.markian-document` typography. Tasks are always disabled. Long code and wide tables scroll locally, images fit the host, and links show keyboard focus. Viewer Mermaid adds no editing or pan/zoom toolbar.
 
+In editable Visual view, ordinary link clicks place the caret for editing. Holding Ctrl or Cmd changes the link cursor to a hand pointer; clicking then opens the link without changing the existing selection or selecting its paragraph. Read-only links use a hand pointer and open without a modifier.
+
 ## Panels and Outline
 
 Search, link, and image forms are anchored to their visible toolbar button with a small pointer. Commands from More point to More after it closes. Panels flip above bottom controls or when space is limited, clamp to the viewport, and scroll internally without clipping the pointer.
 
 Stack full-width labeled inputs vertically; keep checkbox options together and actions below fields. Destination fields share consistent dimensions. The image form orders Image URL, Upload new image, and alternative text; an empty status occupies no row. Use focus containment, Escape/Close restoration, and outside dismissal that does not steal focus from the clicked destination or another editor.
 
-Search offers previous/next, count, case/word options, and replacement only when permitted. Help/Preview highlighting is disposable presentation. Destination suggestions and heading inspection show pending/error states rather than fabricated success. Dismissal aborts lookups but does not silently cancel an already-started upload. Pending images offer Cancel; failed insertions offer Retry and Remove.
+Search places Next then Previous to the right of Find, and Replace match then Replace all to the right of Replace. Visual order and Tab order match: Find, Next, Previous, Replace, Replace match, Replace all, then case/word options and Close. The search popup stays open while working inside its editor and becomes slightly translucent when neither focused nor hovered. Focusing, clicking or hovering over it restores full opacity; hovering does not move editing focus. Clicking outside the owning editor still dismisses it; Close and Escape remain available.
+
+Search offers previous/next, count, case/word options, and replacement only when permitted. Buttons and Enter/Shift+Enter reveal the selected match inside the active view without moving the host page or taking focus from the search controls. The current match uses system selection colors, including while the Find field has focus; other matches remain yellow. In editing views, it is the editor's actual text selection, retained when search closes. Help/Preview highlighting is disposable presentation. Destination suggestions and heading inspection show pending/error states rather than fabricated success. Dismissal aborts lookups but does not silently cancel an already-started upload. Pending images offer Cancel; failed insertions offer Retry and Remove.
 
 The outline is visible by default and starts with a compact Outline title. It omits a document title starting on source line 1. Its button reflects visibility with `aria-pressed`. Heading navigation retains visibility and scrolls the active visual/source surface. Specialized views hide it temporarily without resetting the choice. Even in narrow layouts, document and outline remain adjacent independently scrolling areas, not an overlapping drawer.
 
@@ -100,7 +104,7 @@ Backtick inline-code typing and submitted backtick/tilde fences should behave li
 
 Expanded code uses the same bounded shell and Back-first toolbar as other tasks. Keep Undo/Redo in History, indentation in Format, and language choices in the shared Code language menu. The source surface owns its scrolling and line-number gutter; a compact diagnostic/retry row stays outside it. Avoid a second editor frame or a programming-language sidebar.
 
-Highlighted visual fences retain literal text with floating expansion/retry controls on hover/focus and visible touch controls. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
+Highlighted visual fences retain literal text with floating expansion/retry controls on hover/focus and visible touch controls. Opening the dedicated Code view uses the same edit icon as Edit diagram, both in the caret-contextual toolbar and over highlighted fences. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
 
 ## Mermaid Workspace
 

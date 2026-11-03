@@ -16,6 +16,7 @@ export class SourceEditor {
   readonly view: EditorView;
   private permissions = new Compartment();
   private highlights = new Compartment();
+  private searchHighlights = new Compartment();
   private query: SearchOptions = { query: '' };
 
   constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected: () => void = () => {}, options: SourceOptions = {}) {
@@ -28,6 +29,7 @@ export class SourceEditor {
         EditorState.tabSize.of(tabWidth), indentUnit.of(' '.repeat(tabWidth)), languageField.init(() => options.language ?? ''),
         invertedEffects.of(transaction => transaction.effects.some(effect => effect.is(languageEffect)) ? [languageEffect.of(transaction.startState.field(languageField))] : []),
         this.highlights.of([]),
+        this.searchHighlights.of([]),
         this.permissions.of(EditorState.readOnly.of(readOnly)),
         EditorView.contentAttributes.of({ 'aria-label': options.label ?? 'Markdown source' }),
         EditorView.updateListener.of(update => {
@@ -52,9 +54,17 @@ export class SourceEditor {
     });
     this.view.dispatch({ effects: this.highlights.reconfigure(EditorView.decorations.of(Decoration.set(ranges, true))) });
   }
+  /** Highlights matches and the actual selection while Markian's search panel owns focus. */
   search(options: SearchOptions): SearchMatch[] {
     this.query = options;
-    this.view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: options.query, caseSensitive: options.caseSensitive, wholeWord: options.wholeWord, literal: true })) });
+    this.view.dispatch({ effects: [
+      setSearchQuery.of(new SearchQuery({ search: options.query, caseSensitive: options.caseSensitive, wholeWord: options.wholeWord, literal: true })),
+      this.searchHighlights.reconfigure(options.query ? EditorView.decorations.compute(['doc', 'selection'], state => Decoration.set(
+        findMatches(state.doc.toString(), options).map(match => Decoration.mark({
+          class: state.selection.ranges.some(range => range.from === match.from && range.to === match.to) ? 'markian-match markian-match-current' : 'markian-match',
+        }).range(match.from, match.to)),
+      )) : []),
+    ] });
     return findMatches(this.get(), options);
   }
   select(from: number, to = from): void {

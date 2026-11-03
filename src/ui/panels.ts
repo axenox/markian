@@ -21,8 +21,12 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
   const panel = document.createElement('div');
   panel.className = 'markian-panel markian-search';
   panel.setAttribute('role', 'search');
-  const query = field(document, panel, 'Find');
-  const replacement = field(document, panel, 'Replace');
+  const findRow = document.createElement('div');
+  const replaceRow = document.createElement('div');
+  findRow.className = replaceRow.className = 'markian-search-row';
+  panel.append(findRow, replaceRow);
+  const query = field(document, findRow, 'Find');
+  const replacement = field(document, replaceRow, 'Replace');
   const sensitive = field(document, panel, 'Match case', 'checkbox');
   const whole = field(document, panel, 'Whole word', 'checkbox');
   query.value = initial.query;
@@ -40,21 +44,24 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
   for (const input of [query, sensitive, whole]) input.addEventListener('input', () => { index = 0; find(); });
   const replace = commandButton(document, 'Replace match', 'replace', () => { instance.replaceSearch(replacement.value); find(); });
   const replaceAll = commandButton(document, 'Replace all', 'replaceAll', () => { instance.replaceSearch(replacement.value, true); find(); });
+  findRow.append(commandButton(document, 'Next match', 'down', () => find(1)), commandButton(document, 'Previous match', 'up', () => find(-1)));
+  replaceRow.append(replace, replaceAll);
   const permissions = () => {
     const supported = !instance.readOnly && !['help', 'preview'].includes(instance.activeView);
-    replacement.parentElement!.hidden = !supported;
-    replace.hidden = replaceAll.hidden = !supported;
+    replaceRow.hidden = !supported;
   };
   permissions();
   const observer = new MutationObserver(permissions);
   observer.observe(instance.element, { attributes: true, attributeFilter: ['data-readonly', 'data-view'] });
   const actions = document.createElement('div');
   actions.className = 'markian-panel-actions';
-  actions.append(count, commandButton(document, 'Previous match', 'up', () => find(-1)), commandButton(document, 'Next match', 'down', () => find(1)), replace, replaceAll,
-    commandButton(document, 'Close search', 'close', close));
+  actions.append(count, commandButton(document, 'Close search', 'close', close));
   panel.append(actions);
+  panel.addEventListener('pointerdown', () => {
+    if (!panel.contains(document.activeElement)) query.focus({ preventScroll: true });
+  });
   panel.addEventListener('keydown', event => {
-    if (event.key === 'Enter') { event.preventDefault(); find(event.shiftKey ? -1 : 1); }
+    if (event.key === 'Enter' && (event.target === query || event.target === replacement)) { event.preventDefault(); find(event.shiftKey ? -1 : 1); }
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
   });
   const unlisten = instance.on('change', () => {

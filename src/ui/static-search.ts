@@ -41,9 +41,14 @@ export class StaticSearch {
     return this.matches;
   }
 
+  /** Marks the current presentation match and reveals it in this view's scrollport. */
   select(from: number): void {
+    for (const mark of this.marks) mark.classList.toggle('markian-match-current', mark.dataset.match === String(from));
     const mark = this.marks.find(item => item.dataset.match === String(from));
-    if (mark) this.element.scrollTo({ top: mark.offsetTop - this.element.offsetTop, behavior: 'instant' });
+    if (!mark) return;
+    const match = mark.getBoundingClientRect();
+    const bounds = this.element.getBoundingClientRect();
+    this.element.scrollTo({ top: this.element.scrollTop + match.top - bounds.top - this.element.clientTop - (this.element.clientHeight - match.height) / 2, behavior: 'instant' });
   }
 
   replaceSearch(): void {}

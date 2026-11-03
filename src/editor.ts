@@ -147,10 +147,18 @@ export class EditorInstance implements MarkianInstance {
     this.listen(this.element, 'focusout', event => {
       if (!this.element.contains((event as FocusEvent).relatedTarget as Node | null)) this.emit('blur', 'user');
     });
+    const updateLinkNavigation = (event: Event) => {
+      const modifier = event as KeyboardEvent | MouseEvent;
+      this.element.classList.toggle('markian-link-navigation', modifier.ctrlKey || modifier.metaKey);
+    };
+    this.listen(document, 'keydown', updateLinkNavigation);
+    this.listen(document, 'keyup', updateLinkNavigation);
+    this.listen(this.visualElement, 'pointermove', updateLinkNavigation);
+    this.listen(document.defaultView, 'blur', () => this.element.classList.remove('markian-link-navigation'));
     this.listen(this.host.ownerDocument, 'pointerdown', event => {
       const target = event.target as Node | null;
       for (const menu of this.toolbar.querySelectorAll<HTMLDetailsElement>('details[open]')) if (!menu.contains(target)) this.setMenuOpen(menu, false);
-      if (this.searchElement && !this.searchElement.contains(target)) this.closeSearch(false);
+      if (this.searchElement && !this.element.contains(target)) this.closeSearch(false);
       if (this.destination && !this.destination.element.contains(target)) this.closeDestination(false);
     });
     this.listen(this.element, 'keydown', event => {

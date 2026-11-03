@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { mdiSitemapOutline } from '@mdi/js';
+import { mdiSitemapOutline, mdiFileEditOutline } from '@mdi/js';
 import { equivalentMarkdown } from '../src/render/markdown';
 
 const browserErrors = new WeakMap();
@@ -697,8 +697,12 @@ for (const width of [1440, 390]) test(`popup labels, anchoring and outside dismi
   await page.evaluate(() => editor.execute('search'));
   await root.locator('.markian-search').getByLabel('Find', { exact: true }).fill('notes');
   await root.locator('.ProseMirror p').first().click();
-  await expect(root.locator('.markian-search')).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await expect(root.locator('.markian-search')).toBeVisible();
+  await expect(root.locator('.markian-popup[data-anchor-command="search"]')).toHaveCSS('opacity', '0.7');
   await expect(root.locator('.ProseMirror')).toBeFocused();
+  await page.getByRole('button', { name: 'Get Markdown', exact: true }).click();
+  await expect(root.locator('.markian-search')).toHaveCount(0);
 });
 
 test('menu Home and End keep keyboard focus inside the active disclosure', async ({ page }) => {
@@ -955,6 +959,107 @@ test('recursive configured menus use independent bounded flyouts without expandi
   await expect(nested.locator('summary')).toBeFocused();
 });
 
+for (const modifier of ['Control', 'Meta']) test(`modified link clicks preserve selection and show a pointer (${modifier})`, async ({ page }) => {
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.linkOpenEvents = [];
+    window.editor = Markian.create(document.getElementById('editor'), {
+      markdown: 'Before [linked **text**](guide.md) after',
+      onLinkOpen: context => window.linkOpenEvents.push({ destination: context.destination, selection: getSelection().toString() }),
+    });
+    await editor.ready;
+  });
+  const root = page.locator('[data-markian]').first();
+  const prose = root.locator('.ProseMirror');
+  const link = prose.locator('a').last();
+  await prose.locator('p').evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.setStart(element.firstChild, 0);
+    range.setEnd(element.firstChild, 6);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  });
+  await expect(root.getByRole('toolbar', { name: 'Selection commands' })).toBeVisible();
+  await link.hover();
+  await expect(link).toHaveCSS('cursor', 'text');
+  await page.keyboard.down(modifier);
+  await expect(link).toHaveCSS('cursor', 'pointer');
+  await link.click();
+  await page.keyboard.up(modifier);
+  await expect(link).toHaveCSS('cursor', 'text');
+  expect(await page.evaluate(() => window.linkOpenEvents)).toEqual([{ destination: 'guide.md', selection: 'Before' }]);
+  expect(await page.evaluate(() => getSelection().toString())).toBe('Before');
+  await expect(prose.locator('.ProseMirror-selectednode')).toHaveCount(0);
+  await link.click();
+  expect(await page.evaluate(() => window.linkOpenEvents.length)).toBe(1);
+  expect(await page.evaluate(() => getSelection().isCollapsed)).toBe(true);
+  await page.keyboard.down(modifier);
+  await expect(link).toHaveCSS('cursor', 'pointer');
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await expect(link).toHaveCSS('cursor', 'text');
+  await page.keyboard.up(modifier);
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(link).toHaveCSS('cursor', 'pointer');
+  await link.click();
+  expect(await page.evaluate(() => window.linkOpenEvents.length)).toBe(2);
+  expect(await page.evaluate(() => editor.get())).toBe('Before [linked **text**](guide.md) after');
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const compact of [false, true]) for (const width of [1440, 390]) test(`floating toolbars match main toolbar sizing (${compact ? 'compact host' : 'default'}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.evaluate(async ({ compact, width }) => {
+    editor.destroy();
+    const commands = ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
+    window.editor = Markian.create(document.getElementById('editor'), {
+      markdown: '**Formatted** text',
+      theme: width === 390 ? 'dark' : 'light',
+      floatingToolbar: width === 390 ? [...commands, ...commands] : commands,
+    });
+    await editor.ready;
+    if (compact) {
+      editor.element.style.setProperty('--markian-toolbar-height', '36px');
+      editor.element.style.setProperty('--markian-toolbar-padding', '4px 2px');
+      editor.element.style.setProperty('--markian-toolbar-button-height', '26px');
+    }
+  }, { compact, width });
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror strong').evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  });
+  const main = root.getByRole('toolbar', { name: 'Editor commands' });
+  const floating = root.getByRole('toolbar', { name: 'Selection commands' });
+  await expect(floating).toBeVisible();
+  const mainButton = main.locator(':scope > [data-command="search"]');
+  const floatingButton = floating.locator(':scope > button').first();
+  const bounds = await floating.boundingBox();
+  expect(bounds.height).toBe(compact ? 36 : width === 390 ? 50 : 40);
+  expect(bounds.height).toBe((await main.boundingBox()).height);
+  expect((await floatingButton.boundingBox()).height).toBe((await mainButton.boundingBox()).height);
+  expect((await floatingButton.boundingBox()).width).toBe((await mainButton.boundingBox()).width);
+  expect((await floatingButton.locator('svg').boundingBox()).height).toBe((await mainButton.locator('svg').boundingBox()).height);
+  for (const button of await floating.locator(':scope > button').all()) {
+    const control = await button.boundingBox();
+    expect(control.y).toBeGreaterThanOrEqual(bounds.y);
+    expect(control.y + control.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+  }
+  if (width === 390) {
+    expect(await floating.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+    const last = floating.locator(':scope > button').last();
+    await last.focus();
+    await expect(last).toBeFocused();
+    const control = await last.boundingBox();
+    expect(control.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(control.x + control.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+  }
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
 for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`text floating toolbar clears selected formatting (${theme}, ${width})`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });
   await page.evaluate(theme => editor.setTheme(theme), theme);
@@ -1022,11 +1127,19 @@ test('table actions have distinct icons and code expansion is caret-contextual o
   await root.locator('.ProseMirror pre').click();
   const expand = root.locator('.markian-floating [data-command="code:expand"]');
   await expect(expand).toBeVisible();
+  await expect(expand.locator('svg path')).toHaveAttribute('d', mdiFileEditOutline);
   await expand.click();
   await expect(root).toHaveAttribute('data-view', 'code');
   await root.getByRole('button', { name: 'Back', exact: true }).click();
   await root.locator('.ProseMirror > p').last().click();
   await expect(expand).toHaveCount(0);
+  await page.evaluate(() => editor.set('```javascript\nconst value = 1;\n```'));
+  const preview = root.locator('.markian-code-preview');
+  await preview.hover();
+  const edit = preview.getByRole('button', { name: 'Expand code block', exact: true });
+  await expect(edit.locator('svg path')).toHaveAttribute('d', mdiFileEditOutline);
+  await edit.click();
+  await expect(root).toHaveAttribute('data-view', 'code');
 });
 
 for (const width of [1440, 390]) for (const theme of ['light', 'dark']) test(`panels follow their configured buttons and bubble tips (${theme}, ${width})`, async ({ page }) => {
@@ -1760,6 +1873,222 @@ test('focus-bound search panel navigates and hides replace when locked', async (
   await panel.getByLabel('Find', { exact: true }).focus();
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
+});
+
+for (const { view, width } of [{ view: 'visual', width: 1440 }, { view: 'raw', width: 390 }]) test(`search rows follow tab order and fade during editing (${view}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(async ({ view, width }) => {
+    editor.set('alpha beta alpha beta alpha\n\n' + Array(12).fill('Editing text.').join('\n\n'));
+    editor.setTheme(width === 390 ? 'dark' : 'light');
+    if (view === 'raw') editor.setMode('raw');
+    await editor.execute('search');
+  }, { view, width });
+  const root = page.locator('[data-markian]').first();
+  const panel = root.locator('.markian-search');
+  const popup = root.locator('.markian-popup[data-anchor-command="search"]');
+  const query = panel.getByLabel('Find', { exact: true });
+  const replacement = panel.getByLabel('Replace', { exact: true });
+  const next = panel.getByRole('button', { name: 'Next match', exact: true });
+  const previous = panel.getByRole('button', { name: 'Previous match', exact: true });
+  const replace = panel.getByRole('button', { name: 'Replace match', exact: true });
+  const replaceAll = panel.getByRole('button', { name: 'Replace all', exact: true });
+  await query.fill('alpha');
+  await expect(popup).toHaveCSS('opacity', '1');
+  for (const row of [[query, next, previous], [replacement, replace, replaceAll]]) {
+    const [input, first, second] = await Promise.all(row.map(control => control.boundingBox()));
+    expect(first.x).toBeGreaterThanOrEqual(input.x + input.width);
+    expect(second.x).toBeGreaterThanOrEqual(first.x + first.width);
+    expect(Math.abs(first.y + first.height - input.y - input.height)).toBeLessThan(2);
+    expect(Math.abs(second.y + second.height - input.y - input.height)).toBeLessThan(2);
+  }
+  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await query.press('Tab');
+  await expect(next).toBeFocused();
+  await next.press('Enter');
+  await expect(panel.locator('output')).toHaveText('2 / 3');
+  await next.press('Tab');
+  await expect(previous).toBeFocused();
+  await previous.press('Enter');
+  await expect(panel.locator('output')).toHaveText('1 / 3');
+  await previous.press('Tab');
+  await expect(replacement).toBeFocused();
+  await replacement.fill('gamma');
+  await replacement.press('Tab');
+  await expect(replace).toBeFocused();
+  await replace.press('Enter');
+  expect((await page.evaluate(() => editor.get())).match(/gamma/g)).toHaveLength(1);
+  await replace.press('Tab');
+  await expect(replaceAll).toBeFocused();
+  await replaceAll.press('Enter');
+  expect((await page.evaluate(() => editor.get())).match(/gamma/g)).toHaveLength(3);
+  expect(await page.evaluate(() => editor.get())).not.toContain('alpha');
+  for (const control of [panel.getByLabel('Match case'), panel.getByLabel('Whole word'), panel.getByRole('button', { name: 'Close search', exact: true })]) {
+    await page.keyboard.press('Tab');
+    await expect(control).toBeFocused();
+    await expect(popup).toHaveCSS('opacity', '1');
+  }
+  const lastLine = root.locator(view === 'raw' ? '.cm-line' : '.ProseMirror p').last();
+  await lastLine.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' edited');
+  await page.mouse.move(0, 0);
+  await expect(panel).toBeVisible();
+  await expect(popup).toHaveCSS('opacity', '0.7');
+  expect(await page.evaluate(() => editor.get())).toContain('Editing text. edited');
+  await next.hover();
+  await expect(popup).toHaveCSS('opacity', '1');
+  await expect(root.locator(view === 'raw' ? '.cm-content' : '.ProseMirror')).toBeFocused();
+  await page.mouse.move(0, 0);
+  await expect(popup).toHaveCSS('opacity', '0.7');
+  await query.focus();
+  await expect(popup).toHaveCSS('opacity', '1');
+  await lastLine.click();
+  await page.mouse.move(0, 0);
+  await expect(popup).toHaveCSS('opacity', '0.7');
+  await next.click();
+  await expect(query).toBeFocused();
+  await page.mouse.move(0, 0);
+  await expect(popup).toHaveCSS('opacity', '1');
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(replacement).toBeHidden();
+  await expect(replace).toBeHidden();
+  await expect(replaceAll).toBeHidden();
+  await query.press('Tab');
+  await expect(next).toBeFocused();
+  await next.press('Tab');
+  await expect(previous).toBeFocused();
+  await previous.press('Tab');
+  await expect(panel.getByLabel('Match case')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const view of ['visual', 'raw', 'preview']) for (const theme of ['light', 'dark']) test(`search selects the current visible hit (${view}, ${theme})`, async ({ page }) => {
+  await page.evaluate(async ({ view, theme }) => {
+    editor.set(view === 'raw' ? 'one two here, one two there, one two end.' : 'one **two** here, one two there, one two end.');
+    editor.setTheme(theme);
+    if (view === 'raw') editor.setMode('raw');
+    if (view === 'preview') await editor.execute('preview');
+    if (theme === 'dark') editor.setReadOnly(true);
+    window.searchChanges = 0;
+    editor.on('change', () => window.searchChanges++);
+    await editor.execute('search');
+  }, { view, theme });
+  const root = page.locator('[data-markian]').first();
+  const panel = root.locator('.markian-search');
+  const query = panel.getByLabel('Find', { exact: true });
+  const matches = root.locator('.markian-match');
+  const current = root.locator('.markian-match-current');
+  const surface = root.locator(view === 'raw' ? '.markian-source .cm-scroller' : view === 'preview' ? '.markian-view' : '.markian-visual');
+  const original = await page.evaluate(() => editor.get());
+  const selectionColors = await root.evaluate(element => {
+    const probe = element.ownerDocument.createElement('span');
+    probe.style.cssText = 'background: Highlight; color: HighlightText';
+    element.append(probe);
+    const style = getComputedStyle(probe);
+    const colors = { background: style.backgroundColor, text: style.color };
+    probe.remove();
+    return colors;
+  });
+  const assertCurrent = async index => {
+    await expect(panel.locator('output')).toHaveText(`${index + 1} / 3`);
+    const expected = [0, 1, 2].flatMap(match => Array(view !== 'raw' && match === 0 ? 2 : 1).fill(match === index));
+    await expect.poll(() => matches.evaluateAll(elements => elements.map(element => element.matches('.markian-match-current')))).toEqual(expected);
+    expect(await current.allTextContents()).toEqual(view !== 'raw' && index === 0 ? ['one ', 'two'] : ['one two']);
+    await expect(current.first()).toHaveCSS('background-color', selectionColors.background);
+    await expect(current.first()).toHaveCSS('color', selectionColors.text);
+    const other = root.locator('.markian-match:not(.markian-match-current)');
+    await expect(other.first()).toHaveCSS('background-color', 'rgb(255, 226, 149)');
+    await expect(query).toBeFocused();
+  };
+  await query.fill('one two');
+  await assertCurrent(0);
+  const scroll = await surface.evaluate(element => ({ page: scrollY, top: element.scrollTop }));
+  await panel.getByRole('button', { name: 'Next match', exact: true }).click();
+  await assertCurrent(1);
+  await panel.getByRole('button', { name: 'Next match', exact: true }).click();
+  await assertCurrent(2);
+  await query.press('Enter');
+  await assertCurrent(0);
+  await query.press('Shift+Enter');
+  await assertCurrent(2);
+  await panel.getByRole('button', { name: 'Previous match', exact: true }).click();
+  await assertCurrent(1);
+  expect(await surface.evaluate(element => ({ page: scrollY, top: element.scrollTop }))).toEqual(scroll);
+  await query.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(matches).toHaveCount(0);
+  if (view !== 'preview' && !(await page.evaluate(() => editor.readOnly))) {
+    expect(await page.evaluate(() => getSelection().toString())).toBe('one two');
+  }
+  await page.evaluate(() => editor.execute('search'));
+  await query.fill('not present');
+  await expect(panel.locator('output')).toHaveText('0 / 0');
+  await expect(current).toHaveCount(0);
+  await query.fill('one two');
+  await assertCurrent(0);
+  await query.fill('');
+  await expect(matches).toHaveCount(0);
+  expect(await page.evaluate(() => editor.get())).toBe(original);
+  expect(await page.evaluate(() => window.searchChanges)).toBe(0);
+  await expect(page.locator('[data-markian]').nth(1).locator('.markian-match-current')).toHaveCount(0);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const { view, readOnly, width } of [
+  { view: 'visual', readOnly: false, width: 1440 },
+  { view: 'visual', readOnly: true, width: 390 },
+  { view: 'raw', readOnly: false, width: 1440 },
+  { view: 'preview', readOnly: false, width: 390 },
+]) test(`search navigation scrolls the active surface (${view}, ${readOnly ? 'locked' : 'editable'}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.evaluate(async ({ view, readOnly }) => {
+    document.querySelector('.demo-main').style.height = '400px';
+    editor.set('Needle start\n\n' + Array(60).fill('Filler paragraph.').join('\n\n') + '\n\nNeedle end');
+    editor.setTheme('dark');
+    if (view === 'raw') editor.setMode('raw');
+    if (view === 'preview') await editor.execute('preview');
+    editor.setReadOnly(readOnly);
+    await editor.execute('search');
+  }, { view, readOnly });
+  const root = page.locator('[data-markian]').first();
+  const panel = root.locator('.markian-search');
+  const query = panel.getByLabel('Find', { exact: true });
+  const surface = root.locator(view === 'raw' ? '.markian-source .cm-scroller' : view === 'preview' ? '.markian-view' : '.markian-visual');
+  await query.fill('Needle');
+  await expect(panel.locator('output')).toHaveText('1 / 2');
+  const hostScroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
+  const secondaryScroll = await page.locator('[data-markian]').nth(1).locator('.markian-visual').evaluate(element => element.scrollTop);
+  const visibleMatch = async end => {
+    const target = view === 'raw'
+      ? surface.locator('.cm-line').filter({ hasText: end ? 'Needle end' : 'Needle start' })
+      : surface.locator('.markian-match').nth(end ? 1 : 0);
+    await expect.poll(async () => {
+      const bounds = await surface.boundingBox();
+      const match = await target.boundingBox();
+      return !!bounds && !!match && match.y >= bounds.y && match.y + match.height <= bounds.y + bounds.height;
+    }).toBe(true);
+  };
+  await panel.getByRole('button', { name: 'Next match', exact: true }).click();
+  await expect(panel.locator('output')).toHaveText('2 / 2');
+  await expect.poll(() => surface.evaluate(element => element.scrollTop)).toBeGreaterThan(500);
+  await visibleMatch(true);
+  await panel.getByRole('button', { name: 'Previous match', exact: true }).click();
+  await expect(panel.locator('output')).toHaveText('1 / 2');
+  await visibleMatch(false);
+  await query.focus();
+  await query.press('Shift+Enter');
+  await expect(panel.locator('output')).toHaveText('2 / 2');
+  await visibleMatch(true);
+  await expect(query).toBeFocused();
+  await query.press('Enter');
+  await expect(panel.locator('output')).toHaveText('1 / 2');
+  await visibleMatch(false);
+  await expect(query).toBeFocused();
+  expect(await page.evaluate(() => ({ x: scrollX, y: scrollY }))).toEqual(hostScroll);
+  expect(await page.locator('[data-markian]').nth(1).locator('.markian-visual').evaluate(element => element.scrollTop)).toBe(secondaryScroll);
+  expect(browserErrors.get(page)).toEqual([]);
 });
 
 test('table row and column commands preserve GFM and undo', async ({ page }) => {

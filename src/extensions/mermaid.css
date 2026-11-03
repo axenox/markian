@@ -4,7 +4,7 @@
 .markian .markian-mermaid-source { min-width: 0; min-height: 0; height: 100%; border-right: 1px solid var(--markian-line); }
 .markian .markian-diagram { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 240px; padding: 0; overflow: hidden; white-space: normal; color: var(--markian-text); background: var(--markian-surface); font-family: var(--markian-font); }
 .markian .markian-mermaid > .markian-diagram { min-height: 0; height: 100%; }
-.markian .markian-diagram-controls { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; justify-content: flex-end; gap: 2px; max-width: calc(100% - 16px); padding: 3px; opacity: 0; pointer-events: none; }
+.markian .markian-diagram-controls { position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; justify-content: flex-end; gap: 2px; max-width: calc(100% - 16px); opacity: 0; pointer-events: none; }
 .markian .markian-diagram:hover > .markian-diagram-controls, .markian .markian-diagram:focus-within > .markian-diagram-controls, .markian .markian-diagram[data-state='error'] > .markian-diagram-controls { opacity: 1; pointer-events: auto; }
 .markian .markian-diagram-status { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
 .markian .markian-diagram-status:empty { display: none; }

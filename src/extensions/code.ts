@@ -165,7 +165,7 @@ export const codeExtension: ExtensionFactory = () => ({
         focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value),
       }));
       disposers.push(instance.getCommands().insert({
-        id: 'code:expand', label: 'Expand code block', icon: 'expand', views: ['visual'],
+        id: 'code:expand', label: 'Expand code block', icon: 'visual', views: ['visual'],
         enabled: () => instance.getCodeTarget() !== null,
         run: () => { const target = instance.getCodeTarget(); if (!target) throw new Error('Place the caret inside a fenced code block.'); instance.openView('code', target); },
       }));
@@ -190,7 +190,7 @@ export const codeExtension: ExtensionFactory = () => ({
           status.setAttribute('role', 'status');
           const controls = document.createElement('div');
           controls.className = 'markian-floating markian-code-controls';
-          if (context) controls.append(commandButton(document, 'Expand code block', 'expand', () => context.open('code')));
+          if (context) controls.append(commandButton(document, 'Expand code block', 'visual', () => context.open('code')));
           controls.append(commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh()));
           element.classList.add('markian-code-preview');
           element.replaceChildren(code, status, controls);

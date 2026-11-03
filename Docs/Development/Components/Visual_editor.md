@@ -12,7 +12,9 @@ These are implementation values, not separate host configuration options. Keep t
 | Built-in fullscreen shell | Follows visual viewport size and offsets with 12px insets, or window dimensions when the Visual Viewport API is unavailable. No minimum height, so the on-screen keyboard can reduce it below 260px. Viewport resize/scroll listeners are removed on restoration or destruction. |
 | Pane tracks, controls, icons, and status regions | Keep their dimensions stable when labels, content, or loading states change. |
 | Shared desktop buttons | 32px targets; pinned toolbar controls retain their own compact dimensions. |
+| Main and floating toolbars | Share `--markian-toolbar-height` (40px desktop, 50px in compact layouts), `--markian-toolbar-padding` (4px 6px), and toolbar button/icon overrides. Buttons default to 28px desktop and 40px compact; icons default to 18px. Floating controls stay on one horizontally scrollable row. |
 | Destination fields | Shared 34px height in transient forms. |
+| Search rows | Find and Replace each use a flexible input column followed by two shared buttons, with a 4px column gap. The popup uses 70% opacity when neither focused nor hovered, and full opacity while focused or hovered. |
 | Mention suggestions | Up to 320px wide, with 8px viewport side clearance; height bounded by 240px and 40vh. Reuse regular dropdown 4px padding/radius, no row gaps, and shared menu-row sizing. |
 | Mention details | Up to 320px wide, with 8px viewport side clearance; height bounded by 240px and 40vh, 12px padding, 6px row gaps and 6px radius. Text aligns at the start. |
 
