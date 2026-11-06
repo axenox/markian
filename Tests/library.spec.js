@@ -2363,6 +2363,80 @@ test('heading levels and word-at-caret formatting serialize ordinary Markdown', 
   expect(await page.evaluate(() => editor.get())).toContain('aXlpha');
 });
 
+test('Enter after every heading level starts regular text and supports undo', async ({ page }) => {
+  const root = page.locator('[data-markian]').first();
+  for (let level = 1; level <= 6; level++) {
+    const markdown = '#'.repeat(level) + ' Heading';
+    await page.evaluate(value => editor.set(value), markdown);
+    await root.locator(`.ProseMirror h${level}`).click();
+    await page.keyboard.press('End');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.keyboard.press('Enter');
+    await expect(root.locator('.ProseMirror')).toBeFocused();
+    await page.keyboard.type('Regular text');
+    await expect(root.locator('.ProseMirror > p')).toHaveText('Regular text');
+    expect(await page.evaluate(() => editor.get())).toBe(markdown + '\n\nRegular text');
+    await page.evaluate(() => editor.execute('undo'));
+    expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  }
+});
+
+test('Enter within a heading puts the remaining text in a paragraph', async ({ page }) => {
+  await page.evaluate(() => editor.set('## Heading text'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror h2').click();
+  await root.locator('.ProseMirror h2').evaluate(element => {
+    const selection = window.getSelection();
+    selection.collapse(element.firstChild, 7);
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.keyboard.press('Enter');
+  await expect(root.locator('.ProseMirror h2')).toHaveText('Heading');
+  await expect(root.locator('.ProseMirror > p')).toHaveText(' text');
+});
+
+test('code block toolbar merges selected paragraphs into one undoable fence', async ({ page }) => {
+  const root = page.locator('[data-markian]').first();
+  const secondary = await page.evaluate(() => window.secondary.get());
+  for (const markdown of ['First line\nSecond line', 'First line  \nSecond line', 'First line\n\nSecond line\n\nThird line', 'First line\n\n\n\nSecond line']) {
+    await page.evaluate(value => editor.set(value), markdown);
+    await root.locator('.ProseMirror').click();
+    await page.keyboard.press('Control+a');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await (await revealCommand(root, 'codeblock')).click();
+    await expect(root.locator('.ProseMirror pre')).toHaveCount(1);
+    const expected = markdown.replace(/ {2}\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+    await expect(root.locator('.ProseMirror pre code')).toHaveText(expected);
+    expect(await page.evaluate(() => editor.get())).toBe('```\n' + expected + '\n```');
+    await page.evaluate(() => editor.execute('undo'));
+    expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+    await page.evaluate(() => editor.execute('redo'));
+    await expect(root.locator('.ProseMirror pre')).toHaveCount(1);
+    await (await revealCommand(root, 'codeblock')).click();
+    await expect(root.locator('.ProseMirror pre')).toHaveCount(0);
+    await page.evaluate(() => editor.execute('undo'));
+    expect(await page.evaluate(() => editor.get())).toBe('```\n' + expected + '\n```');
+    expect(await page.evaluate(() => window.secondary.get())).toBe(secondary);
+  }
+});
+
+test('code block conversion keeps surrounding blocks outside a partial selection', async ({ page }) => {
+  await page.evaluate(() => editor.set('Before\n\nFirst line\n\nSecond line\n\nAfter\n\n```\nExisting code\n```'));
+  const root = page.locator('[data-markian]').first();
+  await root.locator('.ProseMirror').focus();
+  await root.locator('.ProseMirror').evaluate(element => {
+    const paragraphs = element.querySelectorAll('p');
+    const selection = window.getSelection();
+    selection.setBaseAndExtent(paragraphs[1].firstChild, 3, paragraphs[2].firstChild, 4);
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await (await revealCommand(root, 'codeblock')).click();
+  await expect(root.locator('.ProseMirror pre')).toHaveCount(2);
+  expect(await page.evaluate(() => editor.get())).toBe('Before\n\n```\nFirst line\n\nSecond line\n```\n\nAfter\n\n```\nExisting code\n```');
+});
+
 test('grouped menu pointer commands preserve the word-at-caret selection', async ({ page }) => {
   await page.evaluate(() => editor.set('alpha beta'));
   const root = page.locator('[data-markian]').first();

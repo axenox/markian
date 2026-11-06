@@ -4,7 +4,7 @@ export type { Node as ProseNode, NodeSpec, Attrs } from 'prosemirror-model';
 export { Fragment, Slice } from 'prosemirror-model';
 export type { EditorView } from 'prosemirror-view';
 export { Decoration, DecorationSet } from 'prosemirror-view';
-export { toggleMark, setBlockType, wrapIn, baseKeymap, lift } from 'prosemirror-commands';
+export { toggleMark, setBlockType, splitBlockAs, wrapIn, baseKeymap, lift } from 'prosemirror-commands';
 export { history, undo, redo, closeHistory } from 'prosemirror-history';
 export { keymap } from 'prosemirror-keymap';
 export { InputRule, inputRules } from 'prosemirror-inputrules';

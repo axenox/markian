@@ -1,12 +1,12 @@
 import { Editor, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, parserCtx, serializerCtx, prosePluginsCtx, rootCtx, remarkStringifyOptionsCtx } from '@milkdown/kit/core';
-import { commonmark, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
+import { commonmark, hardbreakSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { gfm, strikethroughInputRule, extendListItemSchemaForTask } from '@milkdown/kit/preset/gfm';
 import { $node, $mark, $remark } from '@milkdown/kit/utils';
 import type { RootContent } from 'mdast';
 import type { State as MarkdownState, Info } from 'mdast-util-to-markdown';
 import Papa from 'papaparse';
 import { CellSelection, Fragment, Slice, TableMap, selectedRect } from './prose';
-import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
+import { baseKeymap, history, keymap, InputRule, inputRules, Plugin, PluginKey, Decoration, DecorationSet, TextSelection, closeHistory, goToNextCell, splitBlockAs, splitListItem, liftListItem, redo, undo, EditorState, type EditorView, type ProseNode } from './prose';
 import { equivalentMarkdown, markdownDifferences, parseMarkdown, safeUrl, quoteMarker } from '../render/markdown';
 import type { StructuralNode, SearchOptions, SearchMatch, InlineHtmlTag } from '../types';
 import { findMatches } from '../search';
@@ -196,6 +196,9 @@ export async function createVisual(
   })] }), keymap({ ...baseKeymap, Enter: (state, dispatch, view) => {
     if (state.selection.$from.parent.type.spec.code) return baseKeymap.Enter(state, dispatch, view);
     const position = state.selection.$from;
+    if (position.parent.type.name === 'heading') {
+      return splitBlockAs(() => ({ type: state.schema.nodes.paragraph }))(state, dispatch, view);
+    }
     const fence = state.selection.empty && position.parent.type.name === 'paragraph'
       && position.parentOffset === position.parent.content.size
       ? position.parent.textContent.match(/^ {0,3}(`{3,}|~{3,})([^\s`~]*)$/) : null;
@@ -375,7 +378,10 @@ export async function createVisual(
       toMarkdown: { match: mark => mark.type.name === 'text_color', runner: (state, mark) => { state.withMark(mark, 'textColor', undefined, { color: mark.attrs.color }); } },
     })));
   }
-  editor.use(commonmark).use(gfm.filter(plugin => plugin !== strikethroughInputRule)).use(extendListItemSchemaForTask.extendSchema(previous => ctx => ({
+  editor.use(commonmark).use(hardbreakSchema.extendSchema(previous => ctx => ({
+    ...previous(ctx),
+    linebreakReplacement: true,
+  }))).use(gfm.filter(plugin => plugin !== strikethroughInputRule)).use(extendListItemSchemaForTask.extendSchema(previous => ctx => ({
     ...previous(ctx),
     toDOM: node => node.attrs.checked === null ? previous(ctx).toDOM!(node) : ['li', {
       'data-item-type': 'task', 'data-checked': String(node.attrs.checked), 'data-label': node.attrs.label, 'data-list-type': node.attrs.listType, 'data-spread': String(node.attrs.spread),

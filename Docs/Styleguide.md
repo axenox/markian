@@ -98,7 +98,7 @@ Delete at the end of the paragraph before a table, or Backspace at the start of 
 
 Alert quotes retain ordinary `> [!TYPE]` source markers. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes.
 
-Backtick inline-code typing and submitted backtick/tilde fences should behave like ordinary Markdown editing, without invisible inserted characters. Enter continues lists; Enter on an empty item exits or lifts it. Code-block typing stays literal.
+Backtick inline-code typing and submitted backtick/tilde fences should behave like ordinary Markdown editing, without invisible inserted characters. Enter in a heading starts a regular paragraph. Enter continues lists; Enter on an empty item exits or lifts it. Code-block typing stays literal. Converting consecutive selected paragraphs to code creates one block, with blank lines between the original paragraphs; separate list items, table cells, and quote containers remain separate.
 
 ## Code Workspace
 

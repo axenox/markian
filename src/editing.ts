@@ -137,7 +137,22 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       const value = raw().view.state.sliceDoc(from, to);
       const marker = '`'.repeat(Math.max(2, ...Array.from(value.matchAll(/`+/g), match => match[0].length)) + 1);
       sourceInsert(`\n${marker}\n${value}\n${marker}\n`);
-    } else run(setBlockType(visual().state.selection.$from.parent.type.name === 'code_block' ? visual().state.schema.nodes.paragraph : visual().state.schema.nodes.code_block));
+    } else run((state, dispatch) => {
+      const start = state.selection.$from;
+      if (start.parent.type.name === 'code_block' || start.nodeAfter?.type.name === 'code_block') return setBlockType(state.schema.nodes.paragraph)(state, dispatch);
+      return setBlockType(state.schema.nodes.code_block)(state, transaction => {
+        const boundaries: number[] = [];
+        let previousEnd = -1;
+        transaction.doc.nodesBetween(transaction.selection.from, transaction.selection.to, (node, position) => {
+          if (node.type.name !== 'code_block') return;
+          if (position === previousEnd) boundaries.push(position);
+          previousEnd = position + node.nodeSize;
+        });
+        // Join backwards to keep positions stable; paragraph separators become literal blank lines.
+        for (const position of boundaries.reverse()) transaction.join(position).insertText('\n\n', position - 1);
+        dispatch?.(transaction);
+      });
+    });
   } }, true);
   add({ id: 'clear', label: 'Clear formatting', icon: 'clear', views: ['visual'], mutates: true, run: () => {
     const view = visual();
