@@ -804,7 +804,7 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
   for (const name of ['Formatting', 'Lists', 'View mode']) await expect(root.locator(`summary[aria-label="${name}"]`)).toHaveCount(1);
   await (await revealCommand(root, 'source')).click();
   await expect(root).toHaveAttribute('data-view', 'raw');
-  await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(0);
+  await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(1);
   await root.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(root).toHaveAttribute('data-view', 'visual');
   await page.setViewportSize({ width: 390, height: 900 });
@@ -814,6 +814,49 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
     await expect(root.locator(`.markian-overflow [data-command="${id}"]`)).toHaveCount(0);
   }
   expect(await endCommands()).toEqual(['search', 'fullscreen', 'outline']);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`view menu stays in the document group across source and preview (${theme}, ${width})`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(theme => editor.setTheme(theme), theme);
+  const root = page.locator('[data-markian]').first();
+  const menu = root.locator('[data-toolbar-item="modes"]');
+  const original = await page.evaluate(() => editor.get());
+  const secondary = await page.evaluate(() => ({ value: window.secondary.get(), view: window.secondary.activeView }));
+  const checkMenu = async () => {
+    await expect(menu).toHaveCount(1);
+    expect(await menu.evaluate(element => {
+      const previous = element.previousElementSibling;
+      const following = [];
+      for (let next = element.nextElementSibling; next && next.getAttribute('role') !== 'separator'; next = next.nextElementSibling) {
+        following.push(next.getAttribute('data-command'));
+      }
+      return { startsGroup: !previous || previous.getAttribute('role') === 'separator', following };
+    })).toEqual({ startsGroup: true, following: await root.locator('[data-command="clear"]').count() ? ['clear', 'copy', 'help'] : ['copy', 'help'] });
+    await revealCommand(root, 'visual');
+    await expect(menu.locator('summary')).toBeVisible();
+    await menu.locator('[data-command="visual"]').focus();
+    await page.keyboard.press('Escape');
+    await expect(menu.locator('summary')).toBeFocused();
+    await expect(root).toHaveJSProperty('scrollWidth', await root.evaluate(element => element.clientWidth));
+  };
+  await checkMenu();
+  for (const [command, view] of [['source', 'raw'], ['preview', 'preview'], ['source', 'raw'], ['visual', 'visual'], ['preview', 'preview']]) {
+    await (await revealCommand(root, command)).click();
+    await expect(root).toHaveAttribute('data-view', view);
+    await checkMenu();
+    if (view === 'raw' || view === 'preview') await root.screenshot({ path: testInfo.outputPath(`view-menu-${view}.png`) });
+  }
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(root).toHaveAttribute('data-view', 'visual');
+  await (await revealCommand(root, 'source')).click();
+  await (await revealCommand(root, 'preview')).click();
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(root).toHaveAttribute('data-view', 'raw');
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(root).toHaveAttribute('data-view', 'visual');
+  expect(await page.evaluate(() => editor.get())).toBe(original);
+  expect(await page.evaluate(() => ({ value: window.secondary.get(), view: window.secondary.activeView }))).toEqual(secondary);
 });
 
 test('configured toolbar groups derive separators and align arbitrary controls outside overflow', async ({ page }, testInfo) => {
@@ -925,7 +968,7 @@ test('secondary toolbars share main control order and keep Back separate', async
     await page.evaluate(view => editor.execute(view), view);
     await expect(toolbar.locator(':scope > :first-child')).toHaveAttribute('aria-label', 'Back');
     await expect(toolbar.locator(':scope > :nth-child(2)')).toHaveAttribute('role', 'separator');
-    await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(0);
+    await expect(root.locator('summary[aria-label="View mode"]')).toHaveCount(['source', 'preview'].includes(view) ? 1 : 0);
     const commands = await toolbar.locator(':scope > [data-command]').evaluateAll(buttons => buttons.map(button => button.dataset.command));
     const ending = view === 'source' ? ['search', 'fullscreen', 'outline'] : ['search', 'fullscreen'];
     expect(commands.slice(-ending.length)).toEqual(ending);

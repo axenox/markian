@@ -798,7 +798,7 @@ export class EditorInstance implements MarkianInstance {
     };
     const render = (entry: ToolbarEntry): HTMLElement | null => {
       const item = typeof entry === 'string' ? registered.find(candidate => candidate.id === entry) ?? { id: entry, command: entry } : entry;
-      if (hasBack && item.id === 'modes') return null;
+      if (hasBack && !['raw', 'preview'].includes(this.activeView) && item.id === 'modes') return null;
       const command = this.commands.items().find(candidate => candidate.id === (item.command ?? item.id));
       if (command && !command.views.includes('*') && !command.views.includes(this.activeView) && !item.items) return null;
       if (!command && !item.items) {

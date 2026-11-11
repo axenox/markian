@@ -198,11 +198,11 @@
       "bytes": 13786
     },
     "markian.min.js": {
-      "sha256": "319cf0fd81fd82d4c7275d38efdf19bdeaa66035246cf56f48a06ea0e1dee445",
-      "bytes": 989159
+      "sha256": "33806af84401344be3bbf8a59faea0940c4f89a38c0d2ef64517da859f4af327",
+      "bytes": 989205
     },
     "sizes.json": {
-      "sha256": "f0e8e1b945da003f35eb79613e473d230f3d8de40a84ce81cfaa1115bd682002",
+      "sha256": "d458750cd37fe1d8a94785ca8241169f3ef6ccfa0701869c4de2d114afc0654a",
       "bytes": 3033
     },
     "types/browser.d.ts": {

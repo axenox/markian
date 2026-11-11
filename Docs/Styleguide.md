@@ -38,7 +38,7 @@ Pinned controls reflect active state at the caret or selection. Configured templ
 
 Floating controls must not cover selected text. All toolbar placements share the same height, control dimensions, icon sizes and padding, including compact host themes. Floating toolbars stay on one row and scroll horizontally if their controls do not fit.
 
-Views with Back place it first, followed by a separator, and omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
+Views with Back place it first, followed by a separator. Visual, Source, and Preview keep the View mode menu in its configured position, at the beginning of the Document group with Help by default. Back still returns from Preview to the previous view and from Source to Visual. Help and block workspaces omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
 
 Menus use native details/summary disclosure and native popover surfaces. Pointer interaction preserves document selection. Flyouts open beside the parent, flip and clamp to the viewport, and have one scrollbar each. Bottom toolbars open first-level menus upward. Outside clicks and command activation dismiss menus.
 
