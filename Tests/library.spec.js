@@ -106,6 +106,50 @@ test('focus colors the editor border without a document bar and respects host th
   await page.evaluate(() => focusEditor.destroy());
 });
 
+test('blank visual text area focuses on clicks throughout the pane and keeps scrolling local', async ({ page }) => {
+  await page.evaluate(async () => {
+    const container = document.createElement('div');
+    container.style.height = '400px';
+    const host = document.createElement('div');
+    container.append(host);
+    document.querySelector('main').prepend(container);
+    window.blankEditor = Markian.create(host, { markdown: '' });
+    blankEditor.element.classList.add('blank-configured');
+    await blankEditor.ready;
+  });
+  const root = page.locator('.blank-configured');
+  const surface = root.locator('.markian-visual');
+  const document = surface.locator('.ProseMirror');
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => blankEditor.setTheme(theme), theme);
+    for (const value of ['', 'Short document']) {
+      await page.evaluate(value => blankEditor.set(value), value);
+      for (const [x, y] of [[0.5, 0.5], [0.5, 0.9], [0.02, 0.5], [0.98, 0.5]]) {
+        await root.locator('[data-command="fullscreen"]').focus();
+        const bounds = await surface.boundingBox();
+        await surface.click({ position: { x: bounds.width * x, y: bounds.height * y } });
+        await expect(document).toBeFocused();
+        expect(await page.evaluate(() => blankEditor.get())).toBe(value);
+      }
+      await page.keyboard.type('Typed here');
+      expect(await page.evaluate(() => blankEditor.get())).toContain('Typed here');
+      await expect.poll(() => surface.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
+  }
+  await page.evaluate(() => blankEditor.set(Array.from({ length: 60 }, (_, index) => `Paragraph ${index}`).join('\n\n')));
+  const pageScroll = await page.evaluate(() => window.scrollY);
+  const bounds = await root.boundingBox();
+  await surface.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect(document.locator('p').last()).toBeInViewport();
+  expect(await surface.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll);
+  expect(await root.boundingBox()).toEqual(bounds);
+  expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+  await page.evaluate(() => blankEditor.destroy());
+});
+
 test('base editor CSS normalizes list and table spacing with external content styles', async ({ page }) => {
   await page.route('**/spacing-content.css', route => route.fulfill({ contentType: 'text/css', body: '.markdown-body p { margin: 0 0 16px; } .markdown-body th, .markdown-body td { padding: 6px 13px; }' }));
   await page.evaluate(async () => {

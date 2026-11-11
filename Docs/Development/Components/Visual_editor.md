@@ -11,6 +11,7 @@ These are implementation values, not separate host configuration options. Keep t
 | Editor shell | Fills the host and has a 260px minimum height. The host supplies an explicit usable height. |
 | Built-in fullscreen shell | Follows visual viewport size and offsets with 12px insets, or window dimensions when the Visual Viewport API is unavailable. No minimum height, so the on-screen keyboard can reduce it below 260px. Viewport resize/scroll listeners are removed on restoration or destruction. |
 | Pane tracks, controls, icons, and status regions | Keep their dimensions stable when labels, content, or loading states change. |
+| Visual text area | The Milkdown wrapper is a flex column with a 100% minimum height; the editable document grows to fill it. Empty and short documents accept clicks throughout the pane, including padding. Long documents grow naturally and scroll inside the visual pane. |
 | Shared desktop buttons | 32px targets; pinned toolbar controls retain their own compact dimensions. |
 | Main and floating toolbars | Share `--markian-toolbar-height` (40px desktop, 50px in compact layouts), `--markian-toolbar-padding` (4px 6px), and toolbar button/icon overrides. Buttons default to 28px desktop and 40px compact; icons default to 18px. Floating controls stay on one horizontally scrollable row. |
 | Destination fields | Shared 34px height in transient forms. |

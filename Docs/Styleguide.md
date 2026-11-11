@@ -62,6 +62,8 @@ The standalone viewer has no editor controls or frame. Its root is `[data-markia
 
 In editable Visual view, ordinary link clicks place the caret for editing. Holding Ctrl or Cmd changes the link cursor to a hand pointer; clicking then opens the link without changing the existing selection or selecting its paragraph. Read-only links use a hand pointer and open without a modifier.
 
+Clicking anywhere in the Visual text area focuses the document, including blank space below an empty or short document and its padding. Toolbar and outline controls keep their own interactions.
+
 ## Panels and Outline
 
 Search, link, and image forms are anchored to their visible toolbar button with a small pointer. Commands from More point to More after it closes. Panels flip above bottom controls or when space is limited, clamp to the viewport, and scroll internally without clipping the pointer.

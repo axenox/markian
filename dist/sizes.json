@@ -7,9 +7,9 @@
       "brotli": 259196
     },
     "markian.css": {
-      "bytes": 13760,
-      "gzip": 3210,
-      "brotli": 2786
+      "bytes": 13786,
+      "gzip": 3218,
+      "brotli": 2791
     },
     "markdown-github.css": {
       "bytes": 4832,
@@ -104,9 +104,9 @@
   },
   "totals": {
     "editor": {
-      "bytes": 1007751,
-      "gzip": 313832,
-      "brotli": 263003
+      "bytes": 1007777,
+      "gzip": 313840,
+      "brotli": 263008
     },
     "viewer": {
       "bytes": 220683,
@@ -114,9 +114,9 @@
       "brotli": 60453
     },
     "combined": {
-      "bytes": 1228434,
-      "gzip": 383705,
-      "brotli": 323456
+      "bytes": 1228460,
+      "gzip": 383713,
+      "brotli": 323461
     }
   },
   "budget": {
