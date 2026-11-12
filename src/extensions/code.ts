@@ -118,10 +118,12 @@ export const codeExtension: ExtensionFactory = () => ({
         const current = ++revision;
         clearTimeout(timer);
         apply([]);
+        status.dataset.state = '';
         const text = value();
         const selected = find(language());
         if (!selected) { status.textContent = language() && !['text', 'plain', 'plaintext'].includes(language()) ? 'Highlighting unavailable for this language.' : ''; return; }
         if (text.length > characters || text.split('\n').length > lines) { status.textContent = 'Highlighting limit exceeded; source remains editable.'; return; }
+        status.dataset.state = 'loading';
         status.textContent = 'Loading highlighting...';
         timer = setTimeout(async () => {
           try {
@@ -130,9 +132,13 @@ export const codeExtension: ExtensionFactory = () => ({
             const tokens = validTokens(await highlighter.highlight(text), text.length);
             if (disposed || lifetime.aborted || current !== revision) return;
             apply(tokens);
+            status.dataset.state = '';
             status.textContent = '';
           } catch (error) {
-            if (!disposed && !lifetime.aborted && current === revision) status.textContent = error instanceof Error ? error.message : String(error);
+            if (!disposed && !lifetime.aborted && current === revision) {
+              status.dataset.state = '';
+              status.textContent = error instanceof Error ? error.message : String(error);
+            }
           }
         }, 100);
       };

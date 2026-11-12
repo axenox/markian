@@ -122,12 +122,12 @@
   },
   "assets": {
     "extensions/code.css": {
-      "sha256": "cb6723d779045ebf0d6feb05e86d8bfef66efc3e78701081f15dc2d170e06499",
-      "bytes": 2363
+      "sha256": "10217ac4553b947403bd6646e4654934540797594b6af0890dc4fc531fe89694",
+      "bytes": 2572
     },
     "extensions/code.min.js": {
-      "sha256": "9b52ba28f9656aff5144c223c41e6b8de3f0e80f815fad352ccbe7d357226218",
-      "bytes": 56642
+      "sha256": "0d7dfa0f55a6c37f4e9d2550eb5bbc26b37e370308cd8bbc5e283f6e9369be64",
+      "bytes": 56725
     },
     "extensions/languages/css.min.js": {
       "sha256": "12f2d1c59b689a4c423c07cba03894f1b0452fbacbd6d43c4aaf912722e868e1",
@@ -166,12 +166,12 @@
       "bytes": 23447
     },
     "extensions/mermaid.css": {
-      "sha256": "ecbc97c761d25ceca60b7478f24e471d953df45bf1555991d0ec69303710634d",
-      "bytes": 2342
+      "sha256": "81d354e654bff2505256f525cf23196c95bbbe3e86c3fc418d51c68dce0cc218",
+      "bytes": 2578
     },
     "extensions/mermaid.min.js": {
-      "sha256": "7da30ab292f1ddc0ce3cb8127320faf407d61143eb50a27168c7277ef23617e4",
-      "bytes": 58230
+      "sha256": "b7bd9a0bafabe3a85ed57cd18e7e2b1a86fd2c10ea7d9e212e88f81f1c8d0c88",
+      "bytes": 58210
     },
     "extensions/viewer-mermaid.css": {
       "sha256": "b7552479a01c3b8a09abe3b4d6bf75f0806dc6998ebf938b635cdd5d8772aac8",
@@ -202,7 +202,7 @@
       "bytes": 989205
     },
     "sizes.json": {
-      "sha256": "d458750cd37fe1d8a94785ca8241169f3ef6ccfa0701869c4de2d114afc0654a",
+      "sha256": "2022d4f3870a76a387667c75daed4c0e1b7c4f93c2299943d19ce6408a13cd27",
       "bytes": 3033
     },
     "types/browser.d.ts": {

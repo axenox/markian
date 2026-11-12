@@ -108,11 +108,15 @@ Expanded code uses the same bounded shell and Back-first toolbar as other tasks.
 
 Highlighted visual fences retain literal text with floating expansion/retry controls on hover/focus and visible touch controls. Opening the dedicated Code view uses the same edit icon as Edit diagram, both in the caret-contextual toolbar and over highlighted fences. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
 
+Loading messages (e.g. for code and Mermaid diagrams) and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
+
 ## Mermaid Workspace
 
 Use separate `dist/extensions/mermaid.css` styling. The Mermaid workspace has equal constrained source and preview columns when space permits; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
 
 Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
+
+Keep the previous diagram visible during a refresh until the new result or an error is available, so pending work does not collapse the diagram.
 
 Diagrams retain Mermaid's native `default`/`dark` theme colors, fonts, strokes, label backgrounds and supplied diagram colors. Markian styles only the workspace and controls, not SVG nodes or text. Original Mermaid style tags and inline styles remain intact, without CSS isolation or rewriting; see the accepted risks in the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Viewer diagrams fit the host with a responsive maximum.
 

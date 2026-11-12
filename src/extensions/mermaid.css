@@ -8,6 +8,8 @@
 .markian .markian-diagram:hover > .markian-diagram-controls, .markian .markian-diagram:focus-within > .markian-diagram-controls, .markian .markian-diagram[data-state='error'] > .markian-diagram-controls { opacity: 1; pointer-events: auto; }
 .markian .markian-diagram-status { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
 .markian .markian-diagram-status:empty { display: none; }
+.markian .markian-diagram[data-state='loading'] > .markian-diagram-status { position: absolute; top: 0; left: 0; background: var(--markian-surface); }
+.markian:focus-within .markian-diagram[data-state='loading'] > .markian-diagram-status { visibility: hidden; }
 .markian .markian-diagram[data-state='error'] .markian-diagram-status { padding-top: 56px; }
 .markian .markian-diagram-viewport { flex: 1; min-height: 180px; overflow: hidden; touch-action: none; cursor: grab; outline-offset: -2px; }
 .markian .markian-diagram-viewport:focus-visible { outline: 2px solid var(--markian-accent); }

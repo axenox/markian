@@ -91,7 +91,6 @@ export const mermaidExtension: ExtensionFactory = () => ({
         element.dataset.state = 'loading';
         status.textContent = 'Rendering diagram...';
         viewport.hidden = false;
-        canvas.replaceChildren();
         const current = new AbortController();
         request = current;
         timer = setTimeout(async () => {

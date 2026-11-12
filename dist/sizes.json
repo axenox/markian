@@ -37,24 +37,24 @@
       "brotli": 91
     },
     "extensions/mermaid.min.js": {
-      "bytes": 58230,
-      "gzip": 23134,
-      "brotli": 19933
+      "bytes": 58210,
+      "gzip": 23133,
+      "brotli": 19953
     },
     "extensions/mermaid.css": {
-      "bytes": 2342,
-      "gzip": 763,
-      "brotli": 601
+      "bytes": 2578,
+      "gzip": 801,
+      "brotli": 627
     },
     "extensions/code.min.js": {
-      "bytes": 56642,
-      "gzip": 22558,
-      "brotli": 19411
+      "bytes": 56725,
+      "gzip": 22577,
+      "brotli": 19416
     },
     "extensions/code.css": {
-      "bytes": 2363,
-      "gzip": 594,
-      "brotli": 489
+      "bytes": 2572,
+      "gzip": 651,
+      "brotli": 536
     },
     "extensions/languages/javascript.min.js": {
       "bytes": 27938,

@@ -3,6 +3,8 @@
 .markian-code-status { display: flex; align-items: center; gap: 8px; color: var(--markian-muted); font: 12px var(--markian-font); white-space: normal; overflow-wrap: anywhere; }
 .markian-code > .markian-code-status { padding: 4px 12px; border-top: 1px solid var(--markian-line); }
 .markian-code-preview { position: relative; }
+.markian-code-preview > .markian-code-status[data-state='loading'] { position: absolute; bottom: 0; left: 0; background: var(--markian-code); }
+.markian:focus-within .markian-code-status[data-state='loading'] { visibility: hidden; }
 .markian-code-preview > code { display: block; white-space: pre; overflow: auto; }
 .markian-code-controls { position: absolute; top: 4px; right: 4px; opacity: 0; pointer-events: none; }
 .markian-code-preview:hover > .markian-code-controls, .markian-code-preview:focus-within > .markian-code-controls { opacity: 1; pointer-events: auto; }

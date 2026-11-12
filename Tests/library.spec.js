@@ -221,6 +221,91 @@ async function mermaidFixture(page, kind = 'supplied') {
   return root;
 }
 
+test('code and Mermaid refreshes keep document layout stable while typing', async ({ page }, testInfo) => {
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const container = document.createElement('div');
+    container.style.height = '560px';
+    const mount = document.createElement('div');
+    container.append(mount);
+    document.querySelector('main').prepend(container);
+    window.refreshRequests = [];
+    window.holdRefresh = false;
+    const wait = () => holdRefresh ? new Promise((resolve, reject) => refreshRequests.push({ resolve, reject })) : Promise.resolve();
+    window.refreshEditor = Markian.create(mount, {
+      markdown: 'Type here\n\n```javascript\nconst value = 1;\n```\n\n```mermaid\nflowchart LR\n A --> B\n```',
+      extensions: {
+        code: { enabled: true, config: { languages: [{ id: 'javascript', label: 'JavaScript', highlighter: {
+          apiVersion: 1, version: 'test', language: 'javascript',
+          highlight: async () => { await wait(); return [{ from: 0, to: 5, className: 'tok-keyword' }]; },
+        } }] } },
+        mermaid: { enabled: true, config: { renderer: { render: async () => {
+          await wait();
+          return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><text x="20" y="40">Diagram</text></svg>';
+        } } } },
+      },
+    });
+    refreshEditor.element.classList.add('refresh-test');
+    await refreshEditor.ready;
+  });
+  const root = page.locator('.refresh-test');
+  const prose = root.locator('.ProseMirror');
+  const codeStatus = root.locator('.markian-code-status');
+  const diagramStatus = root.locator('.markian-diagram-status');
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(theme => refreshEditor.setTheme(theme), theme);
+    await expect(root.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+    await expect(root.locator('.tok-keyword')).toHaveText('const');
+    await prose.locator('p').first().click();
+    await page.keyboard.press('End');
+    const height = await prose.evaluate(element => element.scrollHeight);
+    await page.evaluate(() => {
+      holdRefresh = true;
+      refreshEditor.element.querySelector('[aria-label="Retry highlighting"]').click();
+      refreshEditor.element.querySelector('[aria-label="Retry diagram"]').click();
+    });
+    await expect.poll(() => page.evaluate(() => refreshRequests.length)).toBe(2);
+    await expect(codeStatus).toBeHidden();
+    await expect(diagramStatus).toBeHidden();
+    await expect(root.locator('.markian-diagram-canvas > svg')).toBeVisible();
+    await page.keyboard.type(' typing');
+    expect(await prose.evaluate(element => element.scrollHeight)).toBe(height);
+    await expect(codeStatus).toBeHidden();
+    await expect(diagramStatus).toBeHidden();
+    await page.evaluate(() => editor.element.querySelector('.ProseMirror').focus());
+    await expect(codeStatus).toBeVisible();
+    await expect(diagramStatus).toBeVisible();
+    expect(await prose.evaluate(element => element.scrollHeight)).toBe(height);
+    await prose.focus();
+    await page.screenshot({ path: testInfo.outputPath(`refresh-${theme}-${width}.png`) });
+    await page.evaluate(() => {
+      holdRefresh = false;
+      refreshRequests.splice(0).forEach(request => request.resolve());
+    });
+    await expect(root.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+    await expect(root.locator('.tok-keyword')).toHaveText('const');
+    expect(await prose.evaluate(element => element.scrollHeight)).toBe(height);
+  }
+  await page.evaluate(() => {
+    holdRefresh = true;
+    refreshEditor.element.querySelector('[aria-label="Retry highlighting"]').click();
+    refreshEditor.element.querySelector('[aria-label="Retry diagram"]').click();
+  });
+  await expect.poll(() => page.evaluate(() => refreshRequests.length)).toBe(2);
+  await page.evaluate(() => refreshRequests.splice(0).forEach(request => request.reject(new Error('Refresh failed'))));
+  await expect(codeStatus).toBeVisible();
+  await expect(codeStatus).toHaveText('Refresh failed');
+  await expect(diagramStatus).toBeVisible();
+  await expect(diagramStatus).toHaveText('Refresh failed');
+  expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+  expect(browserErrors.get(page)).toEqual([]);
+  await page.evaluate(() => refreshEditor.destroy());
+});
+
 test('Mermaid optional core and disabled instances request no renderer assets', async ({ page }) => {
   const requests = [];
   page.on('request', request => { if (/mermaid/i.test(request.url())) requests.push(request.url()); });
