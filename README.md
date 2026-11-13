@@ -55,7 +55,7 @@ All options, effective defaults, callbacks, and bundled extension settings are i
 
 ## Extensibility
 
-Hosts and extensions use the same public API. The following example loads both bundled editor extensions and adds a custom command. The host must serve a trusted Mermaid 11+ runtime at the configured URL.
+Hosts and extensions use the same public API. The following example loads both bundled editor extensions and adds a custom command. The host must serve a trusted Pele global runtime at the configured URL.
 
 ### Optional Mermaid Extension
 
@@ -77,7 +77,7 @@ This example enables Mermaid alongside Code. Full renderer, safety, and workspac
     extensions: {
       code: { enabled: true, config: { tabWidth: 2 } },
       mermaid: { enabled: true, config: {
-        source: '/assets/mermaid.min.js',
+        source: '/assets/pele.global.js',
       } },
     },
   });
@@ -144,4 +144,4 @@ Its source value is exact, tasks are noninteractive, and optional fence renderin
 
 Visual editing can normalize Markdown syntax and line endings, but must retain meaningful content. Unsupported visual imports fall back to source rather than silently deleting content. Raw HTML is not trusted rendered content. The [architecture](Docs/Architecture.md#markdown-and-safety) describes preservation and safety policies.
 
-Code workspaces currently target top-level fences. The optional Code extension includes separately loaded offline highlighting assets for JavaScript/TypeScript, JSON, CSS, HTML/XML, PHP, SQL, Python and YAML, plus a language menu and local source/language history. See the [Code example](Examples/code-blocks.html) and [configuration](Docs/Configuration.md#code). Mermaid is supplied by the host, never bundled into core. Host transport, authentication, storage, and framework widgets remain outside Markian. Full migration and production acceptance remain tracked in the requirements documents.
+Code workspaces currently target top-level fences. The optional Code extension includes separately loaded offline highlighting assets for JavaScript/TypeScript, JSON, CSS, HTML/XML, PHP, SQL, Python and YAML, plus a language menu and local source/language history. See the [Code example](Examples/code-blocks.html) and [configuration](Docs/Configuration.md#code). Pele renders Mermaid syntax and is supplied by the host, never bundled into core. Mermaid.js is not supported by the runtime loader. Host transport, authentication, storage, and framework widgets remain outside Markian. Full migration and production acceptance remain tracked in the requirements documents.

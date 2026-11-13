@@ -17,11 +17,11 @@ const budget = { javascript: { bytes: 250000, gzip: 80000, brotli: 70000 }, css:
 for (const key of ['bytes', 'gzip', 'brotli']) {
   if (sizes['markian-viewer.min.js'][key] > budget.javascript[key] || sizes['markian-viewer.css'][key] > budget.css[key] || viewer[key] / editor[key] > budget.maximumEditorRatio) throw new Error(`Viewer size budget exceeded for ${key}. Inspect the rendering dependency boundary.`);
 }
-const mermaid = await readFile('node_modules/mermaid/dist/mermaid.min.js');
+const pele = await readFile('node_modules/pele/dist/pele.global.js');
 await writeFile('dist/sizes.json', JSON.stringify({
   compression: 'Independent resources; gzip level 9, Brotli default quality 11. Bytes, not KiB. No editor or viewer optional features enabled in baseline totals.',
   assets: sizes, totals: { editor, viewer, combined }, budget,
-  optionalDependencies: [{ name: 'mermaid', version: pkg.devDependencies.mermaid, external: true, bytes: mermaid.length, gzip: gzipSync(mermaid, { level: 9 }).length, brotli: brotliCompressSync(mermaid).length }],
+  optionalDependencies: [{ name: 'pele', version: pkg.devDependencies.pele, external: true, bytes: pele.length, gzip: gzipSync(pele, { level: 9 }).length, brotli: brotliCompressSync(pele).length }],
 }, null, 2) + '\n');
 const assets = {};
 async function collect(directory) {
@@ -44,9 +44,9 @@ await writeFile('dist/manifest.json', JSON.stringify({
       dependencies: [{ name: 'highlight.js', version: pkg.devDependencies['highlight.js'], bundled: true, apiVersion: 1, loading: 'Only the selected fence language; no editing engines in language assets',
         languages: codeLanguages.map(language => ({ id: language, script: `extensions/languages/${language}.min.js`, global: `MarkianCodeLanguage_${language}.highlighter` })) }] },
     mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,
-      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, requiredApi: ['initialize', 'render'], external: true, loading: 'host-configured source URL or supplied renderer adapter' }] },
+      dependencies: [{ name: 'pele', testedVersion: pkg.devDependencies.pele, requiredApi: ['render'], external: true, loading: 'host-configured Pele source URL or supplied renderer adapter' }] },
     viewerMermaid: { script: 'extensions/viewer-mermaid.min.js', stylesheet: 'extensions/viewer-mermaid.css', types: 'types/viewer-mermaid.d.ts', global: 'MarkianViewerMermaid.createRenderer', requires: pkg.version,
-      dependencies: [{ name: 'mermaid', testedVersion: pkg.devDependencies.mermaid, requiredApi: ['initialize', 'render'], external: true, loading: 'Explicit mermaid:true plus a matching fence and host-configured source URL or supplied renderer' }] },
+      dependencies: [{ name: 'pele', testedVersion: pkg.devDependencies.pele, requiredApi: ['render'], external: true, loading: 'Explicit mermaid:true plus a matching fence and host-configured Pele source URL or supplied renderer' }] },
   },
   assets,
 }, null, 2) + '\n');

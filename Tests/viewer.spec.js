@@ -203,12 +203,12 @@ test('viewer renderer results are sanitized, cancelled and cannot replace a newe
 
 test('viewer Mermaid loading is explicit, lazy and independently disabled per instance', async ({ page }, testInfo) => {
   const runtimeRequests = [];
-  page.on('request', request => { if (request.url().includes('/host-assets/mermaid.min.js')) runtimeRequests.push(request.url()); });
+  page.on('request', request => { if (request.url().includes('/host-assets/pele.global.js')) runtimeRequests.push(request.url()); });
   await page.goto('/Examples/viewer.html');
   await page.addStyleTag({ url: '/dist/extensions/viewer-mermaid.css' });
   await page.addScriptTag({ url: '/dist/extensions/viewer-mermaid.min.js' });
   await page.evaluate(async () => {
-    const renderer = MarkianViewerMermaid.createRenderer(document, { source: '/host-assets/mermaid.min.js' });
+    const renderer = MarkianViewerMermaid.createRenderer(document, { source: '/host-assets/pele.global.js' });
     window.viewerErrors = [];
     const make = async options => {
       const host = document.createElement('div');
@@ -230,8 +230,8 @@ test('viewer Mermaid loading is explicit, lazy and independently disabled per in
   expect(await page.evaluate(() => disabledViewer.element.querySelector('pre').textContent)).toContain('A-->B');
   expect(await page.evaluate(() => viewerErrors)).toEqual([]);
   expect(await page.evaluate(() => typeof window.MarkianMermaid)).toBe('undefined');
-  await expect(page.locator('[data-markian-viewer] svg .node rect').first()).toHaveCSS('fill', 'rgb(236, 236, 255)');
-  await expect(page.locator('[data-markian-viewer] svg .node text').first()).toHaveCSS('text-anchor', 'middle');
+  await expect(page.locator('[data-markian-viewer] svg .pele-node rect').first()).toHaveCSS('fill', 'rgb(241, 243, 244)');
+  await expect(page.locator('[data-markian-viewer] svg .pele-node text').first()).toHaveCSS('text-anchor', 'middle');
   await page.screenshot({ path: testInfo.outputPath('viewer-mermaid.png'), fullPage: true });
 });
 

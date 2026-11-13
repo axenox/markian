@@ -118,11 +118,13 @@ Loading messages (e.g. for code and Mermaid diagrams) and other temporary elemen
 
 Use separate `dist/extensions/mermaid.css` styling. The Mermaid workspace has equal constrained source and preview columns when space permits; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
 
-Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
+Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Narrow control strips scroll horizontally rather than clipping the first actions. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
 
 Keep the previous diagram visible during a refresh until the new result or an error is available, so pending work does not collapse the diagram.
 
-Diagrams retain Mermaid's native `default`/`dark` theme colors, fonts, strokes, label backgrounds and supplied diagram colors. Markian styles only the workspace and controls, not SVG nodes or text. Original Mermaid style tags and inline styles remain intact, without CSS isolation or rewriting; see the accepted risks in the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Viewer diagrams fit the host with a responsive maximum.
+Pele renders Mermaid syntax with its own layout. Shared diagram CSS maps Pele's color variables to the owning Markian instance, so light/dark themes remain independent and custom diagram colors remain intact. Fonts and geometry come from Pele rather than Mermaid.js. Inline styles and IDs remain intact; see the safety boundary in the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Viewer diagrams fit the host with a responsive maximum.
+
+Default shapes use the light-gray code surface and darker muted-text borders, rather than white fills and faint UI separators. Sequence, flowchart and state notes use pale-yellow paper with a folded upper-right corner; dark mode uses subdued amber paper. The Pele source loader adds missing folds without changing note bounds or text positions. Explicit shape colors remain intact.
 
 Pointer/touch dragging pans. A focused preview uses arrows to pan, plus/minus to zoom, and Home to reset; Ctrl/Cmd-wheel also zooms. Labeled controls provide equivalent actions. Read-only inspection retains these presentation controls.
 

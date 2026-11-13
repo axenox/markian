@@ -293,15 +293,17 @@ Both `renderer` and `source` are omitted by default; there is no default runtime
 | ------------------ | ---------------------- | ------------------------------------------------------------------------ |
 | `renderer`         | Omitted                | Host `{ render }` adapter; takes precedence over `source`. |
 | `renderer.render`  | Required with renderer | Function returning SVG text or a promise.                                |
-| `source`           | Omitted                | Trusted HTTP(S) Mermaid script URL string for the isolated runtime loader. Relative URLs use the browser document base. |
+| `source`           | Omitted                | Trusted HTTP(S) Pele `pele.global.js` URL for the isolated runtime loader. Relative URLs use the browser document base. |
 | `maxCharacters`    | `20000`                | Positive integer, at most 20,000 characters per diagram.                 |
 | `maxLines`         | `500`                  | Positive integer, at most 500 lines per diagram.                         |
 
-With neither renderer nor source, editor activation succeeds but diagrams show a missing-renderer error. A loaded runtime must expose callable `initialize()` and `render()` methods, and `render()` must return an object containing SVG text. No version is declared or allowlisted. Rendering limits and sanitization still apply with a custom renderer. The former `asset` option is rejected even when `source` is also present; there is no compatibility fallback.
+With neither renderer nor source, editor activation succeeds but diagrams show a missing-renderer error. A loaded runtime must expose `window.pele.render()`, returning an object containing SVG text. No version is declared or allowlisted. Rendering limits and sanitization still apply with a custom renderer. The former `asset` option is rejected even when `source` is also present; there is no compatibility fallback.
 
 The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensibility.md#mermaid).
 
-The source loader preserves Mermaid's native `default` theme for light instances and its native `dark` theme for dark instances. Markian does not recolor nodes or replace diagram fonts. Mermaid style tags, inline styles and IDs are preserved, including those returned by custom adapters. See the [CSS risk boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety).
+The source loader supports Pele only, not Mermaid.js. It disables links, images and automatic direction switching, uses unique SVG IDs and bounds source, edges and output. Shared diagram CSS maps Pele colors to the owning instance's light/dark theme. Inline styles and IDs are preserved, including those returned by custom adapters. See the [safety boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety).
+
+Default shapes have gray fills and contrasting borders. Pele sequence, flowchart and state notes use pale-yellow paper and a folded corner, with subdued amber colors in dark mode. Custom shape colors are preserved.
 
 ## Viewer Options
 
@@ -358,7 +360,7 @@ Default local settings, before adding a required renderer or source:
 | ------------------ | ---------------------- | ----------------------------------------------------------------------------------- |
 | `renderer`         | Omitted                | Host `{ render }` adapter; preferred over `source`. |
 | `renderer.render`  | Required with renderer | Receives source, unique ID, theme, and abort signal; returns SVG text or a promise. |
-| `source`           | Omitted                | Trusted HTTP(S) Mermaid script URL string; relative to browser document base. At least renderer or source is required. |
+| `source`           | Omitted                | Trusted HTTP(S) Pele `pele.global.js` URL; relative to browser document base. At least renderer or source is required. |
 | `maxCharacters`    | `20000`                | Positive integer up to 20,000.                                                      |
 | `maxLines`         | `500`                  | Positive integer up to 500.                                                         |
 

@@ -613,7 +613,7 @@ test('Mermaid insertion, indentation and pointer pan use the active session only
 for (const width of [1440, 390]) test(`Mermaid host-configured example renders, centers labels and floats controls at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   const assets = [];
-  page.on('request', request => { if (request.url().includes('/host-assets/mermaid.min.js')) assets.push(request.url()); });
+  page.on('request', request => { if (request.url().includes('/host-assets/pele.global.js')) assets.push(request.url()); });
   await page.goto('/Examples/mermaid-diagrams.html');
   await page.evaluate(() => diagramEditor.ready);
   const root = page.locator('[data-markian]');
@@ -627,13 +627,14 @@ for (const width of [1440, 390]) test(`Mermaid host-configured example renders, 
   await firstDiagram.locator('.markian-diagram-viewport').focus();
   await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('opacity', '1');
   await firstDiagram.locator('.markian-diagram-viewport').blur();
-  const centers = await firstDiagram.locator('svg .node').evaluateAll(nodes => nodes.map(node => {
+  const centers = await firstDiagram.locator('svg .pele-node').evaluateAll(nodes => nodes.map(node => {
     const shape = node.querySelector('rect');
     const label = node.querySelector('text');
     const box = shape.getBoundingClientRect();
     const text = label.getBoundingClientRect();
     return Math.abs(box.x + box.width / 2 - text.x - text.width / 2);
   }));
+  expect(centers.length).toBeGreaterThan(0);
   expect(centers.every(offset => offset < 2)).toBe(true);
   await firstDiagram.hover();
   await expect(firstDiagram.locator('.markian-diagram-controls')).toHaveCSS('opacity', '1');
@@ -661,7 +662,7 @@ for (const width of [1440, 390]) test(`Mermaid host-configured example renders, 
 
 test('Mermaid source loading retries failures and deduplicates instances by URL', async ({ page }) => {
   let failures = 0;
-  await page.route('**/host-assets/mermaid.min.js', async route => {
+  await page.route('**/host-assets/pele.global.js', async route => {
     if (++failures !== 1) { await route.continue(); return; }
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await route.abort();
@@ -675,13 +676,13 @@ test('Mermaid source loading retries failures and deduplicates instances by URL'
   await page.evaluate(async () => {
     const host = document.createElement('div');
     document.body.append(host);
-    window.otherDiagram = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n Other-->Instance\n```', extensions: { mermaid: { enabled: true, config: { source: '/host-assets/mermaid.min.js' } } } });
+    window.otherDiagram = Markian.create(host, { markdown: '```mermaid\nflowchart LR\n Other-->Instance\n```', extensions: { mermaid: { enabled: true, config: { source: '/host-assets/pele.global.js' } } } });
     await otherDiagram.ready;
   });
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(2);
   expect(failures).toBe(2);
   expect(await page.evaluate(async () => {
-    return await MarkianMermaid.loadMermaid(document, '/host-assets/mermaid.min.js') === await MarkianMermaid.loadMermaid(document, new URL('/host-assets/mermaid.min.js', document.baseURI).href);
+    return await MarkianMermaid.loadMermaid(document, '/host-assets/pele.global.js') === await MarkianMermaid.loadMermaid(document, new URL('/host-assets/pele.global.js', document.baseURI).href);
   })).toBe(true);
   await page.evaluate(() => diagramEditor.destroy());
   await expect(page.locator('[data-markian] .markian-diagram[data-state="ready"]')).toHaveCount(1);
@@ -690,8 +691,8 @@ test('Mermaid source loading retries failures and deduplicates instances by URL'
 test('Mermaid source API failures retain Markdown and allow a corrected runtime retry', async ({ page }) => {
   let valid = false;
   await page.route('**/host-mermaid-api.js', route => route.fulfill({ contentType: 'text/javascript', body: valid
-    ? 'window.mermaid = {initialize(){}, async render(){return {svg:\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><text x="5" y="25">Ready</text></svg>\'};}};'
-    : 'window.mermaid = {initialize(){}};' }));
+    ? 'window.pele = {render(){return {svg:\'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><text x="5" y="25">Ready</text></svg>\'};}};'
+    : 'window.mermaid = {initialize(){},render(){throw new Error("Mermaid.js must not be used");}};' }));
   await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
   await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
   await page.evaluate(async () => {
@@ -704,7 +705,7 @@ test('Mermaid source API failures retain Markdown and allow a corrected runtime 
   });
   const diagram = page.locator('.markian-diagram');
   await expect(diagram).toHaveAttribute('data-state', 'error');
-  await expect(diagram.locator('.markian-diagram-status')).toContainText('initialize() and render()');
+  await expect(diagram.locator('.markian-diagram-status')).toContainText('Pele render()');
   await expect(page.locator('.markian-mermaid-runtime')).toHaveCount(0);
   expect(await page.evaluate(() => diagramEditor.get())).toContain('flowchart LR');
   valid = true;
@@ -712,6 +713,48 @@ test('Mermaid source API failures retain Markdown and allow a corrected runtime 
   await diagram.getByRole('button', { name: 'Retry diagram', exact: true }).click();
   await expect(diagram).toHaveAttribute('data-state', 'ready');
   await expect(diagram.locator('.markian-diagram-canvas svg')).toContainText('Ready');
+});
+
+test('Pele diagram contrast and folded notes stay themed in editor and viewer', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.addScriptTag({ url: '/dist/markian-viewer.min.js' });
+  await page.addScriptTag({ url: '/dist/extensions/viewer-mermaid.min.js' });
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.addStyleTag({ url: '/dist/markian-viewer.css' });
+  await page.addStyleTag({ url: '/dist/extensions/viewer-mermaid.css' });
+  await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const source = '/host-assets/pele.global.js';
+    const markdown = '```mermaid\nsequenceDiagram\n participant Agent\n participant Service\n Agent->>Service: Run\n Note over Agent,Service: Tool loop\n```\n\n```mermaid\nflowchart LR\n A[Default] --> C[Custom]\n N@{shape: note, label: "Flow note"}\n style C fill:#ffddcc,stroke:#995500\n```\n\n```mermaid\nstateDiagram-v2\n state "Draft" as Draft\n note right of Draft: State note\n```';
+    for (const theme of ['light', 'dark']) {
+      for (const kind of ['editor', 'viewer']) {
+        const host = document.createElement('div');
+        host.style.height = '600px';
+        document.body.append(host);
+        const instance = kind === 'editor'
+          ? Markian.create(host, { markdown, theme, extensions: { mermaid: { enabled: true, config: { source } } } })
+          : MarkianViewer.create(host, { markdown, theme, mermaid: true, renderers: { mermaid: MarkianViewerMermaid.createRenderer(document, { source }) } });
+        await instance.ready;
+        instance.element.id = `contrast-${kind}-${theme}`;
+      }
+    }
+  });
+  for (const theme of ['light', 'dark']) for (const kind of ['editor', 'viewer']) {
+    const root = page.locator(`#contrast-${kind}-${theme}`);
+    await expect(root.locator('svg.pele')).toHaveCount(3);
+    const shape = root.locator('.pele-shape-rect[data-id="A"] > rect');
+    await expect(shape).toHaveCSS('fill', theme === 'light' ? 'rgb(241, 243, 244)' : kind === 'editor' ? 'rgb(43, 51, 48)' : 'rgb(43, 53, 48)');
+    await expect(shape).toHaveCSS('stroke', theme === 'light' ? 'rgb(89, 100, 95)' : kind === 'editor' ? 'rgb(167, 181, 174)' : 'rgb(167, 181, 173)');
+    await expect(root.locator('.pele-shape-rect[data-id="C"] > rect')).toHaveCSS('fill', 'rgb(255, 221, 204)');
+    for (const selector of ['.pele-sequence .pele-note', '.pele-shape-note', '.pele-state .pele-note']) {
+      const note = root.locator(selector);
+      await expect(note.locator(':scope > rect')).toHaveCount(0);
+      await expect(note.locator(':scope > path')).toHaveCount(2);
+      await expect(note.locator(':scope > path').first()).toHaveCSS('fill', theme === 'light' ? 'rgb(255, 244, 204)' : 'rgb(73, 65, 35)');
+      await expect(note.locator(':scope > path').last()).toHaveCSS('fill', theme === 'light' ? 'rgb(230, 207, 122)' : 'rgb(115, 99, 51)');
+      await expect(note.locator('text')).toHaveText(selector.includes('sequence') ? 'Tool loop' : selector.includes('state') ? 'State note' : 'Flow note');
+    }
+  }
 });
 
 test('Mermaid editor and viewer reject obsolete asset configuration without fallback', async ({ page }) => {

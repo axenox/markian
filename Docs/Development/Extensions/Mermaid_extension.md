@@ -1,17 +1,17 @@
 # Mermaid Extension
 
-This guide covers Mermaid loading and SVG handling in the editor extension and viewer adapter. For host setup, see [configuration](../../Configuration.md#mermaid) and [extensibility](../../Extensibility.md#mermaid).
+This guide covers Pele loading and SVG handling for Mermaid fences in the editor extension and viewer adapter. For host setup, see [configuration](../../Configuration.md#mermaid) and [extensibility](../../Extensibility.md#mermaid).
 
 ## Runtime Loading
 
-Mermaid is host-supplied through a `source` URL string or a `{ render }` adapter. No version declaration is required: the loader checks for callable `initialize` and `render` methods at runtime and validates the rendered SVG result. There is no guessed CDN or sibling-framework path. The former `asset` object is rejected, not translated.
+Pele is host-supplied through a `source` URL pointing to `pele.global.js` or a `{ render }` adapter. The loader requires `window.pele.render` and validates its SVG result. Mermaid.js is no longer supported by the source loader. There is no guessed CDN or sibling-framework path. The former `asset` object is rejected, not translated. Fence, extension and adapter names remain `mermaid`.
 
-Loads of the same resolved URL are shared within a bundle; editor and viewer bundles have independent caches. A common host renderer can share one runtime across both. The loader isolates configuration in an iframe, not untrusted script execution: load only trusted scripts.
+Loads of the same resolved URL are shared within a bundle; editor and viewer bundles have independent caches. A common host renderer can share one runtime across both. The loader keeps the runtime global in a retained iframe, not an untrusted-script sandbox: load only trusted scripts. Pele renders synchronously with per-call options; no global configuration or render queue is needed. It receives a unique ID prefix, a 20,000-character source limit, a 2,000,000-character output limit and a 500-edge limit. Links, images and automatic direction switching are disabled. Existing cancellation and stale-result checks remain in the editor/viewer.
 
 The shared loader and renderer contract live in [mermaid-runtime.ts](../../../src/mermaid-runtime.ts). The [editor extension](../../../src/extensions/mermaid.ts) owns diagram controls and block editing; the [viewer adapter](../../../src/viewer-mermaid.ts) only renders diagrams.
 
 ## SVG Styling and Safety
 
-The shared browser-side Mermaid runtime returns Mermaid's SVG without reconstructing its styling. Editor and viewer preserve its style tags, inline styles, data attributes and original IDs so native theme selectors keep working. Active SVG content and direct external SVG references are still removed.
+The loader returns Pele SVG without rebuilding its nodes. Editor and viewer preserve inline styles, data attributes and unique IDs. Active SVG content and direct external SVG references are still removed. Shared diagram CSS maps Pele variables to each instance's Markian theme; custom diagram colors remain intact.
 
-Mermaid CSS is not isolated or filtered: interference with host styles and CSS resource loading are accepted risks. Markian adds no replacement SVG palette.
+Pele has its own layout and does not support arbitrary HTML labels or JavaScript click callbacks. Mermaid themes no longer apply. Supplied adapters remain trusted integration code; their style tags and inline CSS are preserved and are not a CSS sandbox.

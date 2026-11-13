@@ -7,13 +7,20 @@ export interface MermaidRenderContext {
 export interface MermaidRenderer {
     render(context: MermaidRenderContext): string | Promise<string>;
 }
-interface MermaidApi {
-    initialize(config: Record<string, unknown>): void;
-    render(id: string, source: string, container: HTMLElement): Promise<{
+interface PeleApi {
+    render(source: string, options: {
+        idPrefix: string;
+        limit: number;
+        outputLimit: number;
+        maxEdges: number;
+        links: boolean;
+        images: boolean;
+        autoDirection: boolean;
+    }): {
         svg: string;
-    }>;
+    };
 }
-export declare function mermaidApi(value: unknown): MermaidApi;
+export declare function mermaidApi(value: unknown): PeleApi;
 export declare function loadMermaid(document: Document, source: string): Promise<MermaidRenderer>;
 export declare function bounded(source: string, characters: number, lines: number): void;
 export {};

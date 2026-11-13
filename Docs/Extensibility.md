@@ -98,21 +98,21 @@ Load the factory and CSS after core, then register and enable it:
   const diagrams = Markian.create(document.querySelector('#diagrams'), {
     markdown: '```mermaid\nflowchart LR\n  A[Start] --> B[Finish]\n```',
     extensions: { mermaid: { enabled: true, config: {
-      source: '/assets/mermaid.min.js',
+      source: '/assets/pele.global.js',
     } } },
   });
 </script>
 ```
 
-The example assumes a `#diagrams` host, core assets, and a trusted host runtime at the configured URL. Mermaid is not included in Markian's distribution. The loader checks for callable `initialize()` and `render()` methods, runs the runtime in a configuration-isolated iframe and loads it only when needed. No version declaration is required. Missing configuration or a failed render shows an error without losing source; Retry remains available.
+The example assumes a `#diagrams` host, core assets, and a trusted Pele global runtime at the configured URL. Pele is not included in Markian's distribution. The loader checks `window.pele.render`, keeps the runtime global in an iframe and loads it only when needed. Mermaid.js is not supported by this loader. Missing configuration or a failed render shows an error without losing source; Retry remains available.
 
-Alternatively supply `config.renderer: { render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Mermaid object is not this adapter contract. Host adapters must isolate theme/security settings and DOM ownership, emit SVG text labels (`htmlLabels: false`), bound layout work, use the supplied unique `id`, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer. Mermaid style tags and inline styles are preserved, not converted to presentation attributes.
+Alternatively supply `config.renderer: { render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Pele object is not this adapter contract. Host adapters must isolate settings and DOM ownership, emit SVG text labels, bound layout work, use the supplied unique `id`, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer. Style tags and inline styles are preserved, not converted to presentation attributes.
 
 `MarkianMermaid.loadMermaid(document, source)` returns the same adapter contract. Compatible loads are deduplicated and retained after instances are destroyed. The iframe is not a sandbox for untrusted scripts; use trusted URLs only. A host-supplied adapter is the alternative for CSP-controlled environments; full CSP acceptance remains unverified.
 
 The extension adds Insert diagram, inline diagram presentation, and a source/preview workspace with local undo/redo, indentation, search, and Back. `get()` includes pending diagram edits. Invalid syntax remains saveable as a fence. Nested diagrams render, but block-edit sessions currently target only top-level fences.
 
-Rendering defaults to 20,000 characters and 500 lines. Settings can lower but not raise these limits. Configuration directives, front matter, and executable links are refused for rendering. SVG output is bounded and sanitized, retaining Mermaid's original IDs and CSS. The source loader uses Mermaid's `default` theme in light mode and its native `dark` theme in dark mode. Markian adds no replacement diagram palette or font. CSS is not isolated or filtered; see the [accepted risks](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Pan, zoom, reset, and read-only inspection do not change Markdown.
+Rendering defaults to 20,000 characters and 500 lines. Settings can lower but not raise these limits. Configuration directives, front matter, and executable links are refused for rendering. SVG output is bounded and sanitized, retaining its IDs and inline CSS. Shared diagram CSS maps Pele colors to each instance's Markian theme. Pele uses its own layout; arbitrary HTML labels and JavaScript callbacks are unsupported. See the [safety boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Pan, zoom, reset, and read-only inspection do not change Markdown.
 
 See [Mermaid configuration](Configuration.md#mermaid) and the [runnable example](Examples.md).
 
@@ -144,7 +144,7 @@ Load viewer core JS/CSS and the render-only adapter JS/CSS, not the editor exten
 <script src="dist/extensions/viewer-mermaid.min.js"></script>
 <script>
   const renderer = MarkianViewerMermaid.createRenderer(document, {
-    source: '/assets/mermaid.min.js',
+    source: '/assets/pele.global.js',
   });
   const viewer = MarkianViewer.create(document.querySelector('#viewer'), {
     markdown: '```mermaid\nflowchart LR\n  A --> B\n```',

@@ -89,14 +89,13 @@
       "requires": "0.1.0",
       "dependencies": [
         {
-          "name": "mermaid",
-          "testedVersion": "12.2.0",
+          "name": "pele",
+          "testedVersion": "1.13.0",
           "requiredApi": [
-            "initialize",
             "render"
           ],
           "external": true,
-          "loading": "host-configured source URL or supplied renderer adapter"
+          "loading": "host-configured Pele source URL or supplied renderer adapter"
         }
       ]
     },
@@ -108,14 +107,13 @@
       "requires": "0.1.0",
       "dependencies": [
         {
-          "name": "mermaid",
-          "testedVersion": "12.2.0",
+          "name": "pele",
+          "testedVersion": "1.13.0",
           "requiredApi": [
-            "initialize",
             "render"
           ],
           "external": true,
-          "loading": "Explicit mermaid:true plus a matching fence and host-configured source URL or supplied renderer"
+          "loading": "Explicit mermaid:true plus a matching fence and host-configured Pele source URL or supplied renderer"
         }
       ]
     }
@@ -166,20 +164,20 @@
       "bytes": 23447
     },
     "extensions/mermaid.css": {
-      "sha256": "81d354e654bff2505256f525cf23196c95bbbe3e86c3fc418d51c68dce0cc218",
-      "bytes": 2578
+      "sha256": "73f79ad75a3c0a128bfda591ab6a140550fe75666135c13d142b256f494f63f7",
+      "bytes": 3726
     },
     "extensions/mermaid.min.js": {
-      "sha256": "be4db3bc646889458d3fb0edf27f397f8addbf22de3906beedd9e69bd4497c37",
-      "bytes": 58635
+      "sha256": "4c9b9c01bd952b0a0fe2e17c0da6a087ae093563198c43e585c3ec75cbf69590",
+      "bytes": 59578
     },
     "extensions/viewer-mermaid.css": {
-      "sha256": "b7552479a01c3b8a09abe3b4d6bf75f0806dc6998ebf938b635cdd5d8772aac8",
-      "bytes": 100
+      "sha256": "80e0e24b0871d6f3d0f48338004334384059442c8c51b615e1cec69ea5963c62",
+      "bytes": 1230
     },
     "extensions/viewer-mermaid.min.js": {
-      "sha256": "14f2c0fb5fae165f4aed1280aad1cc1e97fb7a64441ee87b609063012a142120",
-      "bytes": 3435
+      "sha256": "501ce816550c4bff37f26ac1a915a6c98691113812e064dfc3b168a7cc6784f1",
+      "bytes": 4376
     },
     "markdown-github.css": {
       "sha256": "86ad2209f15c10a4544bf0f0499147236aea6399ca6f0a168259781c31c16851",
@@ -202,8 +200,8 @@
       "bytes": 998263
     },
     "sizes.json": {
-      "sha256": "7a4721b16e40eec7229c90535da9a61cfdf108f85b2669744227948f7f3fee8b",
-      "bytes": 3032
+      "sha256": "13088f1aa0f09893b122b4288f0414a92999f535f37c6a9f648f72a7b74cb7f6",
+      "bytes": 3029
     },
     "types/browser.d.ts": {
       "sha256": "4e824115ddb540ce8cdfb4fa43f9faff075ef4f5522fbae2f6bf0e73474f0ccf",
@@ -254,8 +252,8 @@
       "bytes": 611
     },
     "types/mermaid-runtime.d.ts": {
-      "sha256": "00d07027c82f4f8a6e153f7157fbc6ab4343125598eec92bb99a2a7d656ab370",
-      "bytes": 685
+      "sha256": "f2113acbbdc39b254254ecc5fddf787a3c9176767e4bc6c2e4362b723b613355",
+      "bytes": 782
     },
     "types/registry.d.ts": {
       "sha256": "df8eb7f3aea5531e7756542af9bfa4642b010894eb3f6704713b83f72ac68d64",

@@ -7,18 +7,46 @@ export interface MermaidRenderContext {
 export interface MermaidRenderer {
   render(context: MermaidRenderContext): string | Promise<string>;
 }
-interface MermaidApi {
-  initialize(config: Record<string, unknown>): void;
-  render(id: string, source: string, container: HTMLElement): Promise<{ svg: string }>;
+interface PeleApi {
+  render(source: string, options: { idPrefix: string; limit: number; outputLimit: number; maxEdges: number; links: boolean; images: boolean; autoDirection: boolean }): { svg: string };
 }
 const loads = new WeakMap<Document, Map<string, Promise<MermaidRenderer>>>();
 
-export function mermaidApi(value: unknown): MermaidApi {
-  if (!value || typeof value !== 'object' || !('initialize' in value) || typeof value.initialize !== 'function'
-    || !('render' in value) || typeof value.render !== 'function') {
-    throw new TypeError('The configured Mermaid source must expose initialize() and render() functions.');
+function foldPeleNotes(source: string): string {
+  if (source.length > 2_000_000) throw new Error('Rendered diagram exceeds the SVG limit.');
+  const parsed = new DOMParser().parseFromString(source, 'image/svg+xml');
+  if (parsed.querySelector('parsererror') || parsed.documentElement.localName !== 'svg') throw new Error('Pele returned invalid SVG.');
+  const notes = parsed.querySelectorAll('.pele .pele-note > rect, .pele .pele-shape-note > rect');
+  if (!notes.length) return source;
+  for (const rect of notes) {
+    const x = Number(rect.getAttribute('x') ?? 0);
+    const y = Number(rect.getAttribute('y') ?? 0);
+    const width = Number(rect.getAttribute('width'));
+    const height = Number(rect.getAttribute('height'));
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) throw new Error('Pele returned invalid note dimensions.');
+    const right = x + width;
+    const bottom = y + height;
+    const fold = Math.min(10, width / 4, height / 4);
+    const body = parsed.createElementNS('http://www.w3.org/2000/svg', 'path');
+    for (const attribute of rect.attributes) {
+      if (!['x', 'y', 'width', 'height', 'rx', 'ry'].includes(attribute.name)) body.setAttribute(attribute.name, attribute.value);
+    }
+    body.setAttribute('d', `M${x},${y}H${right - fold}L${right},${y + fold}V${bottom}H${x}Z`);
+    const corner = parsed.createElementNS('http://www.w3.org/2000/svg', 'path');
+    corner.setAttribute('class', 'markian-diagram-note-fold');
+    corner.setAttribute('d', `M${right - fold},${y}V${y + fold}H${right}Z`);
+    corner.setAttribute('fill', 'var(--markian-diagram-note-fold)');
+    corner.setAttribute('stroke', rect.getAttribute('stroke') ?? 'var(--_b)');
+    rect.replaceWith(body, corner);
   }
-  return value as MermaidApi;
+  return new XMLSerializer().serializeToString(parsed.documentElement);
+}
+
+export function mermaidApi(value: unknown): PeleApi {
+  if (!value || typeof value !== 'object' || !('render' in value) || typeof value.render !== 'function') {
+    throw new TypeError('The configured diagram source must expose Pele render().');
+  }
+  return value as PeleApi;
 }
 
 export function loadMermaid(document: Document, source: string): Promise<MermaidRenderer> {
@@ -32,7 +60,7 @@ export function loadMermaid(document: Document, source: string): Promise<Mermaid
   const promise = new Promise<MermaidRenderer>((resolve, reject) => {
     const frame = document.createElement('iframe');
     frame.className = 'markian-mermaid-runtime';
-    frame.title = 'Isolated Mermaid renderer';
+    frame.title = 'Isolated Pele renderer';
     frame.setAttribute('aria-hidden', 'true');
     frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     Object.assign(frame.style, { position: 'fixed', left: '-20000px', top: '0', width: '1000px', height: '800px', visibility: 'hidden', pointerEvents: 'none' });
@@ -45,26 +73,15 @@ export function loadMermaid(document: Document, source: string): Promise<Mermaid
     script.onerror = () => failed(new Error('Mermaid asset could not be loaded. Retry the diagram.'));
     script.onload = () => {
       clearTimeout(timeout);
-      let api: MermaidApi;
-      try { api = mermaidApi((frame.contentWindow as (Window & { mermaid?: unknown }) | null)?.mermaid); }
+      let api: PeleApi;
+      try { api = mermaidApi((frame.contentWindow as (Window & { pele?: unknown }) | null)?.pele); }
       catch (error) { failed(error instanceof Error ? error : new Error(String(error))); return; }
-      let queue: Promise<unknown> = Promise.resolve();
       resolve({ render(context) {
-        const operation = queue.then(async () => {
-          if (context.signal.aborted) throw new Error('Mermaid rendering was cancelled.');
-          api.initialize({ startOnLoad: false, securityLevel: 'strict', theme: context.theme === 'dark' ? 'dark' : 'default',
-            maxTextSize: 20000, maxEdges: 500, htmlLabels: false, suppressErrorRendering: true });
-          const container = local.createElement('div');
-          local.body.append(container);
-          try {
-            const result = await api.render(context.id, context.source, container);
-            if (!result || typeof result.svg !== 'string') throw new TypeError('Mermaid render() must return an object containing SVG text.');
-            return result.svg;
-          }
-          finally { container.remove(); }
-        });
-        queue = operation.catch(() => {});
-        return operation;
+        if (context.signal.aborted) throw new Error('Mermaid rendering was cancelled.');
+        const result = api.render(context.source, { idPrefix: context.id, limit: 20000, outputLimit: 2_000_000,
+          maxEdges: 500, links: false, images: false, autoDirection: false });
+        if (!result || typeof result.svg !== 'string') throw new TypeError('Pele render() must return an object containing SVG text.');
+        return foldPeleNotes(result.svg);
       } });
     };
     local.head.append(script);

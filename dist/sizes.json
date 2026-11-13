@@ -27,24 +27,24 @@
       "brotli": 1217
     },
     "extensions/viewer-mermaid.min.js": {
-      "bytes": 3435,
-      "gzip": 1606,
-      "brotli": 1345
+      "bytes": 4376,
+      "gzip": 1972,
+      "brotli": 1686
     },
     "extensions/viewer-mermaid.css": {
-      "bytes": 100,
-      "gzip": 112,
-      "brotli": 91
+      "bytes": 1230,
+      "gzip": 339,
+      "brotli": 309
     },
     "extensions/mermaid.min.js": {
-      "bytes": 58635,
-      "gzip": 23297,
-      "brotli": 20048
+      "bytes": 59578,
+      "gzip": 23530,
+      "brotli": 20303
     },
     "extensions/mermaid.css": {
-      "bytes": 2578,
-      "gzip": 801,
-      "brotli": 627
+      "bytes": 3726,
+      "gzip": 1007,
+      "brotli": 840
     },
     "extensions/code.min.js": {
       "bytes": 57149,
@@ -134,12 +134,12 @@
   },
   "optionalDependencies": [
     {
-      "name": "mermaid",
-      "version": "12.2.0",
+      "name": "pele",
+      "version": "1.13.0",
       "external": true,
-      "bytes": 5494801,
-      "gzip": 1578840,
-      "brotli": 1177352
+      "bytes": 733670,
+      "gzip": 276841,
+      "brotli": 223408
     }
   ]
 }

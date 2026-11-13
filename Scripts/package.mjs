@@ -31,7 +31,7 @@ try {
 		const bytes = await readFile(join(root, 'dist', path));
 		assert.equal(createHash('sha256').update(bytes).digest('hex'), metadata.sha256, path);
 	}
-	for (const name of ['@milkdown/kit', '@codemirror/view', 'mermaid']) {
+	for (const name of ['@milkdown/kit', '@codemirror/view', 'pele']) {
 		await assert.rejects(readFile(join(fixture, 'node_modules', name, 'package.json')));
 	}
 	const mime = { '.js': 'application/javascript', '.css': 'text/css', '.html': 'text/html' };
@@ -40,12 +40,12 @@ try {
 			const requested = new URL(request.url, 'http://localhost').pathname.replace(/^\/installed\/markian\//, '/');
 			if (requested === '/Examples/mermaid.config.js') {
 				response.setHeader('Content-Type', 'application/javascript');
-				response.end(`window.markianMermaidConfig = ${JSON.stringify({ source: '/host-assets/mermaid.min.js' })};`);
+				response.end(`window.markianMermaidConfig = ${JSON.stringify({ source: '/host-assets/pele.global.js' })};`);
 				return;
 			}
-			if (requested === '/host-assets/mermaid.min.js') {
+			if (requested === '/host-assets/pele.global.js') {
 				response.setHeader('Content-Type', 'application/javascript');
-				response.end(await readFile('node_modules/mermaid/dist/mermaid.min.js'));
+				response.end(await readFile('node_modules/pele/dist/pele.global.js'));
 				return;
 			}
 			const path = resolve(root, '.' + decodeURIComponent(requested));
@@ -72,7 +72,7 @@ try {
 	});
 	assert.match(await page.evaluate(async () => { await viewer.ready; return viewer.get(); }), /Field notes/);
 	assert.equal(await page.evaluate(() => typeof window.Markian), 'undefined');
-	assert.ok(!requests.some(path => /\/markian\.(?:min\.js|css)$|mermaid\.min\.js|\/extensions\//.test(path)), 'Viewer archive startup must not request editor assets or Mermaid.');
+	assert.ok(!requests.some(path => /\/markian\.(?:min\.js|css)$|pele\.global\.js|\/extensions\//.test(path)), 'Viewer archive startup must not request editor assets or Pele.');
 	await page.evaluate(async () => { await viewer.set('# Replacement'); await viewer.setTheme('dark'); });
 	assert.equal(await page.locator('[data-markian-viewer] h1').textContent(), 'Replacement');
 	await page.evaluate(() => { viewer.destroy(); viewer.destroy(); });
@@ -94,7 +94,7 @@ try {
 		assert.equal(await page.evaluate(() => example.activeView), 'code');
 		await page.evaluate(() => example.execute('code:language:typescript'));
 		assert.match(await page.evaluate(() => example.get()), /```typescript/);
-		assert.ok(!requests.some(path => /mermaid\.min\.js/.test(path)), 'Code package must be independent of Mermaid.');
+		assert.ok(!requests.some(path => /pele\.global\.js/.test(path)), 'Code package must be independent of Pele.');
 	}
 	if (!viewerOnly && !codeOnly) {
 	await page.goto(`http://127.0.0.1:${server.address().port}/Examples/minimal-editor.html`);

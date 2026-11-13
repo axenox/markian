@@ -19,13 +19,13 @@ export default defineConfig({
       });
     },
   }, {
-    name: 'demo-host-mermaid',
+    name: 'demo-host-pele',
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
-        if (request.url?.split('?')[0] !== '/host-assets/mermaid.min.js') { next(); return; }
+        if (request.url?.split('?')[0] !== '/host-assets/pele.global.js') { next(); return; }
         response.setHeader('Content-Type', 'application/javascript');
-        const stream = createReadStream(new URL('./node_modules/mermaid/dist/mermaid.min.js', import.meta.url));
-        stream.on('error', () => { response.statusCode = 404; response.end('Host Mermaid asset is unavailable.'); });
+        const stream = createReadStream(new URL('./node_modules/pele/dist/pele.global.js', import.meta.url));
+        stream.on('error', () => { response.statusCode = 404; response.end('Host Pele asset is unavailable.'); });
         stream.pipe(response);
       });
     },
