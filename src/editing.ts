@@ -1,4 +1,4 @@
-import { closeHistory, setBlockType, wrapIn, wrapInList, liftListItem, sinkListItem, addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, setCellAttr, TextSelection } from './engines/prose';
+import { closeHistory, setBlockType, wrapIn, wrapInList, liftListItem, sinkListItem, addRowAfter, addRowBefore, addColumnAfter, addColumnBefore, deleteRow, deleteColumn, deleteTable, selectedRect, setCellAttr, TextSelection } from './engines/prose';
 import type { Command, EditorView, ProseNode, Transaction } from './engines/prose';
 import type { SourceEditor } from './engines/source';
 import type { CommandDefinition, EditorOptions, MarkianInstance, ToolbarItem } from './types';
@@ -202,7 +202,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
           const context = quoteContext(transaction);
           if (!context.depth) return;
           if (kind && current.kind !== kind) {
-            transaction.replaceWith(context.start, context.start + context.markerLength, [view.state.schema.text(`[!${kind}]`), view.state.schema.nodes.hardbreak.create()]);
+            transaction.replaceWith(context.start, context.start + context.markerLength, [view.state.schema.text(`[!${kind}]`), view.state.schema.nodes.hardbreak.create({ isInline: true })]);
           } else transaction.delete(context.start, context.start + context.markerLength);
           if (current.kind === kind) {
             const selected = transaction.selection.$from;
@@ -271,7 +271,17 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     const table = selected.node(depth);
     const position = selected.before(depth);
     const index = selected.index(depth);
-    if (operation === 'delete-row' && table.childCount <= 2) return deleteTable(state, dispatch);
+    if (operation === 'row-before' || operation === 'row-after') {
+      const source = table.child(index);
+      const row = state.schema.nodes.table_row.create(null, Array.from({ length: source.childCount }, (_, column) =>
+        state.schema.nodes.table_cell.createAndFill(source.child(column).attrs)!));
+      const rowPosition = selected.before(depth + 1);
+      const insertAt = operation === 'row-before' && index > 0 ? rowPosition : rowPosition + source.nodeSize;
+      dispatch(state.tr.insert(insertAt, row));
+      return true;
+    }
+    const deletedRows = operation === 'delete-row' ? selectedRect(state) : undefined;
+    if (deletedRows && table.childCount - (deletedRows.bottom - deletedRows.top) < 2) return deleteTable(state, dispatch);
     const rows: ProseNode[] = [];
     table.forEach(row => rows.push(row));
     if (operation === 'header') {
@@ -280,15 +290,10 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       const header = rows[0];
       rows[0] = state.schema.nodes.table_header_row.create(null, Array.from({ length: current.childCount }, (_, column) => state.schema.nodes.table_header.create(current.child(column).attrs, current.child(column).content)));
       rows[index] = state.schema.nodes.table_row.create(null, Array.from({ length: header.childCount }, (_, column) => state.schema.nodes.table_cell.create(header.child(column).attrs, header.child(column).content)));
-    } else if (operation === 'delete-row') {
-      rows.splice(index, 1);
-      if (index === 0) rows[0] = state.schema.nodes.table_header_row.create(null,
+    } else if (deletedRows) {
+      rows.splice(deletedRows.top, deletedRows.bottom - deletedRows.top);
+      if (deletedRows.top === 0) rows[0] = state.schema.nodes.table_header_row.create(null,
         Array.from({ length: rows[0].childCount }, (_, column) => state.schema.nodes.table_header.create(rows[0].child(column).attrs, rows[0].child(column).content)));
-    } else {
-      const source = rows[index];
-      const row = state.schema.nodes.table_row.create(null, Array.from({ length: source.childCount }, (_, column) =>
-        state.schema.nodes.table_cell.createAndFill(source.child(column).attrs)!));
-      rows.splice(operation === 'row-before' ? Math.max(1, index) : index + 1, 0, row);
     }
     const transaction = state.tr.replaceWith(position, position + table.nodeSize, table.type.create(table.attrs, rows));
     transaction.setSelection(TextSelection.near(transaction.doc.resolve(Math.min(selected.pos, position + transaction.doc.nodeAt(position)!.nodeSize - 2))));
@@ -320,7 +325,9 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       const selected = state.selection.$from;
       let depth = selected.depth;
       while (depth > 0 && selected.node(depth).type.name !== 'table') depth--;
-      return depth && selected.node(depth).firstChild?.childCount === 1 ? deleteTable(state, dispatch) : command(state, dispatch);
+      if (!depth) return false;
+      const rect = selectedRect(state);
+      return rect.right - rect.left === rect.map.width ? deleteTable(state, dispatch) : command(state, dispatch);
     };
     return command;
   });

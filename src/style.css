@@ -1,3 +1,5 @@
+@import './render/alerts.css';
+
 .markian {
   --markian-surface: #fff;
   --markian-text: #262c2b;
@@ -135,7 +137,6 @@
 .markian .ProseMirror li[data-item-type='task'] > input:disabled { cursor: default; }
 .markian .ProseMirror li[data-item-type='task'] > div > p { margin: 0; }
 .markian .ProseMirror li[data-item-type='task'] > div > p + p { margin-top: 4px; }
-.markian .markian-alert-marker { display: none; }
 @container (max-width: 480px) {
   .markian-toolbar { flex-basis: var(--markian-toolbar-height, 50px); }
   .markian-floating { height: var(--markian-toolbar-height, 50px); }

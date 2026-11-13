@@ -3,6 +3,7 @@ import { commonmark, hardbreakSchema, htmlSchema, imageSchema } from '@milkdown/
 import { gfm, strikethroughInputRule, extendListItemSchemaForTask } from '@milkdown/kit/preset/gfm';
 import { $node, $mark, $remark } from '@milkdown/kit/utils';
 import type { RootContent } from 'mdast';
+import { defaultHandlers } from 'mdast-util-to-markdown';
 import type { State as MarkdownState, Info } from 'mdast-util-to-markdown';
 import Papa from 'papaparse';
 import { CellSelection, Fragment, Slice, TableMap, selectedRect } from './prose';
@@ -18,6 +19,7 @@ export interface VisualEngine {
   parse(markdown: string): ProseNode;
   serialize(node: ProseNode): string;
   replace(markdown: string, reset: boolean): void;
+  setHeadingIds(ids: readonly string[]): void;
   setReadOnly(value: boolean): void;
   search(options: SearchOptions): SearchMatch[];
   select(from: number, to?: number): void;
@@ -247,6 +249,13 @@ export async function createVisual(
     ctx.set(defaultValueCtx, '');
     ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, bullet: '-' as const }));
     ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, handlers: { ...options.handlers,
+      blockquote: (node, parent, state, info) => {
+        const markdown = defaultHandlers.blockquote(node, parent, state, info);
+        const paragraph = node.children[0];
+        const text = paragraph?.type === 'paragraph' ? paragraph.children[0] : undefined;
+        // Keep alert syntax interoperable without changing escaping in ordinary prose.
+        return text?.type === 'text' && quoteMarker(text.value) ? markdown.replace(/^> \\\[/, '> [') : markdown;
+      },
       inlineHtml: (node: InlineHtml, _parent: unknown, state: MarkdownState, info: Info) => `<${node.tag}>${state.containerPhrasing(node, info)}</${node.tag}>`,
     } }));
     if (allowTextColors) ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, handlers: { ...options.handlers,
@@ -415,6 +424,19 @@ export async function createVisual(
         else view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, doc.content));
       } finally { replacing = false; }
       finalNewline = /[\r\n]$/.test(markdown);
+    },
+    setHeadingIds(ids) {
+      // Let ProseMirror own heading attributes; direct DOM writes dirty the document.
+      view.setProps({ decorations: state => {
+        const decorations: Decoration[] = [];
+        let index = 0;
+        state.doc.descendants((node, position) => {
+          if (node.type.name !== 'heading') return;
+          const id = ids[index++];
+          if (id !== undefined) decorations.push(Decoration.node(position, position + node.nodeSize, { id }));
+        });
+        return DecorationSet.create(state.doc, decorations);
+      } });
     },
     setReadOnly: () => {
       view.setProps({ editable: () => !readOnly() });

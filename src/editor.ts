@@ -1,7 +1,7 @@
 import { Items } from './registry';
 import { createVisual, type VisualEngine } from './engines/visual';
 import { SourceEditor } from './engines/source';
-import { redo, undo, closeHistory, toggleMark, setBlockType, TextSelection } from './engines/prose';
+import { redo, undo, closeHistory, toggleMark, setBlockType, TextSelection, CellSelection } from './engines/prose';
 import { parseMarkdown, renderMarkdown, validateMarkdown, safeUrl, headings } from './render/markdown';
 import { findMatches } from './search';
 import { commandButton } from './ui/controls';
@@ -980,15 +980,30 @@ export class EditorInstance implements MarkianInstance {
     if (visual) for (let depth = visual.state.selection.$from.depth; depth > 0; depth--) if (visual.state.selection.$from.node(depth).type.name === 'table') inTable = true;
     const inCode = visual?.state.selection.$from.parent.type.name === 'code_block' && this.commands.items().some(command => command.id === 'code:expand');
     if (!selection || (selection.empty && !inTable && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
-    const items = inCode ? ['code:expand'] : inTable ? ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'] : this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
-    for (const id of items) {
-      const command = this.commands.items().find(item => item.id === id);
-      if (!command || !command.views.includes(this.activeView)) continue;
-      const button = commandButton(this.host.ownerDocument, command.label, command.icon, () => { void this.execute(id).catch(error => this.report(error)); });
-      button.dataset.command = id;
-      button.disabled = command.enabled?.(this) === false;
-      if (command.active) button.setAttribute('aria-pressed', String(command.active(this)));
-      this.floating.append(button);
+    const cells = visual?.state.selection instanceof CellSelection ? visual.state.selection : undefined;
+    const proseItems = this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
+    const tableItems = ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'];
+    const groups = inCode ? [['code:expand']] : inTable
+      ? [...(!selection.empty && !cells ? [proseItems] : []), tableItems] : [proseItems];
+    for (const items of groups) {
+      const buttons: HTMLButtonElement[] = [];
+      for (const id of items) {
+        const command = this.commands.items().find(item => item.id === id);
+        if (!command || !command.views.includes(this.activeView)) continue;
+        const button = commandButton(this.host.ownerDocument, command.label, command.icon, () => { void this.execute(id).catch(error => this.report(error)); });
+        button.dataset.command = id;
+        button.disabled = command.enabled?.(this) === false;
+        if (command.active) button.setAttribute('aria-pressed', String(command.active(this)));
+        buttons.push(button);
+      }
+      if (!buttons.length) continue;
+      if (this.floating.childElementCount) {
+        const divider = this.host.ownerDocument.createElement('span');
+        divider.className = 'markian-separator';
+        divider.setAttribute('role', 'separator');
+        this.floating.append(divider);
+      }
+      this.floating.append(...buttons);
     }
     this.floating.hidden = !this.floating.childElementCount;
     const position = visual ? visual.coordsAtPos(selection.from) : raw?.coordsAtPos(selection.from);
@@ -998,9 +1013,12 @@ export class EditorInstance implements MarkianInstance {
       const work = this.work.getBoundingClientRect();
       const nativeSelection = this.host.ownerDocument.getSelection();
       const range = visual && nativeSelection?.rangeCount ? nativeSelection.getRangeAt(0) : undefined;
-      const bounds = range && visual?.dom.contains(range.commonAncestorContainer) ? range.getBoundingClientRect() : undefined;
-      const selectionTop = bounds?.top ?? Math.min(position.top, end.top);
-      const selectionBottom = bounds?.bottom ?? Math.max(position.bottom, end.bottom);
+      const rangeBounds = range && visual?.dom.contains(range.commonAncestorContainer) ? range.getBoundingClientRect() : undefined;
+      // Collapsed ranges in empty cells have no box; use the engine's caret coordinates.
+      const bounds = rangeBounds && rangeBounds.height > 0 ? rangeBounds : undefined;
+      const cellBounds = cells && visual ? [...visual.dom.querySelectorAll('.selectedCell')].map(cell => cell.getBoundingClientRect()) : [];
+      const selectionTop = cellBounds.length ? Math.min(...cellBounds.map(cell => cell.top)) : bounds?.top ?? Math.min(position.top, end.top);
+      const selectionBottom = cellBounds.length ? Math.max(...cellBounds.map(cell => cell.bottom)) : bounds?.bottom ?? Math.max(position.bottom, end.bottom);
       const topBound = Math.max(work.top, 0) + 8;
       const bottomBound = Math.min(work.bottom, this.host.ownerDocument.documentElement.clientHeight) - 8;
       const height = this.floating.offsetHeight;
@@ -1102,10 +1120,8 @@ export class EditorInstance implements MarkianInstance {
     title.textContent = 'Outline';
     this.outline.append(title);
     const entries = headings(this.get());
-    const visualHeadings = this.visualElement.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6');
+    this.visual?.setHeadingIds(entries.map(entry => entry.id));
     entries.forEach((entry, index) => {
-      const rendered = visualHeadings[index];
-      if (rendered) rendered.id = entry.id;
       if (entry.line === 1) return;
       const button = this.host.ownerDocument.createElement('button');
       button.type = 'button';

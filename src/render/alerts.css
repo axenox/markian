@@ -1,0 +1,15 @@
+/* Shared alert presentation, independent of the host's prose stylesheet. */
+@scope ([data-markian], [data-markian-viewer]) {
+  .markian-document blockquote[data-alert-kind] { --markian-alert: #2672bd; margin-left: 0; padding-left: 18px; border-left: 3px solid var(--markian-alert); color: var(--markian-text, #262c2b); }
+  .markian-document blockquote[data-alert-kind]::before { content: attr(data-alert-title); display: block; margin-bottom: 6px; color: var(--markian-alert); font-weight: 600; }
+  .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #22834f; }
+  .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #a64a94; }
+  .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #996c00; }
+  .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #c33f45; }
+  :scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='note'] { --markian-alert: #7cb8f5; }
+  :scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #75d6a0; }
+  :scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #e49dd6; }
+  :scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #e8c15a; }
+  :scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #ff9a9f; }
+  .markian-document .markian-alert-marker { display: none; }
+}

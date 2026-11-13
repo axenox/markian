@@ -1,4 +1,5 @@
 @import './render/content.css';
+@import './render/alerts.css';
 
 .markian-viewer, .markian-viewer * { box-sizing: border-box; }
 

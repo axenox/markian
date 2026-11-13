@@ -64,6 +64,17 @@ Rich HTML from other editors can only retain formatting supported by Markian's M
 
 Rendering also depends on the receiving Markdown implementation. For example, tables and task lists require compatible Markdown extensions, and a Mermaid fence requires a renderer. Markian does not save generated preview HTML in place of Markdown.
 
+### Alert Quotes
+
+The Quote menu offers Note, Tip, Important, Warning and Caution using GitHub-style markers. Toolbar insertion saves an unescaped marker on its own line, followed by the quoted body, without an extra Markdown hard-break marker:
+
+```markdown
+> [!TIP]
+> Keep a copy of the original.
+```
+
+Visual view, Preview and the Markian viewer recognize these types. Their base stylesheets hide the marker and add a colored label and border, including when a host replaces or disables the default prose stylesheet. A receiving renderer without alert support may show an ordinary quote with the marker visible. This syntax does not establish compatibility with every GitHub-style renderer.
+
 ## Templates and Mentions
 
 Templates save their ordinary Markdown body. Selection wrappers substitute literal text rather than recursively expanding syntax. Configured `kbd`, `sub`, `sup` and `mark` stencils save those HTML elements and escaped content, never toolbar or editor wrappers. Receiving renderers may strip HTML or style it differently; enable the same bounded `allowedHtml` setting in a Markian viewer to display it. Pass the same trusted template definitions to the viewer to apply their CSS; CSS and template IDs are never saved in the document. Keyboard keys retain their shared default appearance with the viewer base stylesheet, while other renderers choose their own styling. Arbitrary attributes, embedded CSS and script execution are not supported stencil formats.

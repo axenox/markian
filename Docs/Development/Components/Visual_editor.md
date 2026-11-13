@@ -38,6 +38,7 @@ Base editor CSS removes accidental outer paragraph margins inside lists and tabl
 | Task checkboxes | 16px, aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. |
 | Mention chips | Inline with inherited font/line height, zero vertical and 0.35em horizontal padding, no border, and a 999px pill radius. Background mixes the configured color (or theme accent) at 18% with transparency; text color is inherited. Wrapped fragments clone their decoration without raising line boxes. |
 | Keyboard keys | Inline-block, 1px vertical/5px horizontal padding; monospace at 0.85em and 1.5 line height. 1px border with a 2px lower edge, 3px radius and a 1px lower shadow. Template CSS may override this shared default. |
+| Alert quotes | Shared base styling uses a 3px solid left border, 18px left padding, zero left margin, and a label with a 6px bottom gap. These values also apply with replacement prose stylesheets. |
 | Example initialization references | Full-width track below the primary experience, 24px top margin and a code block bounded to 480px height with internal scrolling. No extra document-wrapper padding. Demo-only styling, not an editor option. |
 
 Keep document presentation consistent across Visual, Preview, and viewer output. Shared structural resets belong in base styling, not look-alike host overrides.

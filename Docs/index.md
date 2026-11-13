@@ -20,6 +20,7 @@ Start with the usage guides to embed and customize Markian. The development guid
 - [Writing extensions](Development/Writing_extensions.md): extension initialization and cleanup.
 - [Visual editor](Development/Components/Visual_editor.md): layout dimensions, document spacing, and responsive thresholds.
 - [Toolbars](Development/Components/Toolbars.md): floating-control positioning.
+- [Table editor](Development/Components/Table_editor.md): table controls, selections, and row/column operations.
 - [Mermaid extension](Development/Extensions/Mermaid_extension.md): runtime loading, SVG styling, and safety boundaries.
 
 ## Requirements and Decisions

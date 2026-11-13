@@ -5,6 +5,7 @@ export interface VisualEngine {
     parse(markdown: string): ProseNode;
     serialize(node: ProseNode): string;
     replace(markdown: string, reset: boolean): void;
+    setHeadingIds(ids: readonly string[]): void;
     setReadOnly(value: boolean): void;
     search(options: SearchOptions): SearchMatch[];
     select(from: number, to?: number): void;

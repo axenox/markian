@@ -63,6 +63,8 @@ Milkdown GFM already installs table editing. Reuse it instead of registering ano
 
 Native popovers remain instance-owned while escaping parent clipping. Shared controls and panels supply keyboard behavior, selection retention, and focus restoration. Height-only resize notifications must not rebuild a focused toolbar. Outline navigation resolves live headings, not stale ProseMirror DOM references, and scrolls the active surface after focus.
 
+The outline passes derived heading IDs to the visual engine, which applies them as ProseMirror decorations. Do not write attributes directly to editable heading DOM: ProseMirror can treat those writes as document damage, rebuilding unchanged blocks and restarting Mermaid renders.
+
 Use [the style guide](../Styleguide.md) for reusable classes and interaction patterns rather than duplicating look-alike controls.
 
 ## Async Work and Teardown

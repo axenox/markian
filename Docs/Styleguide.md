@@ -34,9 +34,11 @@ The default groups are History, Format, Insert, Document, and opposite-aligned U
 
 Groups generate separators only when they have visible content. Custom layouts and live contributions use the same recursive `group`/`menu` structure. Insertion targets explicit group IDs and optional direct-child ordering IDs. Missing groups are not created implicitly. See [toolbar configuration](Configuration.md#toolbar).
 
-Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Table actions and code expansion use their own contextual controls. Code expansion is caret-contextual, not a default pinned command.
+Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Code expansion is caret-contextual, not a default pinned command.
 
-Floating controls must not cover selected text. All toolbar placements share the same height, control dimensions, icon sizes and padding, including compact host themes. Floating toolbars stay on one row and scroll horizontally if their controls do not fit.
+Table-specific controls and selection behavior are described in the [table editor guide](Development/Components/Table_editor.md).
+
+Floating controls must not cover selected text. Position them relative to the selection, including highlighted cell ranges. All toolbar placements share the same height, control dimensions, icon sizes and padding, including compact host themes. Floating toolbars stay on one row and scroll horizontally if their controls do not fit.
 
 Views with Back place it first, followed by a separator. Visual, Source, and Preview keep the View mode menu in its configured position, at the beginning of the Document group with Help by default. Back still returns from Preview to the previous view and from Source to Visual. Help and block workspaces omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
 
@@ -92,13 +94,11 @@ Keyboard keys use compact monospace text, a fine border, a raised lower edge and
 
 Base editor CSS removes accidental outer paragraph margins inside lists and table cells. Content CSS can refine the fallback paragraph spacing. Packaged content styling keeps lists and tables compact, with clear indentation and separation between items and paragraphs. Hosts should not duplicate structural normalization in a theme.
 
-Tasks use native checkboxes aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. Column alignment follows Markdown; default table headings align left. Contextual row/column controls share the same command buttons as menus.
+Tasks use native checkboxes aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors.
 
-Table range pastes retain the pasted selection. Clipboard formats, smart paste, and compatibility with other applications are described in [interoperability](Interoperability.md).
+Clipboard formats, smart paste, and compatibility with other applications are described in [interoperability](Interoperability.md).
 
-Delete at the end of the paragraph before a table, or Backspace at the start of the paragraph after it, removes the whole table in one undoable edit. Read-only and disabled editors block these edits.
-
-Alert quotes retain ordinary `> [!TYPE]` source markers. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes.
+Alert quotes retain ordinary `> [!TYPE]` source markers on their own first line. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes. See [alert portability](Interoperability.md#alert-quotes) for the saved syntax and receiving-renderer limits.
 
 Backtick inline-code typing and submitted backtick/tilde fences should behave like ordinary Markdown editing, without invisible inserted characters. Enter in a heading starts a regular paragraph. Enter continues lists; Enter on an empty item exits or lifts it. Code-block typing stays literal. Converting consecutive selected paragraphs to code creates one block, with blank lines between the original paragraphs; separate list items, table cells, and quote containers remain separate.
 
@@ -128,7 +128,7 @@ Backspace/Delete at the adjacent visual paragraph boundary removes a rendered di
 
 Load base `markian.css` explicitly. `markdownCssUrls` replaces content CSS, including `[]` for none; omission loads `markdown-github.css` beside the classic script. The viewer accepts the same replacement option; omission retains its built-in content styling. `markdownCssClasses` adds host classes only to document wrappers in Visual, Preview, Help and viewer output, including replacement renders. It does not theme controls or disable default typography by itself. `themeCssUrls` appends editor theme overrides. Readiness waits for these instance-owned links; destruction removes them.
 
-These are ordinary page stylesheets. Scope document rules to `.markian-document` inside a host wrapper and chrome rules to that wrapper or `.markian`. Avoid Milkdown DOM selectors in integrations. The default content stylesheet uses a default-only instance marker so it does not restyle custom-content instances.
+These are ordinary page stylesheets. Scope document rules to `.markian-document` inside a host wrapper and chrome rules to that wrapper or `.markian`. Avoid Milkdown DOM selectors in integrations. The default content stylesheet uses a default-only instance marker so it does not restyle custom-content instances. Alert labels, colored borders and hidden source markers are shared base styling in both editor and viewer, including with replacement content stylesheets or `markdownCssUrls: []`. Hosts can override alert presentation through scoped rules targeting `blockquote[data-alert-kind]`.
 
 The current editor root exposes `[data-markian]`, `data-theme`, and `data-view`. Shared theme variables are:
 

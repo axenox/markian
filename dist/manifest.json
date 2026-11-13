@@ -182,28 +182,28 @@
       "bytes": 3435
     },
     "markdown-github.css": {
-      "sha256": "891f2994c33087d35529bd1db570d2e089a19e045b13b76779d5172757db151a",
-      "bytes": 4832
+      "sha256": "86ad2209f15c10a4544bf0f0499147236aea6399ca6f0a168259781c31c16851",
+      "bytes": 3553
     },
     "markian-viewer.css": {
-      "sha256": "281b74f55e332db10ebda2fee0aece9a17b414c93a1d4293280e082fe7a3df3f",
-      "bytes": 5331
+      "sha256": "afbe761968d95be0480a8fd3acedb40f099bebba8b4966d34ad142504bac353a",
+      "bytes": 5418
     },
     "markian-viewer.min.js": {
       "sha256": "94b95429b0c1b96d87225752707d9c1aacdf94032754f37bd5f74d40c2f4755f",
       "bytes": 215352
     },
     "markian.css": {
-      "sha256": "7af875a01d0db393ae44915b343b4c55493091cdbf22d85d29934728d3dbcfbd",
-      "bytes": 13786
+      "sha256": "bfe883c03c9d242545601afa383381958f2c58b34784968f9334693920aa82e1",
+      "bytes": 14994
     },
     "markian.min.js": {
-      "sha256": "33806af84401344be3bbf8a59faea0940c4f89a38c0d2ef64517da859f4af327",
-      "bytes": 989205
+      "sha256": "ab926f08ba696038b8e849215055c3730029547d429f606ce80c319b67dc606d",
+      "bytes": 990225
     },
     "sizes.json": {
-      "sha256": "2022d4f3870a76a387667c75daed4c0e1b7c4f93c2299943d19ce6408a13cd27",
-      "bytes": 3033
+      "sha256": "7a764489e8bb997cbcba75d8f98749e693e50d2c07e1ea12dfc9afd5733727e6",
+      "bytes": 3032
     },
     "types/browser.d.ts": {
       "sha256": "4e824115ddb540ce8cdfb4fa43f9faff075ef4f5522fbae2f6bf0e73474f0ccf",
@@ -226,8 +226,8 @@
       "bytes": 1006
     },
     "types/engines/visual.d.ts": {
-      "sha256": "daeea3136022d9dafbbe2f9f8c44d0f6dc035d20e5f95c7e7a2c48790b2e1648",
-      "bytes": 1021
+      "sha256": "f8884f04ea1728f01e7ba7758539b75494113a054ccfe565e44892452fbeb9ab",
+      "bytes": 1070
     },
     "types/extensions/code-language.d.ts": {
       "sha256": "805e83eec3931b1ac5a7ef2d9b4ed94d473364c40a6d30996db3746158ef0cf2",

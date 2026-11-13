@@ -15,18 +15,6 @@
 .markian-document pre { padding: 14px; background: var(--markian-code, #f1f3f4); border-radius: 4px; overflow: auto; white-space: pre; }
 .markian-document code { font-family: var(--markian-mono, Consolas, monospace); background: var(--markian-code, #f1f3f4); font-size: 13px; }
 .markian-document blockquote { margin-left: 0; padding-left: 18px; border-left: 3px solid var(--markian-line, #dce3df); color: var(--markian-muted, #59645f); }
-.markian-document blockquote[data-alert-kind] { --markian-alert: #2672bd; border-color: var(--markian-alert); color: var(--markian-text, #262c2b); }
-.markian-document blockquote[data-alert-kind]::before { content: attr(data-alert-title); display: block; margin-bottom: 6px; color: var(--markian-alert); font-weight: 600; }
-.markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #22834f; }
-.markian-document blockquote[data-alert-kind='important'] { --markian-alert: #a64a94; }
-.markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #996c00; }
-.markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #c33f45; }
-:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='note'] { --markian-alert: #7cb8f5; }
-:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='tip'] { --markian-alert: #75d6a0; }
-:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='important'] { --markian-alert: #e49dd6; }
-:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='warning'] { --markian-alert: #e8c15a; }
-:scope[data-theme='dark'] .markian-document blockquote[data-alert-kind='caution'] { --markian-alert: #ff9a9f; }
-.markian-document .markian-alert-marker { display: none; }
 .markian-document img { max-width: 100%; height: auto; }
 .markian-document table { border-collapse: collapse; display: block; max-width: 100%; overflow: auto; }
 .markian-document th, .markian-document td { min-width: 72px; padding: 4px 8px; line-height: 1.5; border: 1px solid var(--markian-line, #dce3df); }

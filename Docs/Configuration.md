@@ -63,7 +63,7 @@ This JSON is the default declarative configuration with an empty required docume
 | `softbreaks`        | `false`                                         | Display ordinary soft line breaks as hard breaks in Preview/Help without rewriting source or code fences.                                                                                    |
 | `label`             | `"Markdown editor"`                             | Accessible editor-region name.                                                                                                                                                               |
 | `toolbar`           | Layout above                                    | Ordered recursive entries. `[]` removes pinned document controls. Layout controls visibility, not permissions.                                                                               |
-| `floatingToolbar`   | Array above                                     | Prose-selection command IDs. Table and code-caret contexts have separate controls.                                                                                                           |
+| `floatingToolbar`   | Array above                                     | Text-selection command IDs, including text inside table cells. Table actions form a separate group; caret/cell-range selections show only contextual controls.                                                                                                           |
 | `toolbarPlacement`  | `"top"`                                         | `"top"` or `"bottom"`; embedded editors retain this placement at every width. Maximized editors use bottom controls on viewports at 480px or less. |
 | `documentBase`      | Unset; browser base for relative resources      | Base for resource resolution and provider context. Relative configured bases resolve against the browser document. Saved destinations are not rewritten.                                     |
 | `allowTextColors`   | `false`                                         | Enable bounded six-digit hex text colors, not arbitrary CSS or HTML.                                                                                                                         |
@@ -78,7 +78,7 @@ This JSON is the default declarative configuration with an empty required docume
 
 Stylesheet failures reject readiness and restore the host. CSS is trusted and page-wide; scope custom rules as described in the [style guide](Styleguide.md#stylesheets-and-themes).
 
-For a host stylesheet that targets `.markdown-body`, pass both `markdownCssUrls: ['/assets/github-markdown-light.css']` and `markdownCssClasses: ['markdown-body']`. The same options work in the viewer. Classes alone do not replace the default content theme; an explicit `markdownCssUrls` array does.
+For a host stylesheet that targets `.markdown-body`, pass both `markdownCssUrls: ['/assets/github-markdown-light.css']` and `markdownCssClasses: ['markdown-body']`. The same options work in the viewer. Classes alone do not replace the default content theme; an explicit `markdownCssUrls` array does. Alert labels and colored borders remain available through the base editor/viewer CSS even when content styles are replaced or disabled.
 
 ## Toolbar
 
