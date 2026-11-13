@@ -34,6 +34,9 @@ Base editor CSS removes accidental outer paragraph margins inside lists and tabl
 | Table cell padding | 4px vertically and 8px horizontally. |
 | Table cell minimum width | 72px. |
 | Table cell line height | 1.5. |
+| Focused table grips | Row target 20px wide by 28px high; column target 28px wide by 20px high, with 18px icons. Absolutely overlaid outside the active row/column without reserving space. Clipped to the visual pane; the column grip stays at its top edge when the table header scrolls out of view. |
+| Active table-cell panels | Bottom row panel 40px wide by 20px high; right column panel 20px wide by 40px high. Each contains two 20px buttons with 16px plus/minus icons. Centered on its cell edge with a 1px border overlap; clamped inward at pane edges, without reserving space or scrolling. Grips and panels use `--markian-line` backgrounds and 4px outer corner radii. |
+| Selected row/column group controls | Only the matching grip and a 20px square minus panel remain. The grip centers on the selected group's visible row bounds or column bounds. Partial cell ranges and whole tables have no controls. Table overlays use stacking level 2, below the prose floating toolbar at level 3. |
 | Additional paragraphs inside list items or table cells | 4px gap. |
 | Task checkboxes | 16px, aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. |
 | Mention chips | Inline with inherited font/line height, zero vertical and 0.35em horizontal padding, no border, and a 999px pill radius. Background mixes the configured color (or theme accent) at 18% with transparency; text color is inherited. Wrapped fragments clone their decoration without raising line boxes. |

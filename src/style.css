@@ -124,6 +124,18 @@
 .markian[data-toolbar-placement='bottom'] .markian-toolbar { order: 3; border-top: 1px solid var(--markian-line); border-bottom: 0; }
 .markian .selectedCell::after { position: absolute; inset: 0; background: #22776122; pointer-events: none; content: ''; }
 .markian .ProseMirror td, .markian .ProseMirror th { position: relative; }
+.markian-table-controls { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.markian-table-controls .markian-table-grip { position: absolute; width: 20px; min-width: 20px; height: 28px; min-height: 0; padding: 0; border-radius: 4px 0 0 4px; background: var(--markian-line); color: var(--markian-muted); pointer-events: auto; cursor: grab; touch-action: none; }
+.markian-table-controls [data-table-grip='column'] { width: 28px; height: 20px; border-radius: 4px 4px 0 0; }
+.markian-table-controls .markian-table-grip svg { flex-basis: 18px; width: 18px; height: 18px; }
+.markian-table-controls .markian-table-grip:hover, .markian-table-controls .markian-table-grip:focus-visible { background: var(--markian-soft); color: var(--markian-accent); }
+.markian-table-dragging .markian-table-grip { cursor: grabbing; }
+.markian-table-drop { position: absolute; background: var(--markian-accent); pointer-events: none; }
+.markian-table-actions { position: absolute; display: flex; width: 40px; height: 20px; border-radius: 0 0 4px 4px; background: var(--markian-line); pointer-events: auto; }
+.markian-table-actions[data-table-actions='column'] { flex-direction: column; width: 20px; height: 40px; border-radius: 0 4px 4px 0; }
+.markian-table-actions.markian-table-actions-delete { width: 20px; height: 20px; }
+.markian-table-actions .markian-button { width: 20px; height: 20px; color: var(--markian-text); }
+.markian-table-actions .markian-button svg { flex-basis: 16px; width: 16px; height: 16px; }
 .markian .markian-document li > p,
 .markian .markian-document th > p,
 .markian .markian-document td > p { margin-top: 0; margin-bottom: 0; }

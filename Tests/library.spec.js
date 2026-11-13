@@ -255,7 +255,7 @@ test('editing below Mermaid keeps scroll and rendered diagram stable', async ({ 
     return element.scrollTop;
   });
   expect(initial).toBeGreaterThan(500);
-  await root.locator('.markian-floating [data-command="table:row-after"]').click();
+  await root.locator('.markian-table-actions [data-command="table:row-after"]').click();
   await expect(root.locator('table tr')).toHaveCount(4);
   await root.locator('.ProseMirror > p').filter({ hasText: 'Paragraph 20' }).click();
   await root.locator('.markian-visual').evaluate(element => { scrollSamples = [element.scrollTop]; });
@@ -1356,7 +1356,7 @@ for (const { name, markdown, destination } of [
 });
 
 for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
-  test(`new empty table cells anchor floating tools locally (${theme}, ${width})`, async ({ page }) => {
+  test(`new empty table cells anchor edge actions locally (${theme}, ${width})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(theme => {
       editor.setTheme(theme);
@@ -1369,20 +1369,22 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
     const table = root.locator('.ProseMirror table');
     const floating = root.getByRole('toolbar', { name: 'Selection commands' });
     await table.locator('td').last().click();
-    await floating.locator('[data-command="table:row-after"]').click();
+    await root.locator('.markian-table-actions [data-command="table:row-after"]').click();
     await expect(table.locator('tr')).toHaveCount(10);
     for (const column of [0, 1]) {
       const cell = table.locator('tr').last().locator('td').nth(column);
-      await cell.click();
-      await expect(floating).toBeVisible();
-      await expect(floating.locator('button')).toHaveCount(4);
+      await cell.click({ position: { x: 6, y: 6 } });
+      await expect(floating).toBeHidden();
+      const actions = root.locator('[data-table-actions="row"]');
+      await expect(actions).toBeVisible();
+      await expect(actions.locator('button')).toHaveCount(2);
       await expect.poll(async () => {
-        const toolbarBounds = await floating.boundingBox();
+        const toolbarBounds = await actions.boundingBox();
         const cellBounds = await cell.boundingBox();
-        return Math.max(cellBounds.y - toolbarBounds.y - toolbarBounds.height,
-          toolbarBounds.y - cellBounds.y - cellBounds.height, 0);
-      }).toBeLessThanOrEqual(16);
-      const bounds = await floating.boundingBox();
+        const paneBounds = await root.locator('.markian-visual').boundingBox();
+        return Math.abs(toolbarBounds.y - Math.min(cellBounds.y + cellBounds.height - 1, paneBounds.y + paneBounds.height - toolbarBounds.height));
+      }).toBeLessThanOrEqual(1);
+      const bounds = await actions.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     }
@@ -1390,15 +1392,15 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
     expect(browserErrors.get(page)).toEqual([]);
   });
 
-  test(`table text selection combines formatting and table groups (${theme}, ${width})`, async ({ page }) => {
+  test(`table text selection keeps only prose formatting tools (${theme}, ${width})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(theme => {
       editor.setTheme(theme);
-      editor.set('| A | B |\n| --- | --- |\n| **Selected** | Value |\n| Other | End |');
+      editor.set('Before\n\nMore room above\n\n| **Selected** | B |\n| --- | --- |\n| First | Value |\n| Other | End |');
     }, theme);
     const root = page.locator('[data-markian]').first();
     const floating = root.getByRole('toolbar', { name: 'Selection commands' });
-    await root.locator('td strong').evaluate(element => {
+    await root.locator('th strong').evaluate(element => {
       element.closest('[contenteditable]').focus();
       const range = document.createRange();
       range.selectNodeContents(element);
@@ -1406,15 +1408,24 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
       getSelection().addRange(range);
     });
     await expect(floating).toBeVisible();
-    await expect(floating.locator('button')).toHaveCount(10);
-    await expect(floating.getByRole('separator')).toHaveCount(1);
+    await expect(floating.locator('button')).toHaveCount(6);
+    await expect(floating.getByRole('separator')).toHaveCount(0);
     await expect(floating.locator('[data-command="bold"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(floating.locator('[data-command^="table:move-"]')).toHaveCount(0);
     const bounds = await floating.boundingBox();
-    const selected = await root.locator('td strong').boundingBox();
+    const selected = await root.locator('th strong').boundingBox();
     expect(bounds.y + bounds.height <= selected.y || bounds.y >= selected.y + selected.height).toBe(true);
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    await expect.poll(() => root.evaluate(element => {
+      const toolbar = element.querySelector('.markian-floating');
+      const grip = element.querySelector('[data-table-grip="column"]');
+      const a = toolbar.getBoundingClientRect();
+      const b = grip.getBoundingClientRect();
+      const left = Math.max(a.left, b.left), right = Math.min(a.right, b.right);
+      const top = Math.max(a.top, b.top), bottom = Math.min(a.bottom, b.bottom);
+      return right > left && bottom > top && toolbar.contains(document.elementFromPoint((left + right) / 2, (top + bottom) / 2));
+    })).toBe(true);
     await root.screenshot({ path: `.test-results/table-text-${theme}-${width}.png` });
     const clear = floating.locator('[data-command="clear"]');
     await clear.focus();
@@ -1422,13 +1433,13 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
     await clear.click();
     expect(await page.evaluate(() => editor.get())).not.toContain('**Selected**');
     await root.locator('td').first().click();
-    await expect(floating.locator('button')).toHaveCount(4);
+    await expect(floating).toBeHidden();
     await expect(floating.getByRole('separator')).toHaveCount(0);
     await expect(page.locator('[data-markian]').nth(1).locator('.markian-floating')).toBeHidden();
     expect(browserErrors.get(page)).toEqual([]);
   });
 
-  for (const axis of ['row', 'column']) test(`table ${axis} cell selection shows only standard table actions (${theme}, ${width})`, async ({ page }) => {
+  for (const axis of ['row', 'column']) test(`table ${axis} cell selection keeps edge actions without a floating toolbar (${theme}, ${width})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     const markdown = 'Before\n\n| A | B | C | D |\n| --- | --- | --- | --- |\n| **One** | Two | Three | Four |\n| a2 | b2 | c2 | d2 |\n| a3 | b3 | c3 | d3 |\n| a4 | b4 | c4 | d4 |';
     await page.evaluate(({ theme, markdown }) => { editor.setTheme(theme); editor.set(markdown); }, { theme, markdown });
@@ -1442,32 +1453,57 @@ for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) {
     const count = row ? 4 : 5;
     await expect(table.locator('.selectedCell')).toHaveCount(count);
     await table.locator('.selectedCell').last().click({ button: 'right' });
-    await expect(floating).toBeVisible();
-    await expect(floating.locator('button')).toHaveCount(4);
+    await expect(floating).toBeHidden();
+    await expect(root.locator(`.markian-table-actions [data-command="table:delete-${axis}"]`)).toBeVisible();
+    await expect(root.locator(`[data-table-grip="${axis}"]`)).toBeVisible();
+    await expect(root.locator(`.markian-table-controls [data-command="table:${axis}-after"]`)).toBeHidden();
+    await expect(root.locator(`[data-table-grip="${row ? 'column' : 'row'}"]`)).toBeHidden();
+    await expect(root.locator(`[data-table-actions="${row ? 'column' : 'row'}"]`)).toBeHidden();
+    await expect(root.locator('.markian-table-controls button:visible')).toHaveCount(2);
     await expect(floating.locator('[data-command="bold"]')).toHaveCount(0);
     await expect(floating.getByRole('separator')).toHaveCount(0);
     await expect(root.locator('[data-command^="table:move-"]')).toHaveCount(0);
-    const bounds = await floating.boundingBox();
-    const selectedBounds = await table.locator('.selectedCell').evaluateAll(cells => {
-      const bounds = cells.map(cell => cell.getBoundingClientRect());
-      return { top: Math.min(...bounds.map(cell => cell.top)), bottom: Math.max(...bounds.map(cell => cell.bottom)) };
-    });
-    expect(bounds.y + bounds.height <= selectedBounds.top || bounds.y >= selectedBounds.bottom).toBe(true);
     await root.screenshot({ path: `.test-results/table-cells-${axis}-${theme}-${width}.png` });
     expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
     await page.evaluate(() => editor.setReadOnly(true));
     await expect(floating).toBeHidden();
     expect(browserErrors.get(page)).toEqual([]);
   });
+
+  test(`partial cell ranges and whole tables hide all table controls (${theme}, ${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(theme => {
+      editor.setTheme(theme);
+      editor.set('| A | B | C | D |\n| --- | --- | --- | --- |\n| One | Two | Three | Four |\n| a2 | b2 | c2 | d2 |\n| a3 | b3 | c3 | d3 |');
+      if (editor.element.classList.contains('markian-outline-open')) editor.execute('outline');
+    }, theme);
+    const root = page.locator('[data-markian]').first();
+    const table = root.locator('.ProseMirror table');
+    const controls = root.locator('.markian-table-controls');
+    await table.locator('tr').nth(1).locator('td').first().click();
+    await table.locator('tr').nth(2).locator('td').nth(1).click({ modifiers: ['Shift'], position: { x: 5, y: 5 } });
+    await expect(table.locator('.selectedCell')).toHaveCount(4);
+    await expect(controls).toBeHidden();
+    await expect(root.locator('.markian-floating')).toBeHidden();
+    await table.locator('th').first().click();
+    await expect(controls).toBeVisible();
+    await table.locator('tr').last().locator('td').last().click({ modifiers: ['Shift'] });
+    await expect(table.locator('.selectedCell')).toHaveCount(16);
+    await expect(controls).toBeHidden();
+    await table.locator('td').first().click();
+    await expect(controls.locator('button:visible')).toHaveCount(6);
+    expect(browserErrors.get(page)).toEqual([]);
+  });
 }
 
-test('table actions have distinct icons and code expansion is caret-contextual only', async ({ page }) => {
+test('table edge actions have add/remove icons and code expansion is caret-contextual only', async ({ page }) => {
   const root = page.locator('[data-markian]').first();
   await page.evaluate(async () => { editor.set('Start'); await editor.execute('table:insert'); });
   await root.locator('.ProseMirror td').first().click();
-  const paths = await root.locator('.markian-floating svg path').evaluateAll(elements => elements.map(element => element.getAttribute('d')));
+  const paths = await root.locator('.markian-table-actions svg path').evaluateAll(elements => elements.map(element => element.getAttribute('d')));
   expect(paths).toHaveLength(4);
-  expect(new Set(paths).size).toBe(4);
+  expect(new Set(paths).size).toBe(2);
+  await expect(root.locator('.markian-floating')).toBeHidden();
   await expect(root.locator('.markian-toolbar [data-command="code:expand"]')).toHaveCount(0);
   await page.evaluate(() => editor.set('```text\nhello\n```\n\nAfter'));
   await root.locator('.ProseMirror pre').click();
@@ -2467,7 +2503,7 @@ for (const command of ['table:row-after', 'table:row-before']) test(`table row i
     return element.scrollTop;
   });
   expect(before).toBeGreaterThan(500);
-  if (command === 'table:row-after') await root.locator('.markian-floating [data-command="table:row-after"]').click();
+  if (command === 'table:row-after') await root.locator('.markian-table-actions [data-command="table:row-after"]').click();
   else await (await revealCommand(root, command)).click();
   await expect(table.locator('tr')).toHaveCount(82);
   expect(await scroller.evaluate(element => element.scrollTop)).toBeCloseTo(before, 0);
@@ -2491,6 +2527,250 @@ for (const command of ['table:row-after', 'table:row-before']) test(`table row i
   await page.evaluate(() => editor.execute('undo'));
   await page.evaluate(() => editor.execute('undo'));
   await expect(table.locator('tr')).toHaveCount(81);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`focused table grips reorder without layout jumps (${theme}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const markdown = 'Before\n\n| A | B | C |\n| :--- | :---: | ---: |\n| One | Two | Three |\n| Four | Five | Six |\n\nAfter';
+  await page.evaluate(({ theme, markdown }) => {
+    editor.setTheme(theme);
+    editor.set(markdown);
+    if (editor.element.classList.contains('markian-outline-open')) editor.execute('outline');
+  }, { theme, markdown });
+  const root = page.locator('[data-markian]').first();
+  const table = root.locator('.ProseMirror table');
+  const rowGrip = root.locator('[data-table-grip="row"]');
+  const columnGrip = root.locator('[data-table-grip="column"]');
+  await root.locator('.ProseMirror > p').first().click();
+  await table.hover();
+  await expect(rowGrip).toBeHidden();
+  const before = await table.boundingBox();
+  const scroll = await root.locator('.markian-visual').evaluate(element => ({ top: element.scrollTop, left: element.scrollLeft, height: element.scrollHeight, width: element.scrollWidth }));
+  await table.locator('td').first().click();
+  await expect(rowGrip).toBeVisible();
+  await expect(columnGrip).toBeVisible();
+  await root.screenshot({ path: `.test-results/table-grips-${theme}-${width}.png` });
+  expect(await table.boundingBox()).toEqual(before);
+  expect(await root.locator('.markian-visual').evaluate(element => ({ top: element.scrollTop, left: element.scrollLeft, height: element.scrollHeight, width: element.scrollWidth }))).toEqual(scroll);
+  await expect(page.locator('[data-markian]').nth(1).locator('.markian-table-controls')).toBeHidden();
+  await rowGrip.click();
+  await expect(table.locator('.selectedCell')).toHaveCount(3);
+
+  const drag = async (grip, target, axis, after) => {
+    const handle = await grip.boundingBox();
+    const cell = await target.boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(axis === 'row' ? cell.x + cell.width / 2 : cell.x + (after ? cell.width - 2 : 2),
+      axis === 'row' ? cell.y + (after ? cell.height - 2 : 2) : cell.y + cell.height / 2, { steps: 8 });
+    await expect(root.locator('.markian-table-drop')).toBeVisible();
+    await page.mouse.up();
+    await expect(root.locator('.markian-table-drop')).toBeHidden();
+  };
+  await table.locator('td').first().click();
+  await drag(rowGrip, table.locator('tr').last().locator('td').first(), 'row', true);
+  expect(await table.locator('tr').last().locator('td').allTextContents()).toEqual(['One', 'Two', 'Three']);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+  await table.locator('td').first().click();
+  await drag(columnGrip, table.locator('th').last(), 'column', true);
+  expect(await table.locator('th').allTextContents()).toEqual(['B', 'C', 'A']);
+  expect(await table.locator('tr').nth(1).locator('td').allTextContents()).toEqual(['Two', 'Three', 'One']);
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()),
+    'Before\n\n| B | C | A |\n| :---: | ---: | :--- |\n| Two | Three | One |\n| Five | Six | Four |\n\nAfter')).toBe(true);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+  await table.locator('td').first().click();
+  await rowGrip.focus();
+  await page.keyboard.press('Alt+ArrowUp');
+  expect(await table.locator('th').allTextContents()).toEqual(['One', 'Two', 'Three']);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+  await root.locator('.ProseMirror > p').last().click();
+  await expect(rowGrip).toBeHidden();
+  await table.locator('td').first().click();
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(rowGrip).toBeHidden();
+  await page.evaluate(() => { editor.setReadOnly(false); editor.setDisabled(true); });
+  await expect(columnGrip).toBeHidden();
+  await page.evaluate(() => editor.setDisabled(false));
+  await table.locator('td').first().click();
+  await page.locator('[data-markian]').nth(1).locator('.ProseMirror').click();
+  await expect(rowGrip).toBeHidden();
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`table cell edge panels attach, edit and undo (${theme}, ${width})`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const markdown = 'Before\n\n| A | B | C |\n| --- | --- | --- |\n| One | Two | Three |\n| Four | Five | Six |\n\nAfter';
+  await page.evaluate(({ theme, markdown }) => {
+    editor.setTheme(theme);
+    editor.set(markdown);
+    if (editor.element.classList.contains('markian-outline-open')) editor.execute('outline');
+  }, { theme, markdown });
+  const root = page.locator('[data-markian]').first();
+  const table = root.locator('.ProseMirror table');
+  const cell = table.locator('td').first();
+  const rows = root.locator('[data-table-actions="row"]');
+  const columns = root.locator('[data-table-actions="column"]');
+  await root.locator('.ProseMirror > p').first().click();
+  await cell.hover();
+  await expect(rows).toBeHidden();
+  const before = await table.boundingBox();
+  await cell.click();
+  await expect(rows).toBeVisible();
+  await expect(columns).toBeVisible();
+  const borderColor = await cell.evaluate(element => getComputedStyle(element).borderLeftColor);
+  for (const control of [rows, columns, root.locator('[data-table-grip="row"]'), root.locator('[data-table-grip="column"]')]) {
+    await expect(control).toHaveCSS('background-color', borderColor);
+  }
+  const bounds = await cell.boundingBox();
+  const bottom = await rows.boundingBox();
+  const right = await columns.boundingBox();
+  expect(bottom.y).toBeCloseTo(bounds.y + bounds.height - 1, 0);
+  expect(bottom.x + bottom.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+  expect(right.x).toBeCloseTo(bounds.x + bounds.width - 1, 0);
+  expect(right.y + right.height / 2).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+  expect(await table.boundingBox()).toEqual(before);
+  await expect(root.locator('.markian-floating')).toBeHidden();
+  await expect(page.locator('[data-markian]').nth(1).locator('.markian-table-controls')).toBeHidden();
+  await root.screenshot({ path: `.test-results/table-edge-panels-${theme}-${width}.png` });
+  const undo = async () => {
+    await page.evaluate(() => editor.execute('undo'));
+    expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+    await cell.click();
+  };
+  await rows.getByRole('button', { name: 'Insert row below', exact: true }).click();
+  await expect(table.locator('tr')).toHaveCount(4);
+  expect(await table.locator('tr').nth(2).locator('td').allTextContents()).toEqual(['', '', '']);
+  await undo();
+  await columns.getByRole('button', { name: 'Insert column right', exact: true }).click();
+  expect(await table.locator('tr').nth(1).locator('td').allTextContents()).toEqual(['One', '', 'Two', 'Three']);
+  await undo();
+  await rows.getByRole('button', { name: 'Delete row', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  expect(await table.locator('tr').nth(1).locator('td').allTextContents()).toEqual(['Four', 'Five', 'Six']);
+  await undo();
+  await columns.getByRole('button', { name: 'Delete column', exact: true }).click();
+  expect(await table.locator('th').allTextContents()).toEqual(['B', 'C']);
+  await undo();
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(rows).toBeHidden();
+  await expect(columns).toBeHidden();
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const axis of ['row', 'column']) for (const backward of [false, true]) test(`table ${axis} groups drag and delete together (${backward ? 'backward' : 'forward'} selection)`, async ({ page }) => {
+  if (backward) await page.setViewportSize({ width: 390, height: 1000 });
+  const markdown = '| H0 | H1 | H2 | H3 |\n| :--- | ---: | :---: | --- |\n'
+    + Array.from({ length: 4 }, (_, row) => `| **R${row + 1}C0** | R${row + 1}C1 | R${row + 1}C2 | R${row + 1}C3 |`).join('\n');
+  await page.evaluate(({ markdown, backward }) => {
+    editor.setTheme(backward ? 'dark' : 'light');
+    editor.set(markdown);
+    if (editor.element.classList.contains('markian-outline-open')) editor.execute('outline');
+  }, { markdown, backward });
+  const root = page.locator('[data-markian]').first();
+  const table = root.locator('.ProseMirror table');
+  const grip = root.locator(`[data-table-grip="${axis}"]`);
+  const row = axis === 'row';
+  const first = row ? table.locator('tr').nth(1).locator('td').first() : table.locator('th').nth(1);
+  const last = row ? table.locator('tr').nth(2).locator('td').last() : table.locator('tr').last().locator('td').nth(2);
+  await (backward ? last : first).click();
+  await (backward ? first : last).click({ modifiers: ['Shift'] });
+  const count = row ? 8 : 10;
+  await expect(table.locator('.selectedCell')).toHaveCount(count);
+  await expect(root.locator('.markian-table-controls button:visible')).toHaveCount(2);
+  await grip.click();
+  await expect(table.locator('.selectedCell')).toHaveCount(count);
+  const initialBounds = await table.boundingBox();
+  const drag = async (target, after) => {
+    const handle = await grip.boundingBox();
+    const cell = await target.boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(row ? cell.x + cell.width / 2 : cell.x + (after ? cell.width - 2 : 2),
+      row ? cell.y + (after ? cell.height - 2 : 2) : cell.y + cell.height / 2, { steps: 6 });
+    await expect(root.locator('.markian-table-drop')).toBeVisible();
+    await page.mouse.up();
+    await expect(table.locator('.selectedCell')).toHaveCount(count);
+  };
+  await drag(row ? table.locator('tr').nth(1).locator('td').first() : table.locator('th').nth(1), true);
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  await drag(table.locator('th').first(), false);
+  const values = () => row ? table.locator('tr').locator('th:first-child, td:first-child').allTextContents() : table.locator('th').allTextContents();
+  expect(await values()).toEqual(row ? ['R1C0', 'R2C0', 'H0', 'R3C0', 'R4C0'] : ['H1', 'H2', 'H0', 'H3']);
+  expect(await table.boundingBox()).toEqual(initialBounds);
+  await drag(row ? table.locator('tr').last().locator('td').first() : table.locator('th').last(), true);
+  expect(await values()).toEqual(row ? ['H0', 'R3C0', 'R4C0', 'R1C0', 'R2C0'] : ['H0', 'H3', 'H1', 'H2']);
+  await root.locator(`.markian-table-actions [data-command="table:delete-${axis}"]`).click();
+  await expect(table.locator('tr')).toHaveCount(row ? 3 : 5);
+  await expect(table.locator('th')).toHaveCount(row ? 4 : 2);
+  await page.evaluate(() => editor.execute('undo'));
+  await expect(table.locator('.selectedCell')).toHaveCount(count);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await values()).toEqual(row ? ['R1C0', 'R2C0', 'H0', 'R3C0', 'R4C0'] : ['H1', 'H2', 'H0', 'H3']);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+  await grip.focus();
+  await page.keyboard.press(row ? 'Alt+ArrowUp' : 'Alt+ArrowLeft');
+  expect(await values()).toEqual(row ? ['R1C0', 'R2C0', 'H0', 'R3C0', 'R4C0'] : ['H1', 'H2', 'H0', 'H3']);
+  await expect(table.locator('.selectedCell')).toHaveCount(count);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), markdown)).toBe(true);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('table grips track scrolling and cancel obsolete drags', async ({ page }) => {
+  await page.evaluate(() => {
+    editor.set('| A | B | C |\n| --- | --- | --- |\n' + Array.from({ length: 60 }, (_, row) => `| Row ${row} | Value | End |`).join('\n'));
+  });
+  const root = page.locator('[data-markian]').first();
+  const table = root.locator('.ProseMirror table');
+  const pane = root.locator('.markian-visual');
+  const rowGrip = root.locator('[data-table-grip="row"]');
+  const columnGrip = root.locator('[data-table-grip="column"]');
+  const cell = table.locator('tr').nth(30).locator('td').first();
+  await cell.click();
+  await expect(rowGrip).toBeVisible();
+  const scroll = await pane.evaluate(element => element.scrollTop);
+  const box = await cell.boundingBox();
+  const handle = await rowGrip.boundingBox();
+  expect(Math.abs(handle.y + handle.height / 2 - box.y - box.height / 2)).toBeLessThan(1);
+  const column = await columnGrip.boundingBox();
+  const viewport = await pane.boundingBox();
+  expect(column.y).toBeGreaterThanOrEqual(viewport.y);
+  expect(column.y).toBeLessThan(viewport.y + 4);
+  const original = await page.evaluate(() => editor.get());
+  const startDrag = async () => {
+    const handle = await rowGrip.boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height + 35, { steps: 5 });
+    await expect(root.locator('.markian-table-drop')).toBeVisible();
+  };
+  await startDrag();
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect(await page.evaluate(() => editor.get())).toBe(original);
+  expect(await pane.evaluate(element => element.scrollTop)).toBe(scroll);
+  await startDrag();
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(root.locator('.markian-table-drop')).toBeHidden();
+  await page.mouse.up();
+  expect(await page.evaluate(() => editor.get())).toBe(original);
+  await page.evaluate(() => editor.setReadOnly(false));
+  await cell.click();
+  await startDrag();
+  await page.evaluate(() => editor.set('Replacement'));
+  await page.mouse.up();
+  await expect(rowGrip).toBeHidden();
+  expect(await page.evaluate(() => editor.get())).toBe('Replacement');
+  await page.evaluate(() => { editor.set('| A | B |\n| --- | --- |\n| One | Two |'); });
+  await table.locator('th').first().click();
+  await expect(columnGrip).toBeVisible();
+  await page.evaluate(() => editor.setMode('raw'));
+  await expect(columnGrip).toBeHidden();
+  expect(browserErrors.get(page)).toEqual([]);
 });
 
 test('table row and column commands preserve GFM and undo', async ({ page }) => {
@@ -3256,7 +3536,7 @@ for (const { name, command, anchor, head, expected } of [
   await table.locator('tr').nth(anchor[0]).locator('th, td').nth(anchor[1]).click();
   await table.locator('tr').nth(head[0]).locator('th, td').nth(head[1]).click({ modifiers: ['Shift'] });
   await expect(table.locator('.selectedCell')).toHaveCount((Math.abs(anchor[0] - head[0]) + 1) * (Math.abs(anchor[1] - head[1]) + 1));
-  await root.locator(`.markian-floating [data-command="table:${command}"]`).click();
+  await (await revealCommand(root, `table:${command}`)).click();
   const after = expected ? `Before\n\n${expected}\n\nAfter` : 'Before\n\nAfter';
   expect(equivalentMarkdown(after, await page.evaluate(() => editor.get()))).toBe(true);
   await page.evaluate(() => { editor.setMode('raw'); editor.setMode('visual'); });

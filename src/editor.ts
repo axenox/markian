@@ -333,7 +333,8 @@ export class EditorInstance implements MarkianInstance {
     const visual = await createVisual(this.visualElement, this.structures.items(), () => this.readOnly, value => {
       this.source = value;
       this.changed('user');
-    }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } }, this.options.documentBase, this.options.allowTextColors,
+    }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } },
+    command => { void this.execute(command).catch(error => this.report(error)); }, this.options.documentBase, this.options.allowTextColors,
     (code, language, element, position, topLevel) => {
       const renderer = this.renderers.items().find(item => item.visual === true && item.language === language);
       if (!renderer) return undefined;
@@ -979,12 +980,11 @@ export class EditorInstance implements MarkianInstance {
     let inTable = false;
     if (visual) for (let depth = visual.state.selection.$from.depth; depth > 0; depth--) if (visual.state.selection.$from.node(depth).type.name === 'table') inTable = true;
     const inCode = visual?.state.selection.$from.parent.type.name === 'code_block' && this.commands.items().some(command => command.id === 'code:expand');
-    if (!selection || (selection.empty && !inTable && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
     const cells = visual?.state.selection instanceof CellSelection ? visual.state.selection : undefined;
+    if (!selection || cells || (selection.empty && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
+    if (inTable && selection.empty) { this.floating.hidden = true; return; }
     const proseItems = this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
-    const tableItems = ['table:row-after', 'table:column-after', 'table:delete-row', 'table:delete-column'];
-    const groups = inCode ? [['code:expand']] : inTable
-      ? [...(!selection.empty && !cells ? [proseItems] : []), tableItems] : [proseItems];
+    const groups = inCode ? [['code:expand']] : [proseItems];
     for (const items of groups) {
       const buttons: HTMLButtonElement[] = [];
       for (const id of items) {
@@ -1016,9 +1016,8 @@ export class EditorInstance implements MarkianInstance {
       const rangeBounds = range && visual?.dom.contains(range.commonAncestorContainer) ? range.getBoundingClientRect() : undefined;
       // Collapsed ranges in empty cells have no box; use the engine's caret coordinates.
       const bounds = rangeBounds && rangeBounds.height > 0 ? rangeBounds : undefined;
-      const cellBounds = cells && visual ? [...visual.dom.querySelectorAll('.selectedCell')].map(cell => cell.getBoundingClientRect()) : [];
-      const selectionTop = cellBounds.length ? Math.min(...cellBounds.map(cell => cell.top)) : bounds?.top ?? Math.min(position.top, end.top);
-      const selectionBottom = cellBounds.length ? Math.max(...cellBounds.map(cell => cell.bottom)) : bounds?.bottom ?? Math.max(position.bottom, end.bottom);
+      const selectionTop = bounds?.top ?? Math.min(position.top, end.top);
+      const selectionBottom = bounds?.bottom ?? Math.max(position.bottom, end.bottom);
       const topBound = Math.max(work.top, 0) + 8;
       const bottomBound = Math.min(work.bottom, this.host.ownerDocument.documentElement.clientHeight) - 8;
       const height = this.floating.offsetHeight;

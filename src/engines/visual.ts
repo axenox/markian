@@ -13,6 +13,7 @@ import type { StructuralNode, SearchOptions, SearchMatch, InlineHtmlTag } from '
 import { findMatches } from '../search';
 import { colorSyntax, type TextColor } from '../render/colors';
 import { inlineHtmlSyntax, type InlineHtml } from '../render/inline-html';
+import { tableControls } from './table-controls';
 
 export interface VisualEngine {
   view: EditorView;
@@ -56,6 +57,7 @@ export async function createVisual(
   readOnly: () => boolean,
   changed: (markdown: string) => void,
   selectionChanged: () => void,
+  executeTableCommand: (command: string) => void,
   documentBase?: string,
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
@@ -145,7 +147,7 @@ export async function createVisual(
     });
     return found;
   };
-  const plugins = [history(), new Plugin({
+  const plugins = [history(), tableControls(readOnly, executeTableCommand), new Plugin({
     props: {
       handleTextInput(view, from, to, text) {
         if (readOnly() || view.composing || from !== to || text.includes('\n')) return false;

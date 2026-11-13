@@ -80,6 +80,8 @@ Treat documents and provider output as untrusted. Shared URL checks reject unsaf
 
 Each editor owns its document, revision, selection, histories, callbacks, pending work, and DOM. Shared dependencies do not imply shared document state. Destroying an instance cancels its work, releases its owned resources, and restores the host. Destruction is idempotent.
 
+Visual table grips and cell-edge action panels are instance-owned presentation overlays, not document nodes. Their visual-engine plugin owns selection-aware visibility, focus tracking, measurement, drag cancellation and undoable row/column reordering, including contiguous selected groups. Panel actions route through the editor's registered commands rather than duplicating insertion/deletion logic. They never enter saved Markdown or reserve document space.
+
 Editor initialization waits for enabled extension initialization, configured stylesheets, engine construction, and initial import. Schema registration closes before engine construction. A rejected initialization restores the host. Preservation fallback to Source view instead resolves readiness and reports the incompatibility.
 
 Hosts load base editor/viewer CSS explicitly. Both entry points support replacement content stylesheets and additional document-wrapper classes; the editor also accepts theme stylesheets. Shared alert presentation belongs to the base editor/viewer CSS, so replacing prose styles does not remove alert labels or colors. Markian preserves configured wrapper classes as views and rendered documents change. These are ordinary page styles, not shadow-DOM isolation, so hosts must scope them. See the [style guide](Styleguide.md).

@@ -38,6 +38,10 @@ Pinned controls reflect active state at the caret or selection. Configured templ
 
 Table-specific controls and selection behavior are described in the [table editor guide](Development/Components/Table_editor.md).
 
+An editable, focused table shows compact grips beside the active cell's row and above its column, not on hover. Drag to reorder, or focus a grip and use Alt+Arrow keys along its axis. Small plus/minus panels attach to the active cell's bottom edge for rows and right edge for columns. Plus inserts below/right; minus deletes the current row/column or highlighted range. Grips and panels use the table-border background and rounded outer corners to look attached, without changing document spacing or table dimensions. No table floating toolbar appears for a caret or cell range; selected text retains the regular prose toolbar without extra table commands.
+
+The prose floating toolbar layers above table grips and panels. Partial multi-cell selections and whole-table selections hide all table controls. Complete row or column selections show only the matching drag grip and minus button, without plus or opposite-axis controls. Dragging or keyboard reordering moves the selected rows or columns together, preserving their order; minus removes the whole selected group.
+
 Floating controls must not cover selected text. Position them relative to the selection, including highlighted cell ranges. All toolbar placements share the same height, control dimensions, icon sizes and padding, including compact host themes. Floating toolbars stay on one row and scroll horizontally if their controls do not fit.
 
 Views with Back place it first, followed by a separator. Visual, Source, and Preview keep the View mode menu in its configured position, at the beginning of the Document group with Help by default. Back still returns from Preview to the previous view and from Source to Visual. Help and block workspaces omit the document View mode menu. View-specific Undo/Redo stays in the history position. Unsupported actions are omitted or disabled rather than applied to a hidden session.
