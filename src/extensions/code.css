@@ -6,7 +6,7 @@
 .markian-code-preview > .markian-code-status[data-state='loading'] { position: absolute; bottom: 0; left: 0; background: var(--markian-code); }
 .markian:focus-within .markian-code-status[data-state='loading'] { visibility: hidden; }
 .markian-code-preview > code { display: block; white-space: pre; overflow: auto; }
-.markian-code-controls { position: absolute; top: 4px; right: 4px; opacity: 0; pointer-events: none; }
+.markian-code-controls { position: absolute; top: 4px; right: 4px; max-width: calc(100% - 8px); opacity: 0; pointer-events: none; }
 .markian-code-preview:hover > .markian-code-controls, .markian-code-preview:focus-within > .markian-code-controls { opacity: 1; pointer-events: auto; }
 :is(.markian, .markian-viewer) .tok-keyword, :is(.markian, .markian-viewer) .tok-selector-tag, :is(.markian, .markian-viewer) .tok-literal { color: #92509b; }
 :is(.markian, .markian-viewer) .tok-string, :is(.markian, .markian-viewer) .tok-attr, :is(.markian, .markian-viewer) .tok-regexp { color: #21754b; }

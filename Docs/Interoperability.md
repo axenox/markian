@@ -17,6 +17,8 @@ An application can put several representations of the same content on the clipbo
 
 Use Source view to paste literal Markdown rather than import rich-text formatting. Read-only and disabled editors do not accept document-changing pastes.
 
+Block copying supplies the complete literal body as plain text, preserving indentation and line breaks but omitting fence markers and renderer output. It does not copy a diagram image or syntax-highlighted HTML. For control availability and interaction, see the [caret toolbar](Styleguide.md#caret-toolbar). Clipboard access depends on browser permissions and a secure context; failures are reported rather than silently falling back to another format.
+
 ## Excel and Other Spreadsheets
 
 ### Pasting Into a Table

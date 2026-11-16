@@ -50,6 +50,8 @@ Register trusted editor extension factories once, then enable them separately fo
 
 The bundled Code extension provides expanded block editing and lazy syntax highlighting. Separate selected Highlight.js language assets return source-offset tokens, not another editor engine or stored HTML. Core CodeMirror retains source selection, indentation and local history, including undoable fence-language metadata. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
 
+Top-level visual fence renderers receive target-aware actions from the editor, which owns permission checks, target resolution, clipboard access and document transactions. Extensions own their visible controls; ordinary editable fences use core contextual controls independently of optional highlighting. Preview renderers receive no block-action context. See the [caret toolbar](Styleguide.md#caret-toolbar) for interaction rules and defaults.
+
 Hosts supply Pele to render Mermaid syntax. See [Mermaid configuration](Configuration.md#mermaid) for integration and the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md) for implementation details.
 
 | Dependency | Role |

@@ -130,6 +130,19 @@ const markdown = editor.get();
 
 This is not a storage transaction. Hosts must handle subsequent edits during their own asynchronous save.
 
+## Commands
+
+Run a registered command with `await editor.execute(id, payload?)`. Commands apply to the active view and respect editing permissions. See [toolbar configuration](Configuration.md#toolbar) to place commands in menus or toolbars.
+
+Core block commands act on the fence containing the Visual caret or text selection, including plain-text and unknown-language fences without the Code extension. They are disabled outside a code block:
+
+| Command ID | Behavior |
+| --- | --- |
+| `code:copy` | Copy the complete literal block body as plain text, without fence markers. Available when read-only/disabled; clipboard rejection rejects `execute()`. No selection, value or history change. |
+| `code:delete` | Remove the complete fence as one undoable edit and return document focus. Blocked when read-only/disabled. |
+
+Renderer actions share these operations. The [caret toolbar](Styleguide.md#caret-toolbar) chapter owns button placement and defaults.
+
 ## Registries
 
 | Accessor | Registry item |
@@ -161,7 +174,8 @@ Returned disposers are idempotent and affect only their owned additions or remov
 | `CommandDefinition` | Required `id`, `label`, `views: readonly string[]`, and `run(instance, payload?): void \| Promise<void>`; optional `icon` (built-in alias or sanitized SVG string), `hint` (tooltip), `swatch`, `mutates`, `enabled(instance): boolean`, and `active(instance): boolean`. `views: ["*"]` supports any view. |
 | `ToolbarItem` | Required `id`; optional `command`, `label`, `icon`, `type`, `items`, `align`. See [toolbar fields](Configuration.md#toolbar). |
 | `ViewDefinition` | Required `id` and `mount(context): Disposer`; optional `focus()`, `resize()`, and `setReadOnly(value)`, all returning void. |
-| `RendererDefinition` | Required `id`, `language`, and `render(code: string, element: HTMLElement, context?): Disposer`; optional `visual: boolean` defaults to Preview-only behavior. Context can provide `open(view: string): void` for supported top-level targets. |
+| `RendererDefinition` | Required `id`, `language`, and `render(code: string, element: HTMLElement, context?: RendererContext): Disposer`; optional `visual: boolean` defaults to Preview-only behavior. Supported top-level visual targets receive context; Preview and nested fences do not. |
+| `RendererContext` | `open(view: string): void` navigates to a block workspace. `copy(): void` and `delete(): void` perform the corresponding core block operations on the renderer's current target, reporting clipboard, permission or stale-target errors through the editor. |
 | `StructuralNode` | Required `id`, ProseMirror `schema: NodeSpec`, `fromMarkdown(node: RootContent): Attrs \| null`, and `toMarkdown(node: ProseNode): RootContent`. Current bridge supports atomic mappings over existing mdast types. |
 
 `ViewContext` is `{ element: HTMLElement, signal: AbortSignal, session?: BlockSession }`. Extensions own rendering and must treat provider/document content as untrusted. See [writing extensions](Development/Writing_extensions.md) for initialization and cleanup rules.

@@ -428,6 +428,220 @@ test('Mermaid Backspace after a rendered diagram deletes the entire fence and su
   await expect(root.locator('.markian-diagram[data-state="ready"]')).toHaveCount(1);
 });
 
+test('workspace plain-text caret toolbar copies the body and deletes the whole block with undo', async ({ page }, testInfo) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const root = page.locator('[data-markian]').first();
+  const initial = await page.evaluate(() => editor.get());
+  const block = root.locator('.ProseMirror pre').first();
+  await block.locator('code').click();
+  const remove = root.locator('.markian-floating [data-command="code:delete"]');
+  const copy = root.locator('.markian-floating [data-command="code:copy"]');
+  await expect(remove).toBeVisible();
+  await expect(copy).toBeVisible();
+  await expect(root.locator('.markian-floating [data-command="code:expand"]')).toBeVisible();
+  await expect(remove.locator('svg path')).toHaveCount(1);
+  const selection = await page.evaluate(() => getSelection().toString());
+  const revision = await page.evaluate(() => editor.revision);
+  await copy.click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('hello, world');
+  expect(await page.evaluate(() => getSelection().toString())).toBe(selection);
+  expect(await page.evaluate(() => editor.revision)).toBe(revision);
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await testInfo.attach('workspace-plain-text-delete', { body: await root.screenshot({ path: testInfo.outputPath('workspace-plain-text-delete.png') }), contentType: 'image/png' });
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(remove).toHaveCount(0);
+  expect(await page.evaluate(() => editor.execute('code:delete'))).toBe(false);
+  await page.evaluate(() => editor.setReadOnly(false));
+  await block.locator('code').click();
+  await remove.click();
+  await expect(root.locator('.ProseMirror pre')).toHaveCount(0);
+  const deleted = await page.evaluate(() => editor.get());
+  expect(deleted).not.toContain('hello, world');
+  expect(deleted).toContain('Generated content stays readable.');
+  expect(deleted).toContain('# Field notes');
+  await expect(root.locator('.ProseMirror')).toBeFocused();
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await page.evaluate(() => editor.execute('redo'));
+  expect(await page.evaluate(() => editor.get())).toBe(deleted);
+});
+
+test('core-only caret copying and deletion support plain and unknown fences without removing adjacent text', async ({ page }) => {
+  await page.evaluate(async () => {
+    window.blockCopies = [];
+    window.rejectBlockCopy = false;
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async value => {
+      if (rejectBlockCopy) throw new Error('Clipboard permission denied');
+      blockCopies.push(value);
+    } });
+    const host = document.createElement('div');
+    host.style.height = '400px';
+    document.querySelector('main').prepend(host);
+    window.coreDelete = Markian.create(host, { markdown: 'Before' });
+    coreDelete.element.classList.add('core-delete-test');
+    await coreDelete.ready;
+  });
+  const root = page.locator('.core-delete-test');
+  const remove = root.locator('.markian-floating [data-command="code:delete"]');
+  const copy = root.locator('.markian-floating [data-command="code:copy"]');
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.evaluate(() => coreDelete.setTheme('dark'));
+  for (const language of ['', 'text', 'unlisted']) {
+    const body = '  hello, world\n\tsecond line  \n';
+    const initial = `Before\n\n\`\`\`${language}\n${body}\n\`\`\`\n\nAfter`;
+    await page.evaluate(initial => coreDelete.set(initial), initial);
+    expect(await page.evaluate(() => coreDelete.execute('code:delete'))).toBe(false);
+    expect(await page.evaluate(() => coreDelete.execute('code:copy'))).toBe(false);
+    await root.locator('.ProseMirror pre code').click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(remove).toBeVisible();
+    await expect(copy).toBeVisible();
+    const revision = await page.evaluate(() => coreDelete.revision);
+    const selection = await page.evaluate(() => getSelection().toString());
+    await copy.click();
+    expect(await page.evaluate(() => blockCopies.at(-1))).toBe(body);
+    expect(await page.evaluate(() => getSelection().toString())).toBe(selection);
+    expect(await page.evaluate(() => coreDelete.get())).toBe(initial);
+    expect(await page.evaluate(() => coreDelete.revision)).toBe(revision);
+    await expect(root.locator('.markian-floating [data-command="code:expand"]')).toHaveCount(0);
+    await page.evaluate(() => coreDelete.setDisabled(true));
+    await expect(remove).toHaveCount(0);
+    expect(await page.evaluate(() => coreDelete.execute('code:delete'))).toBe(false);
+    await expect(copy).toBeVisible();
+    await copy.click();
+    expect(await page.evaluate(() => blockCopies.at(-1))).toBe(body);
+    await page.evaluate(() => coreDelete.setDisabled(false));
+    await remove.click();
+    expect(await page.evaluate(() => coreDelete.get())).toBe('Before\n\nAfter');
+    await expect(root.locator('.ProseMirror')).toBeFocused();
+    await page.evaluate(() => coreDelete.execute('undo'));
+    expect(await page.evaluate(() => coreDelete.get())).toBe(initial);
+    await page.evaluate(() => coreDelete.execute('redo'));
+    expect(await page.evaluate(() => coreDelete.get())).toBe('Before\n\nAfter');
+    expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+  }
+  await page.evaluate(() => coreDelete.destroy());
+});
+
+for (const language of ['javascript', 'mermaid']) {
+  test(`${language} hover copying and deletion target the whole fence with undo and permission guards`, async ({ page }, testInfo) => {
+    await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+    await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+    await page.evaluate(async language => {
+      window.blockCopies = [];
+      window.rejectBlockCopy = false;
+      Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async value => {
+        if (rejectBlockCopy) throw new Error('Clipboard permission denied');
+        blockCopies.push(value);
+      } });
+      Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+      const host = document.createElement('div');
+      host.style.height = '500px';
+      document.querySelector('main').prepend(host);
+      window.blockDeleteEditor = Markian.create(host, {
+        markdown: `Before\n\n\`\`\`${language}\n${language === 'mermaid' ? 'flowchart LR\n A --> B' : 'const first = 1;'}\n\`\`\`\n\nBetween\n\n\`\`\`${language}\n${language === 'mermaid' ? 'flowchart LR\n C --> D' : 'const second = 2;'}\n\`\`\`\n\nAfter`,
+        readOnly: true,
+        extensions: {
+          code: { enabled: true },
+          mermaid: { enabled: true, config: { renderer: { render: ({ source }) => {
+            if (source.includes('invalid')) throw new Error('Invalid diagram syntax');
+            return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80"><text x="5" y="20">Diagram</text></svg>';
+          } } } },
+        },
+      });
+      blockDeleteEditor.element.classList.add('block-delete-test');
+      window.blockDeleteErrors = [];
+      blockDeleteEditor.on('error', event => blockDeleteErrors.push(event.error.message));
+      await blockDeleteEditor.ready;
+      window.blockDeleteInitial = blockDeleteEditor.get();
+    }, language);
+    const root = page.locator('.block-delete-test');
+    const blocks = root.locator(language === 'mermaid' ? '.markian-document .markian-diagram' : '.markian-document .markian-code-preview');
+    const secondaryValue = await page.evaluate(() => secondary.get());
+    const remove = blocks.last().getByRole('button', { name: 'Delete code block', exact: true, includeHidden: true });
+    const copy = blocks.last().getByRole('button', { name: 'Copy code', exact: true });
+    await blocks.last().hover();
+    await expect(remove).toBeHidden();
+    await remove.evaluate(button => button.click());
+    expect(await page.evaluate(() => blockDeleteErrors)).toEqual(['Code deletion requires an editable visual view.']);
+    expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(await page.evaluate(() => blockDeleteInitial));
+    const body = language === 'mermaid' ? 'flowchart LR\n C --> D' : 'const second = 2;';
+    await blocks.last().hover();
+    await copy.click();
+    expect(await page.evaluate(() => blockCopies)).toEqual([body]);
+    expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(await page.evaluate(() => blockDeleteInitial));
+    await page.evaluate(() => { rejectBlockCopy = true; });
+    await copy.click();
+    await expect(root.getByRole('alert')).toContainText('Clipboard permission denied');
+    expect(await page.evaluate(() => blockCopies)).toEqual([body]);
+    await page.evaluate(() => { rejectBlockCopy = false; });
+
+    for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.evaluate(theme => {
+        blockDeleteEditor.setReadOnly(false);
+        blockDeleteEditor.setTheme(theme);
+        blockDeleteEditor.set(blockDeleteInitial);
+      }, theme);
+      await root.locator('.ProseMirror > p').first().click();
+      await page.keyboard.press('Home');
+      await page.keyboard.type('Moved ');
+      const initial = await page.evaluate(() => blockDeleteEditor.get());
+      const remaining = initial.replace(`\n\n\`\`\`${language}\n${language === 'mermaid' ? 'flowchart LR\n C --> D' : 'const second = 2;'}\n\`\`\``, '');
+      await blocks.last().hover();
+      await expect(remove).toBeVisible();
+      await expect(copy).toBeVisible();
+      await copy.focus();
+      await expect(copy).toBeFocused();
+      await page.keyboard.press('Enter');
+      expect(await page.evaluate(() => blockCopies.at(-1))).toBe(body);
+      expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(initial);
+      await expect(remove.locator('svg path')).toHaveCount(1);
+      await remove.focus();
+      await expect(remove).toBeFocused();
+      expect(await blocks.last().locator('.markian-floating').evaluate(element => element.clientWidth <= element.parentElement.clientWidth)).toBe(true);
+      await testInfo.attach(`${language}-${width}-${theme}-delete`, { body: await root.screenshot({ path: testInfo.outputPath(`${width}-${theme}-delete.png`) }), contentType: 'image/png' });
+      await page.evaluate(() => blockDeleteEditor.setDisabled(true));
+      await expect(remove).toBeHidden();
+      await copy.click();
+      expect(await page.evaluate(() => blockCopies.at(-1))).toBe(body);
+      await page.evaluate(() => blockDeleteEditor.setDisabled(false));
+      await blocks.last().hover();
+      await remove.click();
+      await expect(blocks).toHaveCount(1);
+      expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(remaining);
+      await expect(root.locator('.ProseMirror')).toBeFocused();
+      await page.evaluate(() => blockDeleteEditor.execute('undo'));
+      expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(initial);
+      await page.evaluate(() => blockDeleteEditor.execute('redo'));
+      expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(remaining);
+      await page.evaluate(() => blockDeleteEditor.execute('preview'));
+      await expect(root.getByRole('button', { name: 'Delete code block', exact: true })).toHaveCount(0);
+      await expect(root.getByRole('button', { name: 'Copy code', exact: true })).toHaveCount(0);
+      await root.getByRole('button', { name: 'Back', exact: true }).click();
+      expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+    }
+
+    await page.evaluate(language => blockDeleteEditor.set(`\`\`\`${language}\n${language === 'mermaid' ? 'invalid diagram' : 'const only = 1;'}\n\`\`\``), language);
+    if (language === 'mermaid') await expect(blocks).toHaveAttribute('data-state', 'error');
+    const only = await page.evaluate(() => blockDeleteEditor.get());
+    await blocks.hover();
+    await copy.click();
+    expect(await page.evaluate(() => blockCopies.at(-1))).toBe(language === 'mermaid' ? 'invalid diagram' : 'const only = 1;');
+    await remove.click();
+    expect(await page.evaluate(() => blockDeleteEditor.get())).toBe('');
+    await expect(root.locator('.ProseMirror')).toBeFocused();
+    await page.keyboard.type('Still editable');
+    expect(await page.evaluate(() => blockDeleteEditor.get())).toBe('Still editable');
+    await page.evaluate(() => blockDeleteEditor.execute('undo'));
+    await page.evaluate(() => blockDeleteEditor.execute('undo'));
+    expect(await page.evaluate(() => blockDeleteEditor.get())).toBe(only);
+    await page.evaluate(() => blockDeleteEditor.destroy());
+  });
+}
+
 test('Mermaid Backspace from an empty following paragraph respects read-only state', async ({ page }) => {
   const root = await mermaidFixture(page);
   await page.evaluate(() => diagramEditor.set('Before\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nAfter'));
@@ -1552,6 +1766,7 @@ test('table edge actions have add/remove icons and code expansion is caret-conte
   await root.locator('.ProseMirror pre').click();
   const expand = root.locator('.markian-floating [data-command="code:expand"]');
   await expect(expand).toBeVisible();
+  await expect(root.locator('.markian-floating [data-command="code:delete"]')).toBeVisible();
   await expect(expand.locator('svg path')).toHaveAttribute('d', mdiFileEditOutline);
   await expand.click();
   await expect(root).toHaveAttribute('data-view', 'code');

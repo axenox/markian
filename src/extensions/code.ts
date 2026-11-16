@@ -198,6 +198,12 @@ export const codeExtension: ExtensionFactory = () => ({
           controls.className = 'markian-floating markian-code-controls';
           if (context) controls.append(commandButton(document, 'Expand code block', 'visual', () => context.open('code')));
           controls.append(commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh()));
+          if (context) {
+            controls.append(commandButton(document, 'Copy code', 'copy', () => context.copy()));
+            const remove = commandButton(document, 'Delete code block', 'delete', () => context.delete());
+            remove.dataset.markianBlockDelete = '';
+            controls.append(remove);
+          }
           element.classList.add('markian-code-preview');
           element.replaceChildren(code, status, controls);
           const rendering = highlight(() => value, () => language, tokens => {

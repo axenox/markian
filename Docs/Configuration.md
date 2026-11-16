@@ -250,6 +250,8 @@ Each language entry is `{ id, label, aliases?: string[], source?: string, highli
 
 Highlighting failures are nonfatal and expose Retry highlighting. Compatible URL loads are deduplicated per document and retained after editor disposal; rejected loads can be retried. Syntax presentation does not change source, history, or dirty state. Expanded language changes do change the ordinary fence and participate in local undo/redo and the one-step Back commit. See [Code usage](Extensibility.md#code).
 
+Block controls follow the shared [caret toolbar](Styleguide.md#caret-toolbar) defaults and permission rules.
+
 For example, enable only PHP, JavaScript, HTML, and JSON. Load core and Code JS/CSS first and provide a `#notes` host:
 
 ```javascript
@@ -298,6 +300,8 @@ Both `renderer` and `source` are omitted by default; there is no default runtime
 | `maxLines`         | `500`                  | Positive integer, at most 500 lines per diagram.                         |
 
 With neither renderer nor source, editor activation succeeds but diagrams show a missing-renderer error. A loaded runtime must expose `window.pele.render()`, returning an object containing SVG text. No version is declared or allowlisted. Rendering limits and sanitization still apply with a custom renderer. The former `asset` option is rejected even when `source` is also present; there is no compatibility fallback.
+
+Diagram controls specialize the shared [caret toolbar](Styleguide.md#caret-toolbar).
 
 The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensibility.md#mermaid).
 

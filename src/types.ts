@@ -87,11 +87,16 @@ export interface ViewDefinition {
   resize?(): void;
   setReadOnly?(value: boolean): void;
 }
+export interface RendererContext {
+  open(view: string): void;
+  copy(): void;
+  delete(): void;
+}
 export interface RendererDefinition {
   id: string;
   language: string;
   visual?: boolean;
-  render(code: string, element: HTMLElement, context?: { open(view: string): void }): Disposer;
+  render(code: string, element: HTMLElement, context?: RendererContext): Disposer;
 }
 export interface SourceHandle {
   get(): string;

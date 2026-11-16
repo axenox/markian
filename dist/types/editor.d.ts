@@ -95,6 +95,10 @@ export declare class EditorInstance implements MarkianInstance {
     whenIdle(): Promise<void>;
     insertImage(blob: Blob): Promise<void>;
     getCodeTarget(): BlockTarget | null;
+    /** Copies literal block contents without changing selection or document history. */
+    private copyCodeBlock;
+    /** Removes a complete fence through the same transaction for caret and renderer controls. */
+    private deleteCodeBlock;
     getActiveSession(): BlockSession | null;
     openView(id: string, target?: BlockTarget): void;
     back(): void;

@@ -111,6 +111,7 @@ export class EditorInstance implements MarkianInstance {
     this.element.classList.toggle('markian-outline-open', options.sidebarVisible ?? true);
     this.element.setAttribute('aria-label', options.label ?? 'Markdown editor');
     this.element.dataset.markian = '';
+    this.element.dataset.readonly = String(this.readOnly);
     this.toolbar = document.createElement('div');
     this.toolbar.className = 'markian-toolbar';
     this.toolbar.setAttribute('role', 'toolbar');
@@ -345,6 +346,10 @@ export class EditorInstance implements MarkianInstance {
         const target = this.getCodeTarget();
         if (!target) throw new Error('Only top-level code blocks support editing sessions.');
         this.openView(id, target);
+      }, copy: () => {
+        void this.copyCodeBlock(position()).catch(error => this.report(error));
+      }, delete: () => {
+        try { this.deleteCodeBlock(position()); } catch (error) { this.report(error); }
       } } : undefined);
     }, this.options.allowedHtml);
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
@@ -666,6 +671,26 @@ export class EditorInstance implements MarkianInstance {
     return { from: code.position.start.offset!, to: code.position.end.offset!, value: code.value, language: code.lang ?? '', revision: this.revision };
   }
 
+  /** Copies literal block contents without changing selection or document history. */
+  private async copyCodeBlock(offset: number | undefined): Promise<void> {
+    this.usable();
+    if (this.activeView !== 'visual') throw new Error('Code copying requires a visual view.');
+    const node = offset === undefined ? undefined : this.visual!.view.state.doc.nodeAt(offset);
+    if (node?.type.name !== 'code_block') throw new Error('The code block target was deleted.');
+    await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(node.textContent);
+  }
+
+  /** Removes a complete fence through the same transaction for caret and renderer controls. */
+  private deleteCodeBlock(offset: number | undefined): void {
+    this.usable();
+    if (this.readOnly || this.activeView !== 'visual') throw new Error('Code deletion requires an editable visual view.');
+    const view = this.visual!.view;
+    const node = offset === undefined ? undefined : view.state.doc.nodeAt(offset);
+    if (offset === undefined || node?.type.name !== 'code_block') throw new Error('The code block target was deleted.');
+    view.dispatch(closeHistory(view.state.tr.delete(offset, offset + node.nodeSize)).scrollIntoView());
+    view.focus();
+  }
+
   getActiveSession(): BlockSession | null {
     this.usable();
     return this.frames.find(frame => frame.session)?.session ?? null;
@@ -979,12 +1004,14 @@ export class EditorInstance implements MarkianInstance {
     const selection = visual?.state.selection ?? raw?.state.selection.main;
     let inTable = false;
     if (visual) for (let depth = visual.state.selection.$from.depth; depth > 0; depth--) if (visual.state.selection.$from.node(depth).type.name === 'table') inTable = true;
-    const inCode = visual?.state.selection.$from.parent.type.name === 'code_block' && this.commands.items().some(command => command.id === 'code:expand');
+    const inCode = visual?.state.selection.$from.parent.type.name === 'code_block';
+    const codeDom = inCode ? visual!.nodeDOM(visual!.state.selection.$from.before()) : undefined;
+    if (codeDom instanceof HTMLElement && codeDom.contentEditable === 'false') { this.floating.hidden = true; return; }
     const cells = visual?.state.selection instanceof CellSelection ? visual.state.selection : undefined;
     if (!selection || cells || (selection.empty && !inCode && !contextual) || this.readOnly && !inCode || this.searchElement || this.destination) { this.floating.hidden = true; return; }
     if (inTable && selection.empty) { this.floating.hidden = true; return; }
     const proseItems = this.options.floatingToolbar ?? ['bold', 'italic', 'code', 'strike', 'link', 'clear'];
-    const groups = inCode ? [['code:expand']] : [proseItems];
+    const groups = inCode ? [['code:expand', 'code:copy', ...(this.readOnly ? [] : ['code:delete'])]] : [proseItems];
     for (const items of groups) {
       const buttons: HTMLButtonElement[] = [];
       for (const id of items) {
@@ -1184,6 +1211,16 @@ export class EditorInstance implements MarkianInstance {
     for (const id of ['undo', 'redo']) add(id, id === 'undo' ? 'Undo' : 'Redo', id, true, ['visual', 'raw'], () => {
       if (this.mode === 'raw') this.raw![id as 'undo' | 'redo']();
       else { const view = this.visual!.view; (id === 'undo' ? undo : redo)(view.state, view.dispatch); }
+    });
+    this.commands.insert({
+      id: 'code:copy', label: 'Copy code', icon: 'copy', views: ['visual'],
+      enabled: () => this.visual?.view.state.selection.$from.parent.type.name === 'code_block',
+      run: () => this.copyCodeBlock(this.visual!.view.state.selection.$from.before()),
+    });
+    this.commands.insert({
+      id: 'code:delete', label: 'Delete code block', icon: 'delete', mutates: true, views: ['visual'],
+      enabled: () => this.visual?.view.state.selection.$from.parent.type.name === 'code_block',
+      run: () => this.deleteCodeBlock(this.visual!.view.state.selection.$from.before()),
     });
     for (const [id, label, mark, wrapper] of [['bold', 'Bold', 'strong', '**'], ['italic', 'Italic', 'emphasis', '*'], ['code', 'Inline code', 'inlineCode', '`']]) {
       add(id, label, id, true, ['visual', 'raw'], () => {

@@ -1,6 +1,6 @@
 # Toolbars
 
-This guide covers toolbar implementation details. For shared appearance and interaction principles, see the [style guide](../../Styleguide.md#toolbar-and-menus). For host configuration, see [toolbar configuration](../../Configuration.md#toolbar).
+This guide covers toolbar implementation details. For shared appearance and interaction principles, see the [style guide](../../Styleguide.md#toolbar-and-menus); contextual behavior and default controls belong in its [caret toolbar chapter](../../Styleguide.md#caret-toolbar). For host configuration, see [toolbar configuration](../../Configuration.md#toolbar).
 
 ## Floating Control Positioning
 

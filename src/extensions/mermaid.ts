@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import './mermaid.css';
 import { commandButton } from '../ui/controls';
-import type { Disposer, ExtensionFactory, SourceHandle } from '../types';
+import type { Disposer, ExtensionFactory, RendererContext, SourceHandle } from '../types';
 import { bounded, loadMermaid, type MermaidRenderer } from '../mermaid-runtime';
 export { loadMermaid } from '../mermaid-runtime';
 export type { MermaidRenderContext, MermaidRenderer } from '../mermaid-runtime';
@@ -51,7 +51,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
     const previews = new Set<() => void>();
     const observer = new MutationObserver(() => previews.forEach(refresh => refresh()));
     observer.observe(instance.element, { attributes: true, attributeFilter: ['data-theme'] });
-    const preview = (value: () => string, element: HTMLElement, open?: () => void, draft = false): Disposer => {
+    const preview = (value: () => string, element: HTMLElement, context?: RendererContext, draft = false): Disposer => {
       element.classList.add('markian-diagram');
       element.contentEditable = 'false';
       const controls = document.createElement('div');
@@ -80,11 +80,17 @@ export const mermaidExtension: ExtensionFactory = () => ({
       const transform = () => { canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`; };
       const zoom = (factor: number) => { scale = Math.max(0.2, Math.min(5, scale * factor)); transform(); };
       const button = (label: string, icon: string, action: () => void) => controls.append(commandButton(document, label, icon, action));
-      if (open) button('Edit diagram', 'visual', open);
+      if (context) button('Edit diagram', 'visual', () => context.open('mermaid'));
       button('Zoom in', 'zoomIn', () => zoom(1.25));
       button('Zoom out', 'zoomOut', () => zoom(0.8));
       button('Reset diagram view', 'reset', () => { scale = 1; offsetX = offsetY = 0; transform(); });
       button('Retry diagram', 'retry', () => refresh());
+      if (context) {
+        button('Copy code', 'copy', () => context.copy());
+        const deletion = commandButton(document, 'Delete code block', 'delete', () => context.delete());
+        deletion.dataset.markianBlockDelete = '';
+        controls.append(deletion);
+      }
       const refresh = () => {
         request?.abort();
         clearTimeout(timer);
@@ -153,7 +159,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
         const dispose = preview(() => session.get(), rendered, undefined, true);
         return () => { dispose(); source?.destroy(); source = undefined; };
       }, focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value) }));
-      disposers.push(instance.getRenderers().insert({ id: 'mermaid', language: 'mermaid', visual: true, render: (code, element, context) => preview(() => code, element, context ? () => context.open('mermaid') : undefined) }));
+      disposers.push(instance.getRenderers().insert({ id: 'mermaid', language: 'mermaid', visual: true, render: (code, element, context) => preview(() => code, element, context) }));
       disposers.push(instance.getCommands().insert({ id: 'mermaid:insert', label: 'Insert diagram', icon: 'diagram', views: ['visual'], mutates: true, run: () => instance.insertCodeBlock('flowchart LR\n  A[Start] --> B[Finish]', 'mermaid') }));
       disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'insert', 'rule'));
       for (const id of ['undo', 'redo', 'indent', 'outdent'] as const) {

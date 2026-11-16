@@ -72,7 +72,7 @@ Use the [Code extension](../../src/extensions/code.ts) as the smallest existing 
 
 ## Rendering and Schema
 
-Fence renderer definitions match a language and return disposal for owned presentation. Opt into visual presentation explicitly with `visual: true`; otherwise rendering is Preview-only. Top-level visual renderer context may expose `open(view)` for target-aware navigation; nested fences do not gain editable sessions automatically.
+Fence renderer definitions match a language and return disposal for owned presentation. Opt into visual presentation explicitly with `visual: true`; otherwise rendering is Preview-only. Top-level visual renderers receive a target-aware `RendererContext`; its [API contract](../API.md#contribution-types) owns the available actions. Core resolves the current node position and checks permissions at activation. Nested fences and Preview receive no context. Follow the [caret toolbar](../Styleguide.md#caret-toolbar) interaction and permission rules for renderer-owned controls.
 
 Renderer implementation is trusted code. Use `textContent` for text or an established sanitizer for untrusted HTML/SVG. The editor renderer registry does not sanitize arbitrary DOM on an extension's behalf. Do not preserve rendered HTML as the Markdown value. Viewer callbacks have a separate, automatically bounded/sanitized output contract.
 

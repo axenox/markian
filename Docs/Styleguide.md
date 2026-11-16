@@ -34,7 +34,7 @@ The default groups are History, Format, Insert, Document, and opposite-aligned U
 
 Groups generate separators only when they have visible content. Custom layouts and live contributions use the same recursive `group`/`menu` structure. Insertion targets explicit group IDs and optional direct-child ordering IDs. Missing groups are not created implicitly. See [toolbar configuration](Configuration.md#toolbar).
 
-Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). The floating prose toolbar offers Bold, Italic, Inline code, Strikethrough, Link, and Clear formatting by default. Code expansion is caret-contextual, not a default pinned command.
+Pinned controls reflect active state at the caret or selection. Configured templates automatically add a compact Templates dropdown in Insert, before Horizontal rule when present. Use MDI format-textbox for Templates (`templates`), button-pointer for keyboard-key templates (`key`), and dock-right for the sidebar toggle (`outline`). Contextual controls follow the [caret toolbar](#caret-toolbar) rules below.
 
 Table-specific controls and selection behavior are described in the [table editor guide](Development/Components/Table_editor.md).
 
@@ -55,6 +55,37 @@ Keyboard navigation follows these rules:
 - Escape closes the active menu and returns focus to its summary, retaining an open parent.
 
 For technical details - see [toolbar component guide](Development/Components/Toolbars.md).
+
+## Caret Toolbar
+
+The caret toolbar is the compact contextual `.markian-floating` surface near the current caret, selected text, or active block. It shows commands for that context, not another pinned toolbar. This chapter owns its default buttons and interaction rules; other guides should link here rather than repeat button lists.
+
+### Context and Default Buttons
+
+| Context | Default controls |
+| --- | --- |
+| Selected prose in Visual or Source | Bold, Italic, Inline code, Strikethrough, Link, Clear formatting. Hosts can replace these through `floatingToolbar`. |
+| Ordinary editable code fence in Visual | Copy code, Delete code block. These core actions work for plain-text and unknown-language fences without an extension. |
+| Code extension | Adds Expand code block before the core block actions. Top-level highlighted fences use their own hover/focus toolbar: Expand code block, Retry highlighting, Copy code, Delete code block. |
+| Mermaid extension | Replaces the fence presentation with a diagram and its own toolbar: Edit diagram, Zoom in, Zoom out, Reset diagram view, Retry diagram, Copy code, Delete code block. Target-aware block actions are available for top-level diagrams only. |
+
+An ordinary prose caret does not show the toolbar unless contextual commands are requested. Inside an editable fence, a caret or partial text selection offers whole-block actions instead of prose formatting; native inline typing stays available. A table caret or cell range uses the separate [table controls](Development/Components/Table_editor.md), while selected text inside a cell retains the prose toolbar.
+
+Copy code copies the complete literal block body, including indentation and line breaks, without Markdown fence markers or rendered HTML/SVG. It does not change the document, selection, or undo history. It remains available when read-only or disabled. Clipboard access requires browser permission and a secure context; failures are reported through the editor.
+
+Delete code block removes the entire fence as one undoable edit and returns focus to the document. Hide mutating block actions when read-only or disabled, while retaining inspection and copying. Keep Copy immediately before Delete when both are present. Block actions are not added to Preview or a dedicated block workspace.
+
+### Placement and Interaction
+
+Position text/caret controls outside the selection without covering it. Rendered blocks show their own controls at the top right on hover or focus, with visible touch controls; error states keep diagram controls visible. Do not show a second caret toolbar over a rendered block. Controls never reserve document space or enter saved Markdown.
+
+Use the shared button dimensions, MDI icons, tooltips and visible keyboard focus. Pointer activation preserves the document selection. Keep the toolbar on one row and allow horizontal scrolling when it does not fit, so every action remains reachable in narrow editors.
+
+### Extension Contributions
+
+Extensions can change the contextual controls by registering commands or supplying a block renderer with its own toolbar. For example, Mermaid replaces ordinary fence controls with diagram-specific navigation and rendering actions while retaining shared block behavior. Use the editor's target-aware renderer context for document actions rather than editing renderer DOM as if it were the saved value.
+
+The `floatingToolbar` option configures prose selection commands; it does not replace extension-owned block controls. See [configuration](Configuration.md#toolbar), [extension mechanisms](Extensibility.md#views-renderers-and-schema), and the [renderer API](API.md#contribution-types).
 
 ## Views and Permissions
 
@@ -110,7 +141,7 @@ Backtick inline-code typing and submitted backtick/tilde fences should behave li
 
 Expanded code uses the same bounded shell and Back-first toolbar as other tasks. Keep Undo/Redo in History, indentation in Format, and language choices in the shared Code language menu. The source surface owns its scrolling and line-number gutter; a compact diagnostic/retry row stays outside it. Avoid a second editor frame or a programming-language sidebar.
 
-Highlighted visual fences retain literal text with floating expansion/retry controls on hover/focus and visible touch controls. Opening the dedicated Code view uses the same edit icon as Edit diagram, both in the caret-contextual toolbar and over highlighted fences. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
+Highlighted visual fences retain literal text and use the [caret toolbar](#caret-toolbar) patterns. Opening a dedicated block view uses the shared edit icon. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
 
 Loading messages (e.g. for code and Mermaid diagrams) and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
 
@@ -118,7 +149,7 @@ Loading messages (e.g. for code and Mermaid diagrams) and other temporary elemen
 
 Use separate `dist/extensions/mermaid.css` styling. The Mermaid workspace has equal constrained source and preview columns when space permits; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
 
-Diagram labels are centered. Controls reuse `.markian-floating` and `.markian-button`, overlaid at the top right on hover/focus without reserving a fixed strip. Narrow control strips scroll horizontally rather than clipping the first actions. Touch and error states keep controls visible. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
+Diagram labels are centered. Contextual controls follow the [caret toolbar](#caret-toolbar) rules. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
 
 Keep the previous diagram visible during a refresh until the new result or an error is available, so pending work does not collapse the diagram.
 
