@@ -335,7 +335,7 @@ export class EditorInstance implements MarkianInstance {
       this.source = value;
       this.changed('user');
     }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } },
-    command => { void this.execute(command).catch(error => this.report(error)); }, this.options.documentBase, this.options.allowTextColors,
+    command => { void this.execute(command).catch(error => this.report(error)); }, error => this.report(error), this.options.documentBase, this.options.allowTextColors,
     (code, language, element, position, topLevel) => {
       const renderer = this.renderers.items().find(item => item.visual === true && item.language === language);
       if (!renderer) return undefined;

@@ -3050,6 +3050,139 @@ test('table row and column commands preserve GFM and undo', async ({ page }) => 
   await expect(table.locator('tr').first().locator('th')).toHaveCount(2);
 });
 
+test('Markdown paste integrates inline formatting at the selection with one change and undo', async ({ page }) => {
+  await page.evaluate(() => {
+    editor.set('Before replace after');
+    window.pasteChanges = 0;
+    editor.on('change', () => { window.pasteChanges++; });
+  });
+  const prose = page.locator('.ProseMirror').first();
+  await prose.locator('p').evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    window.getSelection().setBaseAndExtent(element.firstChild, 7, element.firstChild, 14);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await prose.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '**bold** and *italic* with `code`');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(prose.locator(':scope > p')).toHaveCount(1);
+  await expect(prose.locator('strong')).toHaveText('bold');
+  await expect(prose.locator('em')).toHaveText('italic');
+  await expect(prose.locator('code')).toHaveText('code');
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), 'Before **bold** and *italic* with `code` after')).toBe(true);
+  expect(await page.evaluate(() => window.pasteChanges)).toBe(1);
+  expect(await page.evaluate(() => secondary.get())).not.toContain('bold');
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe('Before replace after');
+  await page.evaluate(() => editor.execute('redo'));
+  await expect(prose.locator('strong')).toHaveText('bold');
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('Markdown paste inserts document blocks without escaping and preserves surrounding content', async ({ page }) => {
+  const markdown = '# Pasted heading\r\n\r\n- first\r\n- **second**\r\n\r\n> quoted\r\n\r\n```text\r\n*literal*\r\n```\r\n\r\n| A | B |\r\n| --- | --- |\r\n| one | two |';
+  await page.evaluate(() => editor.set('Before\n\nreplace\n\nAfter'));
+  const prose = page.locator('.ProseMirror').first();
+  await prose.locator(':scope > p').nth(1).evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await prose.evaluate((element, markdown) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', markdown);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, markdown);
+  await expect(prose.locator('h1')).toHaveText('Pasted heading');
+  await expect(prose.locator('li')).toHaveCount(2);
+  await expect(prose.locator('blockquote')).toHaveText('quoted');
+  await expect(prose.locator('pre code')).toHaveText('*literal*');
+  await expect(prose.locator('table tr')).toHaveCount(2);
+  expect(equivalentMarkdown(await page.evaluate(() => editor.get()), `Before\n\n${markdown}\n\nAfter`)).toBe(true);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe('Before\n\nreplace\n\nAfter');
+});
+
+test('Markdown paste stays literal in code blocks and is blocked by editor permissions', async ({ page }) => {
+  const markdown = '# Heading\n\n**bold**\n- item\nliteral\ttab';
+  await page.evaluate(() => editor.set('```text\nprefix\n```'));
+  const prose = page.locator('.ProseMirror').first();
+  await prose.locator('pre code').evaluate(element => {
+    element.closest('[contenteditable]').focus();
+    window.getSelection().collapse(element.firstChild, element.textContent.length);
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const paste = () => prose.evaluate((element, markdown) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', markdown);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, markdown);
+  await paste();
+  expect(await prose.locator('pre code').textContent()).toBe('prefix' + markdown);
+  await expect(prose.locator('h1, strong, li, table')).toHaveCount(0);
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).toBe('```text\nprefix\n```');
+  for (const permission of ['setReadOnly', 'setDisabled']) {
+    await page.evaluate(permission => { editor.set('Unchanged'); editor[permission](true); }, permission);
+    await paste();
+    expect(await page.evaluate(() => editor.get())).toBe('Unchanged');
+    await page.evaluate(permission => editor[permission](false), permission);
+  }
+});
+
+test('Markdown paste rejects unsupported or unsafe content without changing the selection', async ({ page }) => {
+  await page.evaluate(() => {
+    editor.set('Keep this');
+    window.pasteErrors = [];
+    editor.on('error', event => pasteErrors.push(event.error.message));
+  });
+  const prose = page.locator('.ProseMirror').first();
+  await prose.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  for (const markdown of ['---\ntitle: metadata\n---\n\nBody', '[unsafe](javascript:alert%281%29)']) {
+    await prose.evaluate((element, markdown) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', markdown);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, markdown);
+    expect(await page.evaluate(() => editor.get())).toBe('Keep this');
+  }
+  expect(await page.evaluate(() => pasteErrors)).toHaveLength(2);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('Markdown paste does not reinterpret rich HTML clipboard text', async ({ page }) => {
+  await page.evaluate(() => editor.set(''));
+  const prose = page.locator('.ProseMirror').first();
+  await prose.click();
+  await prose.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '**literal** and formatted');
+    data.setData('text/html', '<p>**literal** and <em>formatted</em></p>');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(prose.locator('strong')).toHaveCount(0);
+  await expect(prose.locator('em')).toHaveText('formatted');
+  await expect(prose.locator('p')).toHaveText('**literal** and formatted');
+  await page.evaluate(() => editor.set(''));
+  await prose.click();
+  await page.keyboard.down('Shift');
+  await prose.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '**literal**');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await page.keyboard.up('Shift');
+  await expect(prose.locator('strong')).toHaveCount(0);
+  await expect(prose.locator('p')).toHaveText('**literal**');
+});
+
 test('spreadsheet text fills and grows a table from the selected cell with undo', async ({ page }) => {
   await page.evaluate(() => editor.set('| A | B |\n| --- | --- |\n| old | keep |'));
   const table = page.locator('.ProseMirror table').first();
