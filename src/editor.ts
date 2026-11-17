@@ -516,6 +516,7 @@ export class EditorInstance implements MarkianInstance {
       setHighlights: tokens => { if (!disposed) source.setHighlights(tokens); },
       search: options => source.search(options),
       select: (from, to) => source.select(from, to),
+      replaceSelection: value => { validateMarkdown(value); if (editable()) source.replaceSelection(value); },
       replaceSearch: (replacement, all) => { if (editable()) source.replaceSearch(replacement, all); },
       undo: () => { if (editable()) source.undo(); },
       redo: () => { if (editable()) source.redo(); },

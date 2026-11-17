@@ -55,9 +55,7 @@ Use editor container width rather than only viewport width.
 | Editor shell | 480px or less | Controls grow to 40px and status is hidden; configured toolbar placement is retained. |
 | Editor shell | Above 480px | Use the desktop control layout. |
 | Maximized editor | Viewport width at 480px or less | Toolbar moves below the work area, including when a host callback owns fullscreen sizing. |
-| Mermaid workspace | Above 600px | `.markian-mermaid` uses equal constrained source and preview columns. |
-| Mermaid workspace | 600px or less | Source and preview stack as bounded rows. |
 
-The Mermaid workspace uses separate `dist/extensions/mermaid.css` styling. Its rendering and lifecycle are covered by the [Mermaid extension guide](../Extensions/Mermaid_extension.md).
+Extension-specific dimensions and responsive rules belong in their developer guides; see the [extension index](../../Extensions/index.md).
 
 At every size, menus and panels must stay reachable, text must fit, and each scrollable surface must own its scrolling. Follow the [focused validation guidance](../index.md#validation) when changing these values.

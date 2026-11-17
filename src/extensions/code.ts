@@ -1,6 +1,8 @@
+/** Code workspace and optional highlighting; see ../../Docs/Development/Extensions/Code_extension.md. */
 import './code.css';
 import { commandButton } from '../ui/controls';
 import type { ExtensionFactory, Disposer, SourceHandle, SourceToken } from '../types';
+import { renderTokens } from './highlight-tokens';
 
 export interface CodeHighlighter {
   readonly apiVersion: 1;
@@ -26,7 +28,7 @@ export const supportedLanguages = [
   { id: 'javascript', label: 'JavaScript', aliases: ['js'] },
   { id: 'typescript', label: 'TypeScript', aliases: ['ts'] },
   { id: 'json', label: 'JSON' }, { id: 'css', label: 'CSS' },
-  { id: 'html', label: 'HTML', aliases: ['xml'] }, { id: 'php', label: 'PHP' },
+  { id: 'html', label: 'HTML' }, { id: 'xml', label: 'XML' }, { id: 'php', label: 'PHP' },
   { id: 'sql', label: 'SQL' }, { id: 'python', label: 'Python', aliases: ['py'] },
   { id: 'yaml', label: 'YAML', aliases: ['yml'] },
 ] satisfies readonly CodeLanguage[];
@@ -200,19 +202,7 @@ export const codeExtension: ExtensionFactory = () => ({
           controls.append(commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh()));
           element.classList.add('markian-code-preview');
           element.replaceChildren(code, status, controls);
-          const rendering = highlight(() => value, () => language, tokens => {
-            code.replaceChildren();
-            let offset = 0;
-            for (const token of tokens) {
-              code.append(document.createTextNode(value.slice(offset, token.from)));
-              const span = document.createElement('span');
-              span.className = token.className;
-              span.textContent = value.slice(token.from, token.to);
-              code.append(span);
-              offset = token.to;
-            }
-            code.append(document.createTextNode(value.slice(offset)));
-          }, status);
+          const rendering = highlight(() => value, () => language, tokens => renderTokens(code, value, tokens), status);
           rendering.refresh();
           return () => { rendering.dispose(); element.classList.remove('markian-code-preview'); };
         },

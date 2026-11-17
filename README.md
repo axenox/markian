@@ -59,7 +59,7 @@ Hosts and extensions use the same public API. The following example loads both b
 
 ### Optional Mermaid Extension
 
-This example enables Mermaid alongside Code. Full renderer, safety, and workspace guidance is in the [Mermaid guide](Docs/Extensibility.md#mermaid).
+This example enables Mermaid alongside Code. Full renderer, safety, and workspace guidance is in the [Mermaid guide](Docs/Extensions/Mermaid.md).
 
 ```html
 <link rel="stylesheet" href="dist/markian.css">

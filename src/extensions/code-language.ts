@@ -4,7 +4,7 @@ import type { CodeHighlighter } from './code';
 import type { SourceToken } from '../types';
 
 /** Packs expose syntax tokens, never an editing engine or executable document HTML. */
-export function createHighlighter(language: string, grammar: LanguageFn): CodeHighlighter {
+export function createHighlighter(language: string, grammar: LanguageFn) {
   const engine = hljs.newInstance();
   engine.registerLanguage(language, grammar);
   return {
@@ -28,5 +28,5 @@ export function createHighlighter(language: string, grammar: LanguageFn): CodeHi
       visit(parsed.body.firstElementChild!);
       return tokens;
     },
-  };
+  } satisfies CodeHighlighter;
 }

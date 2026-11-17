@@ -13,7 +13,7 @@ const [pack] = JSON.parse(execFileSync(npm, ['pack', '--dry-run', '--json', '--i
 const paths = new Set(pack.files.map(file => file.path));
 for (const path of ['dist/markian.min.js', 'dist/markian.css', 'dist/markian-viewer.min.js', 'dist/markian-viewer.css', 'dist/types/viewer.d.ts', 'dist/extensions/viewer-mermaid.min.js', 'dist/types/viewer-mermaid.d.ts', 'dist/sizes.json', 'dist/extensions/code.min.js', 'dist/extensions/mermaid.min.js', 'dist/extensions/mermaid.css', 'dist/types/extensions/mermaid.d.ts', 'dist/types/index.d.ts', 'dist/manifest.json', 'includes.json', 'Examples/index.html', 'Examples/minimal-editor.html', 'Examples/mermaid-diagrams.html', 'Examples/viewer.html']) assert.ok(paths.has(path), `Missing package file: ${path}`);
 assert.ok(!paths.has('dist/THIRD_PARTY_NOTICES.txt'), 'includes.json replaces the legacy notices artifact.');
-for (const path of ['dist/extensions/code.css', 'dist/types/extensions/code.d.ts', 'Examples/code-blocks.html', ...['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml'].map(language => `dist/extensions/languages/${language}.min.js`)]) assert.ok(paths.has(path), `Missing Code package file: ${path}`);
+for (const path of ['dist/extensions/code.css', 'dist/types/extensions/code.d.ts', 'Examples/code-blocks.html', ...['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml'].map(language => `dist/extensions/languages/${language}.min.js`)]) assert.ok(paths.has(path), `Missing Code package file: ${path}`);
 assert.ok(![...paths].some(path => path.startsWith('dist/dependencies/')), 'Mermaid must be supplied by the host, not shipped in the archive.');
 assert.ok(![...paths].some(path => /^(node_modules|src|Tests)\//.test(path)));
 console.log(`npm archive validated: ${pack.files.length} files, ${pack.size} bytes.`);
@@ -83,7 +83,7 @@ try {
 		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-javascript .tok-keyword'));
 		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-sql .tok-keyword'));
 		await page.waitForFunction(() => document.querySelector('.ProseMirror code.language-python .tok-keyword'));
-		for (const language of ['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml']) {
+		for (const language of ['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml']) {
 			assert.equal(await page.evaluate(async language => {
 				const source = new URL(`../dist/extensions/languages/${language}.min.js`, document.baseURI).href;
 				return (await MarkianCode.loadCodeLanguage(document, { id: language, label: language, source })).language;

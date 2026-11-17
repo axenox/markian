@@ -12,10 +12,8 @@ Classic scripts expose browser globals. TypeScript declarations are generated un
 | `Markian.version` | None | `string` | Library version. |
 | `MarkianViewer.create` | `host: HTMLElement, options?: ViewerOptions` | `Viewer` | Mount on a `div`, `section`, or `article`. Options default to `{}`. |
 | `MarkianViewer.headings` | `markdown: string` | `Heading[]` | The same heading parser. |
-| `MarkianMermaid.loadMermaid` | `document: Document, source: string` | `Promise<MermaidRenderer>` | Load the trusted Pele global script URL, check `pele.render()` and return its `{ render }` adapter. |
-| `MarkianViewerMermaid.createRenderer` | `document: Document, options: ViewerMermaidOptions` | `(context: ViewerRendererContext) => Promise<string>` | Create an optional viewer fence renderer. |
 
-`MarkianCode.codeExtension` and `MarkianMermaid.mermaidExtension` are `ExtensionFactory` values supplied by their optional scripts. Register them explicitly; they do not activate themselves.
+Optional extension factories and helpers are documented in the [extension guides](Extensions/index.md), including the [Mermaid public helpers](Extensions/Mermaid.md#public-helpers-and-host-renderers). Register extension factories explicitly; they do not activate themselves.
 
 `Heading` is `{ id: string, label: string, depth: number, line: number }`. Source lines are one-based; IDs are Unicode-aware and duplicate-safe. Parsing includes nested headings and excludes fenced-code contents.
 
@@ -34,7 +32,7 @@ Readiness waits for configured CSS, enabled extensions, and initial import. Init
 | `ready` | `Promise<void>` | Initial readiness, not a save gate for later work. |
 | `element` | `HTMLElement` | Instance-owned root, not the original mount host. |
 | `revision` | `number` | Current document revision. |
-| `activeView` | `string` | Active ID, such as `visual`, `raw`, `preview`, `help`, `code`, or `mermaid`. |
+| `activeView` | `string` | Active ID, such as `visual`, `raw`, `preview`, `help`, or a registered extension view. |
 | `readOnly` | `boolean` | Effective permission: true when either read-only or disabled is set. |
 
 | Method | Return | Behavior |
@@ -194,6 +192,7 @@ Configured templates register `template:<id>` commands for Visual/Source and a `
 | `setHighlights(tokens: readonly SourceToken[])` | `void` | Replace presentation-only token spans without content events/history. Tokens contain valid source offsets and bounded `tok-*` classes. |
 | `search(options: SearchOptions)` | `readonly SearchMatch[]` | Search this source buffer. |
 | `select(from: number, to?: number)` | `void` | Select source offsets; omitted end means a caret. |
+| `replaceSelection(value: string)` | `void` | Insert literal text at the caret or replace the selection as one local undo step when active and editable; place the caret after it. |
 | `replaceSearch(replacement: string, all?: boolean)` | `void` | Replace a selected match/all when active and editable. |
 | `undo()` / `redo()` | `void` | Local history when active and editable. |
 | `indent(outdent?: boolean)` | `void` | Indent, or outdent when true, when active and editable. |

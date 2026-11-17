@@ -8,7 +8,7 @@ The editor exposes one complete Markdown document. A view is the visible work ar
 
 - Visual view edits a structured document through Milkdown and ProseMirror.
 - Source view edits literal Markdown through CodeMirror.
-- Code and Mermaid views edit a draft for one top-level fenced block.
+- Specialized editor views provided by extensions like Code or Mermaid extension edit a draft for one top-level fenced block.
 - Preview renders the current document without editing it.
 - Help displays guidance without replacing the document.
 
@@ -48,9 +48,9 @@ Before saving, hosts await `whenIdle()` and then read `get()`. They must also se
 
 Register trusted editor extension factories once, then enable them separately for each instance. Registration alone does not activate a feature or load its optional dependencies. Unknown enabled IDs are configuration errors. Applications and extensions use the same commands, registries, views, and source handles.
 
-The bundled Code extension provides expanded block editing and lazy syntax highlighting. Separate selected Highlight.js language assets return source-offset tokens, not another editor engine or stored HTML. Core CodeMirror retains source selection, indentation and local history, including undoable fence-language metadata. The bundled Mermaid extension provides diagrams and a source/preview workspace. A separate viewer-Mermaid adapter only renders diagrams. All retain ordinary fenced Markdown; no renderer output becomes the saved value.
+Core source handles provide selection, indentation, local history, undoable fence-language metadata and literal selection replacement. Extensions can reuse these editing capabilities without owning another authoritative document. Renderers provide presentation, not saved document values.
 
-Hosts supply Pele to render Mermaid syntax. See [Mermaid configuration](Configuration.md#mermaid) for integration and the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md) for implementation details.
+See the [extension guides](Extensions/index.md) for extension setup, usage and public helpers. Extension internals belong in their separate developer guides, not this architectural overview.
 
 | Dependency | Role |
 | --- | --- |
@@ -60,7 +60,6 @@ Hosts supply Pele to render Mermaid syntax. See [Mermaid configuration](Configur
 | remark/mdast and rehype | CommonMark/GFM parsing, Markdown comparison, and safe HTML generation. |
 | rehype-sanitize and DOMPurify | Display sanitization, including optional renderer output. |
 | Selected MDI icons | Compact controls without a remote icon font. |
-| Optional host Pele | Mermaid-syntax diagram rendering only when explicitly configured and used; not bundled. |
 
 ## Markdown and Safety
 
@@ -72,9 +71,9 @@ Markdown is the public content format. Rendered HTML and engine documents are in
 - Unknown comments remain in Markdown but are invisible in normal rendering. Generated bodies stay readable without running providers. Loading a document never executes a placeholder provider.
 - Configured attribute-free `kbd`, `sub`, `sup` and `mark` tags become editable inline formatting in Visual and safe output in Preview/viewer. Other raw HTML stays inert/opaque. Templates insert fixed or literal-selection Markdown through ordinary commands. Mention decorations and rule-local callbacks retain plain text or ordinary links; editor-only wrappers never enter saved Markdown. Opt-in bounded hex text color is a separate feature.
 - Front matter and resolved-reference differences may require Source view. Unsupported content must not silently disappear merely to fit the visual schema.
-- Mermaid remains an ordinary `mermaid` fence; invalid diagram syntax can still be saved as source.
+- Extension-rendered blocks retain ordinary fenced Markdown, including source that cannot be rendered.
 
-Treat documents and provider output as untrusted. Shared URL checks reject unsafe schemes and destinations. Optional HTML/SVG output is bounded and sanitized again; local SVG references are scoped to avoid collisions except for Mermaid, whose original IDs and CSS remain intact. These safeguards do not establish complete CSP, accessibility, or cross-browser acceptance.
+Treat documents and provider output as untrusted. Shared URL checks reject unsafe schemes and destinations. Optional HTML/SVG output is bounded and sanitized again; local SVG references are scoped to avoid collisions, subject to the rendering policies documented in the [extension guides](Extensions/index.md). These safeguards do not establish complete CSP, accessibility, or cross-browser acceptance.
 
 ## Lifecycle and Styling
 
@@ -92,12 +91,12 @@ UI icon properties accept built-in names or bounded raw SVG strings. A shared co
 
 ## Distribution and Status
 
-Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size reports, and the root [bundle registry](../includes.json). The registry records bundled third-party packages, exact versions and license texts or links in the Power UI `includes.json` format consumed by PackageManager's `GenerateLicenseBOM`. It includes transitive browser dependencies, not development tools or the host-supplied Pele renderer. No consumer build, import map, remote font, or host-framework dependency is required. Optional features ship separately rather than as one mandatory all-features bundle.
+Consumers use prebuilt classic scripts, CSS, declarations, a manifest, size reports, and the root [bundle registry](../includes.json). The registry records bundled third-party packages, exact versions and license texts or links in the Power UI `includes.json` format consumed by PackageManager's `GenerateLicenseBOM`. It includes transitive browser dependencies, not development tools or host-provided dependencies. No consumer build, import map, remote font, or host-framework dependency is required. Optional features ship separately rather than as one mandatory all-features bundle.
 
 Each build replaces the bundle registry from its current browser inputs. Entries are unique by package name and version, even when the same package is installed in several locations; different versions remain separate. Packages no longer bundled disappear on regeneration.
 
 When an upstream package omits its license file, registry generation can use reviewed, version-specific license text maintained with the build scripts. This keeps the distributed terms available offline without adding a network dependency to the build.
 
-The package names are `axenox/markian` for Composer and `markian` for npm. Pele is supplied separately, for example through `npm-asset/pele` on PHP hosts. Asset Packagist delivery as `npm-asset/markian`, external publication, and host adoption have separate acceptance gates. Distribution sizes are recorded in [the generated report](../dist/sizes.json); byte sizes are not speed measurements.
+The package names are `axenox/markian` for Composer and `markian` for npm. Asset Packagist delivery as `npm-asset/markian`, external publication, and host adoption have separate acceptance gates. Distribution sizes are recorded in [the generated report](../dist/sizes.json); byte sizes are not speed measurements.
 
 Current capabilities are described in [configuration](Configuration.md), [API](API.md), and [extensibility](Extensibility.md). Work-package history and unfinished acceptance criteria remain in the [requirements and plan](index.md#requirements-and-decisions), not in the library contract.

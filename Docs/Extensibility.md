@@ -2,7 +2,7 @@
 
 Start with configuration, then add a host callback or a public API contribution. Package repeated contributions as an extension. Applications and extensions use the same API; neither should edit engine DOM or private state.
 
-See [configuration](Configuration.md) for options, [API](API.md) for signatures, and [writing extensions](Development/Writing_extensions.md) for contributor guidance.
+See [configuration](Configuration.md) for options, [API](API.md) for core signatures, the [extension guides](Extensions/index.md) for extension usage and helpers, and [writing extensions](Development/Writing_extensions.md) for contributor guidance.
 
 ## Toolbar and Commands
 
@@ -80,41 +80,11 @@ Extension settings belong in their `config`, not in an asset `source` option. Th
 
 ### Code
 
-Load `dist/extensions/code.min.js` and `dist/extensions/code.css` after core. The `MarkianCode.codeExtension` factory adds Expand code block to the code-caret floating toolbar and highlighted-block controls. The workspace reuses core CodeMirror with line numbers, Undo/Redo, Indent/Outdent, and a Code language menu. Back commits text and language changes once; unchanged Back adds no history step. Help suspends the workspace without losing draft, selection, or local history.
-
-Tab inserts the configured indentation; Shift+Tab outdents. Escape then Tab leaves source Tab handling. Read-only/disabled state retains inspection/search but blocks text, language, and history edits. Complete `get()` values and textarea submission include pending language/source drafts before Back. Current block sessions target top-level fences; nested highlighted fences remain presentation-only.
-
-Selected Highlight.js grammars ship as separate offline script assets with no editing engines. Only matching enabled languages load; Code has no Mermaid dependency. Hosts may replace the catalogue or supply token highlighters through [Code configuration](Configuration.md#code). Unknown, failed, or oversized highlighting retains plain source. A highlight failure does not block saving; Retry retries a failed asset. `MarkianCode.loadCodeLanguage(document, language)` returns a checked highlighter and shares successful compatible loads between editors. The [Code blocks example](../Examples/code-blocks.html) demonstrates ordinary script-tag delivery.
+See the [Code guide](Extensions/Code.md) for setup, expanded editing, language choices, XML highlighting and public helpers. Options and defaults remain in [Configuration](Configuration.md#code).
 
 ### Mermaid
 
-Load the factory and CSS after core, then register and enable it:
-
-```html
-<link rel="stylesheet" href="dist/extensions/mermaid.css">
-<script src="dist/extensions/mermaid.min.js"></script>
-<script>
-  Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
-  const diagrams = Markian.create(document.querySelector('#diagrams'), {
-    markdown: '```mermaid\nflowchart LR\n  A[Start] --> B[Finish]\n```',
-    extensions: { mermaid: { enabled: true, config: {
-      source: '/assets/pele.global.js',
-    } } },
-  });
-</script>
-```
-
-The example assumes a `#diagrams` host, core assets, and a trusted Pele global runtime at the configured URL. Pele is not included in Markian's distribution. The loader checks `window.pele.render`, keeps the runtime global in an iframe and loads it only when needed. Mermaid.js is not supported by this loader. Missing configuration or a failed render shows an error without losing source; Retry remains available.
-
-Alternatively supply `config.renderer: { render }`. `render({ source, id, theme, signal })` returns SVG text or a promise. A raw Pele object is not this adapter contract. Host adapters must isolate settings and DOM ownership, emit SVG text labels, bound layout work, use the supplied unique `id`, and never bind source-defined callbacks. Markian does not reconfigure a supplied host renderer. Style tags and inline styles are preserved, not converted to presentation attributes.
-
-`MarkianMermaid.loadMermaid(document, source)` returns the same adapter contract. Compatible loads are deduplicated and retained after instances are destroyed. The iframe is not a sandbox for untrusted scripts; use trusted URLs only. A host-supplied adapter is the alternative for CSP-controlled environments; full CSP acceptance remains unverified.
-
-The extension adds Insert diagram, inline diagram presentation, and a source/preview workspace with local undo/redo, indentation, search, and Back. `get()` includes pending diagram edits. Invalid syntax remains saveable as a fence. Nested diagrams render, but block-edit sessions currently target only top-level fences.
-
-Rendering defaults to 20,000 characters and 500 lines. Settings can lower but not raise these limits. Configuration directives, front matter, and executable links are refused for rendering. SVG output is bounded and sanitized, retaining its IDs and inline CSS. Shared diagram CSS maps Pele colors to each instance's Markian theme. Pele uses its own layout; arbitrary HTML labels and JavaScript callbacks are unsupported. See the [safety boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Pan, zoom, reset, and read-only inspection do not change Markdown.
-
-See [Mermaid configuration](Configuration.md#mermaid) and the [runnable example](Examples.md).
+See the [Mermaid guide](Extensions/Mermaid.md) for setup, diagram editing, templates, snippets, public helpers and limitations. Options and defaults remain in [Configuration](Configuration.md#mermaid).
 
 ## Views, Renderers, and Schema
 
@@ -130,33 +100,11 @@ Schema mappings must register during extension initialization, before engine con
 
 The viewer is separate from editor extensions. Supply `renderers: { language: callback }` in viewer options. A callback receives source, language, theme, full Markdown, revision, document base, and abort signal; it returns HTML/SVG text or a promise.
 
-Viewer output is limited to 2,000,000 characters, sanitized, stripped of active controls and direct external resource references, and given scoped SVG IDs. Mermaid is the exception: its IDs and CSS remain intact, as described above. Failure leaves plain code and reports through `onError`. Stale results cannot replace a newer document. Load any trusted highlighting CSS yourself; no language pack loads implicitly.
+Viewer output is limited to 2,000,000 characters, sanitized, stripped of active controls and direct external resource references, and given scoped SVG IDs. Extension-specific rendering policies are documented in the [extension guides](Extensions/index.md). Failure leaves plain code and reports through `onError`. Stale results cannot replace a newer document. Load any trusted highlighting CSS yourself; no language pack loads implicitly.
 
 ### Viewer Mermaid
 
-Load viewer core JS/CSS and the render-only adapter JS/CSS, not the editor extension:
-
-```html
-<link rel="stylesheet" href="dist/markian-viewer.css">
-<link rel="stylesheet" href="dist/extensions/viewer-mermaid.css">
-<article id="viewer"></article>
-<script src="dist/markian-viewer.min.js"></script>
-<script src="dist/extensions/viewer-mermaid.min.js"></script>
-<script>
-  const renderer = MarkianViewerMermaid.createRenderer(document, {
-    source: '/assets/pele.global.js',
-  });
-  const viewer = MarkianViewer.create(document.querySelector('#viewer'), {
-    markdown: '```mermaid\nflowchart LR\n  A --> B\n```',
-    mermaid: true,
-    renderers: { mermaid: renderer },
-  });
-</script>
-```
-
-Mermaid defaults to false. Even a registered renderer is not called without `mermaid: true`; enabling with no matching fence loads nothing. The adapter requires an explicit runtime asset or supported host renderer. Its version, bounds, and isolation policy match editor Mermaid, but it supplies no editing or pan/zoom UI. Editor and viewer bundles have separate loader caches; supply a common host renderer to share a runtime.
-
-See [viewer-Mermaid defaults](Configuration.md#viewer-mermaid-adapter).
+See [Mermaid viewer setup](Extensions/Mermaid.md#viewer-setup) and [viewer adapter defaults](Configuration.md#viewer-mermaid-adapter).
 
 ## Planned Customization
 

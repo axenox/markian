@@ -4,7 +4,7 @@ import { gzipSync, brotliCompressSync } from 'node:zlib';
 
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const sizes = {};
-const codeLanguages = ['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml'];
+const codeLanguages = ['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml'];
 for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css', 'extensions/code.min.js', 'extensions/code.css', ...codeLanguages.map(language => `extensions/languages/${language}.min.js`)]) {
   const bytes = await readFile(`dist/${path}`);
   sizes[path] = { bytes: bytes.length, gzip: gzipSync(bytes, { level: 9 }).length, brotli: brotliCompressSync(bytes).length };
@@ -44,7 +44,10 @@ await writeFile('dist/manifest.json', JSON.stringify({
       dependencies: [{ name: 'highlight.js', version: pkg.devDependencies['highlight.js'], bundled: true, apiVersion: 1, loading: 'Only the selected fence language; no editing engines in language assets',
         languages: codeLanguages.map(language => ({ id: language, script: `extensions/languages/${language}.min.js`, global: `MarkianCodeLanguage_${language}.highlighter` })) }] },
     mermaid: { script: 'extensions/mermaid.min.js', stylesheet: 'extensions/mermaid.css', types: 'types/extensions/mermaid.d.ts', global: 'MarkianMermaid.mermaidExtension', requires: pkg.version,
-      dependencies: [{ name: 'pele', testedVersion: pkg.devDependencies.pele, requiredApi: ['render'], external: true, loading: 'host-configured Pele source URL or supplied renderer adapter' }] },
+      dependencies: [
+        { name: 'highlight.js', version: pkg.devDependencies['highlight.js'], bundled: true, apiVersion: 1, loading: 'Bundled Mermaid grammar for workspace source and snippets; no Code extension required' },
+        { name: 'pele', testedVersion: pkg.devDependencies.pele, requiredApi: ['render'], external: true, loading: 'host-configured Pele source URL or supplied renderer adapter' },
+      ] },
     viewerMermaid: { script: 'extensions/viewer-mermaid.min.js', stylesheet: 'extensions/viewer-mermaid.css', types: 'types/viewer-mermaid.d.ts', global: 'MarkianViewerMermaid.createRenderer', requires: pkg.version,
       dependencies: [{ name: 'pele', testedVersion: pkg.devDependencies.pele, requiredApi: ['render'], external: true, loading: 'Explicit mermaid:true plus a matching fence and host-configured Pele source URL or supplied renderer' }] },
   },

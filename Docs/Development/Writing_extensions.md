@@ -84,7 +84,7 @@ Extension code must be loaded explicitly; there are no `getScripts` or `getStyle
 
 Deduplicate compatible dependencies without sharing instance documents, drafts, callbacks, or controls. Failures must retain ordinary Markdown and allow unrelated editing. Do not guess CDN URLs or compile sibling framework paths into the library. Host-owned adapters remain in the owning host package.
 
-Mermaid is the larger example: [mermaid.ts](../../src/extensions/mermaid.ts) uses public registries/source handles while shared runtime code owns bounds, version validation, and explicit isolated loading. The viewer adapter reuses rendering policy but not editor UI. Their user contracts are in [extensibility](../Extensibility.md#mermaid).
+Mermaid is the larger example: [mermaid.ts](../../src/extensions/mermaid.ts) uses public registries/source handles while shared runtime code owns bounds, runtime API validation, and explicit isolated loading. The viewer adapter reuses rendering policy but not editor UI. Their user contracts are in the [Mermaid guide](../Extensions/Mermaid.md), with internals in the [developer guide](Extensions/Mermaid_extension.md).
 
 ## Failure, Disposal, and Checks
 

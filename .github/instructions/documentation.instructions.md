@@ -32,23 +32,35 @@ Place all documentation in markdown files in the `Docs` folder. Separate documen
 - `Docs`
   - `index.md` - very short intro explaining docs structure, in particular separation between user and developer documentation. Mainly serves as a table of contents with links to every docs file.
   - `Configuration.md` - Lists all configuration options with descriptions, default values and important examples in a table. Also includes a complete default config JSON. Separate chapters for every built-in extension with configuration table and default JSON for each of them.
-  - `Extensibility.md` - Explains the available extensibility principles for the project, such as custom commands, extensions, and other ways to extend the editor's functionality. Includes a separate chapter for every built-in extension. Includes a link to extension guide in developer docs.
+  - `Extensibility.md` - Explains shared extensibility principles, such as custom commands, extension registration, callbacks and renderers. Link to extension usage guides instead of describing individual extensions here.
+  - `Extensions`
+    - `index.md` - Index of extension usage guides, with links to their separate developer guides.
+    - `<Name>.md` - One user-facing guide per extension, covering setup, usage, extension-specific public helpers, appearance and limitations. For example, `Mermaid.md`.
   - `Styleguide.md` - User interface guidelines and design principles for the project. Explains layout, toolbar, switching views, status bar, etc. Includes short definition for every UI component like button, button group, menu. Keep this focused on reusable appearance and interaction rules, not exact sizes, spacing values, or breakpoints. Link to the visual editor component guide for dimensions and to interoperability guidance for detailed application compatibility workflows.
   - `Interoperability.md` - User and integrator guidance on compatibility with other software: smart paste, clipboard format precedence, spreadsheet round trips, image exchange, Markdown portability, and import/export limits. Explain observable behavior and practical workflows, not internal implementation details.
-  - `Architecture.md` - high level overview of the project's architecture for library users explaining extensions, views and other principles. Take note of most important dependencies here and what they are responsible for. This is not for contributors! It does not explain the code, but only the architectural principles.
-  - API.md - describes the public API available to surrounding code. Includes a table with all public functions with their arguments and return types, as well as (short!) usage examples.
+  - `Architecture.md` - High-level overview of core architectural principles for library users: documents, views, extension boundaries and host responsibilities. Include important core dependencies, not extension internals or extension-specific dependencies.
+  - `API.md` - Core public API available to surrounding code, with arguments, return types and short usage examples. Extension-specific factories and helpers belong in their usage guides; link to those guides here.
   - `Development` - these docs are for contributors only! Not intended for library users. 
     - `index.md` - Intro to development/contribution. Language used, coding principles.
     - `Code_guide.md` - Describes the inner structure of the project, including the organization of files and directories, and how different components interact with each other, what their purpose is, responsibility boundaries.
     - `Writing_extensions.md` - guide to write an extension.
     - `Components` - place separate documents for important (complex) core components here. Link these docs from the relevant code files!
-    - `Extensions` - place separate documents describing the inner structure of each extension here. Add a link to this document to extension code files. Each document should explain the purpose of the extension, its main components, and how it integrates with the rest of the project.
+    - `Extensions` - One `<Name>_extension.md` developer guide per extension, separate from its usage guide. Explain internal structure, responsibilities, ownership, lifecycle, dependencies, exact styling dimensions and responsive thresholds. Link to the usage guide and from relevant extension code files.
 
 ### Usage documentation
 
 The top-level documents in the `Docs` folder are intended for library users and integrators. These are expected to understand JavaScript, but they will not need to dive into the code itself. These docs help to understand, how to use the library: configure the editor, call its API, etc.
 
 This documentation should also show, hot wo customize and extend the editor, which is almost development documentation, but for integrators, not for contributors.
+
+### Extension documentation ownership
+
+- Keep each extension's documentation in two files: `Docs/Extensions/<Name>.md` for users/integrators and `Docs/Development/Extensions/<Name>_extension.md` for contributors.
+- Keep extension descriptions centralized. The global API, Architecture, Styleguide and Visual editor guides must not describe extension internals, specific controls, layouts or runtime dependencies. Use links to the owning extension guide instead.
+- Keep all extension configuration options and effective defaults in the global `Docs/Configuration.md` overview. Extension guides link to that reference rather than duplicate option tables or complete defaults.
+- Keep shared contracts in their core references even when first needed by an extension. For example, a core source-handle method belongs in `Docs/API.md`; an extension's use of that method belongs in its developer guide.
+- Update global guides only when shared core behavior actually changes, not for extension-only changes. Update the extension's usage or developer guide according to the affected audience.
+- Link each usage guide from `Docs/Extensions/index.md` and `Docs/index.md`, and cross-link its separate developer guide.
 
 ### Interoperability maintenance
 
@@ -62,7 +74,7 @@ This documentation should also show, hot wo customize and extend the editor, whi
 
 All documentation in the `Development` folder is intended for contributors - humans and agents. Only add files here if the in-code documentation is not sufficient! Prefer in-code documentation for behaviors and implementation details over separate development documents.
 
-`Docs/Development/Components/Visual_editor.md` owns exact editor dimensions, control sizes, document spacing, line heights, and responsive thresholds. Update it alongside changes to those values. Keep qualitative design principles in the style guide and link to the component guide instead of duplicating numeric definitions there. Component-specific details, such as floating-toolbar positioning, can remain in their owning component guides.
+`Docs/Development/Components/Visual_editor.md` owns exact core editor dimensions, shared control sizes, document spacing, line heights, and responsive thresholds. Extension-specific dimensions and thresholds belong in that extension's developer guide. Update the owning guide alongside changes to those values. Keep shared qualitative design principles in the style guide and link to the owning developer guide instead of duplicating numeric definitions there. Component-specific details, such as floating-toolbar positioning, can remain in their owning component guides.
 
 ## In-code documentation
 

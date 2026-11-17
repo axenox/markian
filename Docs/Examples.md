@@ -18,7 +18,7 @@ Each named page keeps mount sizing, configuration, sample Markdown, and initiali
 
 Pele is not bundled. The diagram page's inline `source` configuration points to `/host-assets/pele.global.js`. The development server supplies this route from the development-only Pele dependency. On a static host, provide that route or set `source` to a trusted Pele global runtime exposing `pele.render()`. Mermaid.js is no longer used.
 
-Missing configuration or failed rendering shows an error without losing fenced source. The minimal editor and default workspace do not request Mermaid. The viewer comparison intentionally keeps Mermaid disabled; rendering in the viewer uses its separate [render-only adapter](Extensibility.md#viewer-mermaid), not the editor extension.
+Missing configuration or failed rendering shows an error without losing fenced source. The minimal editor and default workspace do not request Mermaid. The viewer comparison intentionally keeps Mermaid disabled; rendering in the viewer uses its separate [render-only adapter](Extensions/Mermaid.md#viewer-setup), not the editor extension.
 
 ## Development Checkout
 

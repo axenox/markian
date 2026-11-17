@@ -1,3 +1,4 @@
+/** Code workspace and optional highlighting; see ../../Docs/Development/Extensions/Code_extension.md. */
 import './code.css';
 import type { ExtensionFactory, SourceToken } from '../types';
 export interface CodeHighlighter {
