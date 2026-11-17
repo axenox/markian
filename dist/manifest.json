@@ -212,11 +212,11 @@
       "bytes": 16440
     },
     "markian.min.js": {
-      "sha256": "2bfb21e008680badb3a082e025fb20460e459ec8687ea38b5e64777e8060cb04",
-      "bytes": 1000295
+      "sha256": "78ebc0ec81b3eeae44ed7fb0b4ffaee2c3cb58f24d9b5427a94cf22aacf26d2c",
+      "bytes": 1000734
     },
     "sizes.json": {
-      "sha256": "16e131d5aaca5edee4ec9d51f2cff6ec1f1c495950bb612fd2a41efa341c2aa3",
+      "sha256": "ece97c0952457d3ee71ce571d2f84e8c96461813d36b19990e489dacd94bece2",
       "bytes": 3142
     },
     "types/browser.d.ts": {
@@ -244,8 +244,8 @@
       "bytes": 293
     },
     "types/engines/visual.d.ts": {
-      "sha256": "48072b878c0308d504cef5f38d69660e2c9de81b4d9beb07dbeac730fb41ecfa",
-      "bytes": 1118
+      "sha256": "0b39510d7601c3572d2dc805620f6832ec373b2552d29b014ee07b19d281a53b",
+      "bytes": 1157
     },
     "types/extensions/code-language.d.ts": {
       "sha256": "9b5520498bdcc6e520f815a92acb48f4fac826943f271582850aa29fd63211b1",

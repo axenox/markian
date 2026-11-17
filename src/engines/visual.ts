@@ -58,6 +58,7 @@ export async function createVisual(
   changed: (markdown: string) => void,
   selectionChanged: () => void,
   executeTableCommand: (command: string) => void,
+  reportError: (error: unknown) => void,
   documentBase?: string,
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
@@ -66,6 +67,7 @@ export async function createVisual(
   let editor: Editor;
   let replacing = false;
   let finalNewline = false;
+  let plainTextPaste = false;
   const pasteSpreadsheet = (view: EditorView, event: ClipboardEvent, slice: Slice): boolean => {
     const text = event.clipboardData?.getData('text/plain') ?? '';
     let depth = view.state.selection.$from.depth;
@@ -273,7 +275,28 @@ export async function createVisual(
         return cells ? Papa.unparse(cells.map(row => row.map(cell => cell.textBetween(0, cell.content.size, '\n', '\n'))), { delimiter: '\t', newline: '\r\n' })
           : slice.content.textBetween(0, slice.content.size, '\n\n');
       },
-      handlePaste: pasteSpreadsheet,
+      transformPastedText(text, plain) {
+        // ProseMirror resolves the literal-paste shortcut before handlePaste.
+        plainTextPaste = plain;
+        return text;
+      },
+      handlePaste(view, event, slice) {
+        const plain = plainTextPaste;
+        plainTextPaste = false;
+        if (readOnly()) return true;
+        if (pasteSpreadsheet(view, event, slice)) return true;
+        const text = event.clipboardData?.getData('text/plain');
+        if (plain || !text || event.clipboardData?.getData('text/html') || view.state.selection.$from.parent.type.spec.code) return false;
+        let document: ProseNode;
+        try { document = parse(text); }
+        catch (error) {
+          reportError(error);
+          return true;
+        }
+        view.dispatch(closeHistory(view.state.tr.replaceSelection(Slice.maxOpen(document.content)))
+          .setMeta('paste', true).setMeta('uiEvent', 'paste').scrollIntoView());
+        return true;
+      },
       handleKeyDown(view, event) {
         if (view.composing || !['Backspace', 'Delete'].includes(event.key) || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
         const { state } = view;

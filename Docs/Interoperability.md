@@ -13,7 +13,8 @@ An application can put several representations of the same content on the clipbo
 | HTML table in Visual view | Import table values into Markdown cells rather than retain the source application's styling. |
 | Spreadsheet values with an accompanying clipboard image | Paste the values without also inserting the image. |
 | Image-only clipboard content | Use normal image insertion. |
-| Text in a code block | Keep it literal rather than create a table. |
+| Plain-text Markdown in Visual view | Parse it as Markdown and insert formatted content at the selection. Existing spreadsheet handling takes precedence. |
+| Text in a code block | Keep it literal, including Markdown syntax, tabs, and line breaks. |
 
 Use Source view to paste literal Markdown rather than import rich-text formatting. Read-only and disabled editors do not accept document-changing pastes.
 
@@ -60,7 +61,9 @@ An image that accompanies a handled spreadsheet paste does not start a separate 
 
 ## Markdown and Rich-Text Editors
 
-Markdown is the exchange format for whole documents. Source view is the appropriate place to paste literal Markdown, including syntax that Visual view cannot represent. Visual import checks Markdown round-trip compatibility and retains source when content cannot be represented safely. See [Markdown and safety](Architecture.md#markdown-and-safety).
+Plain-text Markdown pasted into Visual view becomes formatted document content, not escaped Markdown text. Inline formatting joins the surrounding paragraph; headings, lists, quotes, tables, and fences become document blocks. The paste replaces the current selection and can be undone in one step. Clipboard HTML continues to use rich-text handling rather than parsing its plain-text representation as Markdown. The browser's paste-as-plain-text shortcut keeps ordinary text literal; spreadsheet handling still takes precedence.
+
+Inside a code block, and in Source or a block workspace, pasted Markdown remains literal code or source. Source view is also the appropriate place to paste syntax that Visual view cannot represent. An unsafe or unsupported Markdown paste into Visual view is rejected with a diagnostic and leaves the document unchanged; use Source view to retain that source. Visual import checks Markdown round-trip compatibility. See [Markdown and safety](Architecture.md#markdown-and-safety).
 
 Rich HTML from other editors can only retain formatting supported by Markian's Markdown model. Fonts, page layout, and application-specific document features are not a portable Markdown contract. Clipboard support is not a full document importer for Word, Google Docs, or their native file formats.
 
