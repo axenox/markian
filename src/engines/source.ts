@@ -77,6 +77,20 @@ export class SourceEditor {
     const selected = all ? matches : matches.filter(match => match.from === selection.from && match.to === selection.to);
     this.view.dispatch({ changes: selected.map(match => ({ ...match, insert: replacement })), annotations: isolateHistory.of('full'), userEvent: 'input.replace' });
   }
+  /** Inserts a literal fragment as a separate undo step at the current selection. */
+  replaceSelection(value: string): void {
+    if (this.view.state.readOnly) return;
+    const { from, to } = this.view.state.selection.main;
+    const insert = this.view.state.toText(value);
+    const end = from + insert.length;
+    this.view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: end },
+      effects: EditorView.scrollIntoView(end),
+      annotations: isolateHistory.of('full'),
+      userEvent: 'input.replace',
+    });
+  }
   undo(): void { undo(this.view); }
   redo(): void { redo(this.view); }
   indent(outdent = false): void { if (!this.view.state.readOnly) (outdent ? indentLess : indentMore)(this.view); }

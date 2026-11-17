@@ -244,11 +244,11 @@ Script: `dist/extensions/code.min.js`. CSS: `dist/extensions/code.css`. Factory:
 | `languageBase` | `languages/` beside the loaded Code script | Trusted HTTP(S) base for optional assets. Set explicitly when evaluating scripts inline. Query parameters propagate to language URLs. |
 | `languages` | Selected bundled language list below | Array replacing the default language catalogue, including `[]` for no highlighting. |
 
-The bundled catalogue contains JavaScript (`javascript`, alias `js`), TypeScript (`typescript`, `ts`), JSON (`json`), CSS (`css`), HTML/XML (`html`, `xml`), PHP (`php`), SQL (`sql`), Python (`python`, `py`), and YAML (`yaml`, `yml`). Each loads its own `dist/extensions/languages/<id>.min.js` only when an enabled editor presents that language. The grammar version is Highlight.js 11.12.0; assets use token API 1. Plain-text fences load no language asset. Unknown languages retain source and can be inspected in the expanded workspace.
+The bundled catalogue contains JavaScript (`javascript`, alias `js`), TypeScript (`typescript`, `ts`), JSON (`json`), CSS (`css`), HTML (`html`), XML (`xml`), PHP (`php`), SQL (`sql`), Python (`python`, `py`), and YAML (`yaml`, `yml`). HTML and XML are separate entries using the same installed XML grammar. Each loads its own `dist/extensions/languages/<id>.min.js` only when an enabled editor presents that language. The grammar version is Highlight.js 11.12.0; assets use token API 1. Plain-text fences load no language asset. Unknown languages retain source and can be inspected in the expanded workspace.
 
 Each language entry is `{ id, label, aliases?: string[], source?: string, highlighter?: CodeHighlighter }`. IDs/aliases are unique lowercase fence identifiers; plain-text and Mermaid names are reserved. `source` overrides the base-derived URL. A supplied `highlighter` takes precedence and loads no script. It provides `{ apiVersion: 1, version: string, language: id, highlight(source) }`, returning a token array or promise. Tokens are ordered, nonoverlapping `{ from, to, className }` source offsets with bounded `tok-*` classes, never HTML. Host adapters may use their own version strings; bundled URL assets must match the bundled grammar version.
 
-Highlighting failures are nonfatal and expose Retry highlighting. Compatible URL loads are deduplicated per document and retained after editor disposal; rejected loads can be retried. Syntax presentation does not change source, history, or dirty state. Expanded language changes do change the ordinary fence and participate in local undo/redo and the one-step Back commit. See [Code usage](Extensibility.md#code).
+Highlighting failures are nonfatal and expose Retry highlighting. Compatible URL loads are deduplicated per document and retained after editor disposal; rejected loads can be retried. Syntax presentation does not change source, history, or dirty state. Expanded language changes do change the ordinary fence and participate in local undo/redo and the one-step Back commit. See [Code usage](Extensions/Code.md).
 
 Block controls follow the shared [caret toolbar](Styleguide.md#caret-toolbar) defaults and permission rules.
 
@@ -296,18 +296,16 @@ Both `renderer` and `source` are omitted by default; there is no default runtime
 | `renderer`         | Omitted                | Host `{ render }` adapter; takes precedence over `source`. |
 | `renderer.render`  | Required with renderer | Function returning SVG text or a promise.                                |
 | `source`           | Omitted                | Trusted HTTP(S) Pele `pele.global.js` URL for the isolated runtime loader. Relative URLs use the browser document base. |
-| `maxCharacters`    | `20000`                | Positive integer, at most 20,000 characters per diagram.                 |
-| `maxLines`         | `500`                  | Positive integer, at most 500 lines per diagram.                         |
+| `maxCharacters`    | `20000`                | Positive integer, at most 20,000 characters per diagram; also bounds workspace syntax highlighting. |
+| `maxLines`         | `500`                  | Positive integer, at most 500 lines per diagram; also bounds workspace syntax highlighting. |
 
 With neither renderer nor source, editor activation succeeds but diagrams show a missing-renderer error. A loaded runtime must expose `window.pele.render()`, returning an object containing SVG text. No version is declared or allowlisted. Rendering limits and sanitization still apply with a custom renderer. The former `asset` option is rejected even when `source` is also present; there is no compatibility fallback.
 
 Diagram controls specialize the shared [caret toolbar](Styleguide.md#caret-toolbar).
 
-The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensibility.md#mermaid).
+The renderer receives `{ source: string, id: string, theme: "light" | "dark", signal: AbortSignal }`. It must emit SVG text labels, isolate its configuration, and avoid source-defined callbacks. See [Mermaid usage and safety](Extensions/Mermaid.md).
 
-The source loader supports Pele only, not Mermaid.js. It disables links, images and automatic direction switching, uses unique SVG IDs and bounds source, edges and output. Shared diagram CSS maps Pele colors to the owning instance's light/dark theme. Inline styles and IDs are preserved, including those returned by custom adapters. See the [safety boundary](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety).
-
-Default shapes have gray fills and contrasting borders. Pele sequence, flowchart and state notes use pale-yellow paper and a folded corner, with subdued amber colors in dark mode. Custom shape colors are preserved.
+Workspace behavior, templates, snippets, appearance and rendering limits are described in the [Mermaid guide](Extensions/Mermaid.md).
 
 ## Viewer Options
 
@@ -368,7 +366,7 @@ Default local settings, before adding a required renderer or source:
 | `maxCharacters`    | `20000`                | Positive integer up to 20,000.                                                      |
 | `maxLines`         | `500`                  | Positive integer up to 500.                                                         |
 
-Unlike editor Mermaid activation, creating this adapter without a renderer or source throws. Loading its script alone does not load Mermaid. The same runtime API checks and rejection of the old `asset` option apply as for the editor extension. Viewer loads of the same resolved URL share a retained cache; editor and viewer bundles have separate caches. See [viewer Mermaid usage](Extensibility.md#viewer-mermaid).
+Unlike editor Mermaid activation, creating this adapter without a renderer or source throws. Loading its script alone does not load Mermaid. The same runtime API checks and rejection of the old `asset` option apply as for the editor extension. See [viewer Mermaid usage](Extensions/Mermaid.md#viewer-setup) and [runtime sharing](Extensions/Mermaid.md#public-helpers-and-host-renderers).
 
 ## Per-Operation Options
 

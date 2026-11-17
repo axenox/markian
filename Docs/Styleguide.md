@@ -89,13 +89,13 @@ The `floatingToolbar` option configures prose selection commands; it does not re
 
 ## Views and Permissions
 
-Visual, Source, Preview, and Help share the editor shell. Code and Mermaid add task-specific workspaces. Display names such as Source are distinct from API IDs such as `raw`.
+Visual, Source, Preview, and Help share the editor shell. Extensions can add task-specific workspaces; their behavior and appearance belong in the [extension guides](Extensions/index.md). Display names such as Source are distinct from API IDs such as `raw`.
 
 View navigation is not a document edit. Opening Help preserves the suspended draft, selection, and local history. Back from Help restores the prior task; Back from a block workspace applies that draft once. Copy Markdown always copies the complete projected document, not Help text or just one block.
 
 Read-only/disabled editors retain selection, copying, search without replacement, safe links, outline navigation, Help, fullscreen, and diagram inspection. They block typing, paste/drop, task toggles, insertion, formatting, replacement, uploads, and undo/redo. Preserve pending drafts and history through permission changes. Preview is a nonediting view, not a mandatory mode switch when permissions change.
 
-The standalone viewer has no editor controls or frame. Its root is `[data-markian-viewer].markian-viewer`, with instance-local theme and shared `.markian-document` typography. Tasks are always disabled. Long code and wide tables scroll locally, images fit the host, and links show keyboard focus. Viewer Mermaid adds no editing or pan/zoom toolbar.
+The standalone viewer has no editor controls or frame. Its root is `[data-markian-viewer].markian-viewer`, with instance-local theme and shared `.markian-document` typography. Tasks are always disabled. Long code and wide tables scroll locally, images fit the host, and links show keyboard focus.
 
 In editable Visual view, ordinary link clicks place the caret for editing. Holding Ctrl or Cmd changes the link cursor to a hand pointer; clicking then opens the link without changing the existing selection or selecting its paragraph. Read-only links use a hand pointer and open without a modifier.
 
@@ -143,23 +143,9 @@ Expanded code uses the same bounded shell and Back-first toolbar as other tasks.
 
 Highlighted visual fences retain literal text and use the [caret toolbar](#caret-toolbar) patterns. Opening a dedicated block view uses the shared edit icon. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
 
-Loading messages (e.g. for code and Mermaid diagrams) and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
+Loading messages and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
 
-## Mermaid Workspace
-
-Use separate `dist/extensions/mermaid.css` styling. The Mermaid workspace has equal constrained source and preview columns when space permits; narrower workspaces stack bounded rows. Back is the default apply/return action; do not add redundant Apply/Cancel buttons.
-
-Diagram labels are centered. Contextual controls follow the [caret toolbar](#caret-toolbar) rules. Loading/errors stay outside the pannable surface; failures never replace source. Avoid an extra card wrapper around a normal diagram.
-
-Keep the previous diagram visible during a refresh until the new result or an error is available, so pending work does not collapse the diagram.
-
-Pele renders Mermaid syntax with its own layout. Shared diagram CSS maps Pele's color variables to the owning Markian instance, so light/dark themes remain independent and custom diagram colors remain intact. Fonts and geometry come from Pele rather than Mermaid.js. Inline styles and IDs remain intact; see the safety boundary in the [Mermaid extension guide](Development/Extensions/Mermaid_extension.md#svg-styling-and-safety). Viewer diagrams fit the host with a responsive maximum.
-
-Default shapes use the light-gray code surface and darker muted-text borders, rather than white fills and faint UI separators. Sequence, flowchart and state notes use pale-yellow paper with a folded upper-right corner; dark mode uses subdued amber paper. The Pele source loader adds missing folds without changing note bounds or text positions. Explicit shape colors remain intact.
-
-Pointer/touch dragging pans. A focused preview uses arrows to pan, plus/minus to zoom, and Home to reset; Ctrl/Cmd-wheel also zooms. Labeled controls provide equivalent actions. Read-only inspection retains these presentation controls.
-
-Backspace/Delete at the adjacent visual paragraph boundary removes a rendered diagram as one object rather than merging text into its hidden source. Undo restores it; read-only state blocks removal. Ordinary unrendered fences retain regular code editing.
+Mermaid workspace appearance and interaction are described in the [Mermaid guide](Extensions/Mermaid.md).
 
 ## Stylesheets and Themes
 

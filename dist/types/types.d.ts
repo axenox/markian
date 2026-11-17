@@ -117,6 +117,7 @@ export interface SourceHandle {
     setHighlights(tokens: readonly SourceToken[]): void;
     search(options: SearchOptions): readonly SearchMatch[];
     select(from: number, to?: number): void;
+    replaceSelection(value: string): void;
     replaceSearch(replacement: string, all?: boolean): void;
     undo(): void;
     redo(): void;

@@ -15,6 +15,8 @@ export declare class SourceEditor {
     search(options: SearchOptions): SearchMatch[];
     select(from: number, to?: number): void;
     replaceSearch(replacement: string, all?: boolean): void;
+    /** Inserts a literal fragment as a separate undo step at the current selection. */
+    replaceSelection(value: string): void;
     undo(): void;
     redo(): void;
     indent(outdent?: boolean): void;

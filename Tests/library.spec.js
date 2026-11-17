@@ -212,7 +212,7 @@ async function mermaidFixture(page, kind = 'supplied') {
     } };
     window.diagramEditor = Markian.create(host, {
       markdown: '# Diagrams\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n```mermaid\nflowchart TD\n  C --> D\n```\n',
-      extensions: { mermaid: { enabled: true, config: kind === 'missing' ? {} : { renderer } } },
+      extensions: { mermaid: { enabled: true, config: kind === 'missing' ? {} : kind === 'local' ? { source: '/node_modules/pele/dist/pele.global.js' } : { renderer } } },
     });
     await diagramEditor.ready;
   }, kind);
@@ -719,6 +719,154 @@ test('Mermaid drafts save before Back, suspend for Help, and commit once with lo
   expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
   await page.evaluate(() => diagramEditor.execute('undo'));
   expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+});
+
+test('Mermaid diagram templates replace only the active block and render with local history', async ({ page }) => {
+  const root = await mermaidFixture(page, 'local');
+  const initial = await page.evaluate(() => diagramEditor.get());
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  const workspace = root.locator('.markian-mermaid');
+  for (const [id, label, declaration] of [
+    ['class', 'Class', 'classDiagram'], ['flowchart', 'Flowchart', 'flowchart LR'],
+    ['sequence', 'Sequence', 'sequenceDiagram'], ['state', 'State', 'stateDiagram-v2'],
+    ['usecase', 'Use case', 'flowchart LR'], ['erd', 'ERD', 'erDiagram'], ['git', 'Git graph', 'gitGraph'],
+  ]) {
+    const before = await page.evaluate(() => diagramEditor.get());
+    await (await revealCommand(root, `mermaid:type:${id}`)).click();
+    await expect(workspace.getByRole('heading', { name: `${label} snippets`, exact: true })).toBeVisible();
+    await expect(workspace.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+    await expect(workspace.locator('svg.pele')).toHaveCount(1);
+    await expect(workspace.locator('.cm-content .tok-keyword').first()).toHaveText(declaration.split(' ')[0]);
+    const draft = await page.evaluate(() => diagramEditor.get());
+    expect(draft).toContain(`\`\`\`mermaid\n${declaration}`);
+    expect(draft).toContain('```mermaid\nflowchart TD\n  C --> D\n```');
+    await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+    expect(await page.evaluate(() => diagramEditor.get())).toBe(before);
+    await page.evaluate(() => diagramEditor.execute('mermaid:redo'));
+    expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
+  }
+  const draft = await page.evaluate(() => diagramEditor.get());
+  await page.evaluate(() => diagramEditor.execute('help'));
+  expect(await page.evaluate(() => diagramEditor.execute('mermaid:type:class'))).toBe(false);
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(workspace.getByRole('heading', { name: 'Git graph snippets' })).toBeVisible();
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(draft);
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.evaluate(() => diagramEditor.execute('undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`Mermaid snippet selection, permissions and bounded panes at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const root = await mermaidFixture(page);
+  await page.evaluate(theme => diagramEditor.setTheme(theme), theme);
+  const initial = await page.evaluate(() => diagramEditor.get());
+  const other = await page.evaluate(() => secondary.get());
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  const workspace = root.locator('.markian-mermaid');
+  const sidebar = workspace.getByRole('complementary', { name: 'Diagram snippets' });
+  await expect(sidebar.getByRole('button', { name: 'Insert Rectangle', exact: true }).locator('code')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(sidebar.getByRole('button', { name: 'Insert Rectangle', exact: true }).locator('.tok-string')).toHaveText('[Label]');
+  await expect(workspace.locator('.cm-content .tok-keyword').first()).toHaveText('flowchart');
+  const syntaxColor = await workspace.locator('.cm-content .tok-keyword').first().evaluate(element => getComputedStyle(element).color);
+  const plainColor = await workspace.locator('.cm-content').evaluate(element => getComputedStyle(element).color);
+  expect(syntaxColor).not.toBe(plainColor);
+  await page.evaluate(() => { diagramEditor.search({ query: 'A --> B' }); diagramEditor.selectSearch(0); });
+  await sidebar.getByRole('button', { name: 'Insert Rectangle', exact: true }).click();
+  await expect(workspace.locator('.cm-content')).toBeFocused();
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('flowchart LR\n  A[Label]');
+  expect(await page.evaluate(() => secondary.get())).toBe(other);
+  await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await page.evaluate(() => diagramEditor.execute('mermaid:redo'));
+  const snippetDraft = await page.evaluate(() => diagramEditor.get());
+  await page.evaluate(() => diagramEditor.setReadOnly(true));
+  await expect(sidebar.getByRole('button', { name: 'Insert Rectangle', exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => diagramEditor.execute('mermaid:snippet', 'no change'))).toBe(false);
+  expect(await page.evaluate(() => diagramEditor.execute('mermaid:type:class'))).toBe(false);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(snippetDraft);
+  await page.evaluate(() => { diagramEditor.setReadOnly(false); diagramEditor.setDisabled(true); });
+  await expect(sidebar.getByRole('button', { name: 'Insert Rectangle', exact: true })).toBeDisabled();
+  await page.evaluate(() => diagramEditor.setDisabled(false));
+  await workspace.locator('.cm-content').click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('sequenceDiagram\n  participant User\n  participant System\n');
+  await expect(sidebar.getByRole('heading', { name: 'Sequence snippets' })).toBeVisible();
+  const message = sidebar.getByRole('button', { name: 'Insert Message', exact: true });
+  await message.focus();
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('User->>System: Request');
+  await expect(workspace.locator('.cm-content')).toBeFocused();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('unsupported source');
+  await expect(sidebar.getByRole('heading', { name: 'Mermaid snippets' })).toBeVisible();
+  await expect(sidebar.getByRole('button')).toHaveCount(1);
+  await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+  await expect(sidebar.getByRole('heading', { name: 'Sequence snippets' })).toBeVisible();
+  const geometry = await workspace.evaluate(element => {
+    const sidebar = element.querySelector('.markian-mermaid-snippets');
+    const code = element.querySelector('.markian-mermaid-source');
+    const preview = element.querySelector('.markian-diagram');
+    return {
+      width: element.clientWidth, scrollWidth: element.scrollWidth,
+      sidebar: sidebar.getBoundingClientRect().toJSON(), code: code.getBoundingClientRect().toJSON(),
+      preview: preview.getBoundingClientRect().toJSON(), sidebarOverflow: getComputedStyle(sidebar).overflowY,
+    };
+  });
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
+  expect(geometry.sidebar.right).toBeLessThanOrEqual(geometry.code.left + 1);
+  expect(geometry.code.width).toBeGreaterThan(100);
+  expect(geometry.sidebarOverflow).toBe('auto');
+  if (width === 390) expect(geometry.preview.top).toBeGreaterThanOrEqual(geometry.code.bottom - 1);
+  else expect(geometry.preview.left).toBeGreaterThanOrEqual(geometry.code.right - 1);
+  await workspace.locator('.cm-content').focus();
+  await page.keyboard.press('Control+End');
+  await page.evaluate(() => diagramEditor.execute('mermaid:snippet', '\r\n%% First\r\n%% Second'));
+  await page.keyboard.type(' end');
+  expect(await page.evaluate(() => diagramEditor.get())).toContain('\n%% First\n%% Second end\n```');
+});
+
+test('Mermaid highlighting works without Code or a renderer and preserves literal offsets and history', async ({ page }) => {
+  await page.goto('/Examples/minimal-editor.html');
+  const root = await mermaidFixture(page, 'missing');
+  expect(await page.evaluate(() => typeof MarkianCode)).toBe('undefined');
+  const initial = await page.evaluate(() => diagramEditor.get());
+  await root.getByRole('button', { name: 'Edit diagram', exact: true }).first().click();
+  const workspace = root.locator('.markian-mermaid');
+  const source = workspace.locator('.cm-content');
+  await expect(source.locator('.tok-keyword').first()).toHaveText('flowchart');
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await source.click();
+  await page.keyboard.press('Control+a');
+  const literal = 'flowchart LR\n\n  %% note with accents: é\n  A["<img src=x onerror=alert(1)> & text"] --> B';
+  await page.evaluate(value => diagramEditor.execute('mermaid:snippet', value), literal);
+  await expect(source.locator('.tok-string').filter({ hasText: '<img' })).toContainText('<img src=x onerror=alert(1)> & text');
+  await expect(source.locator('img')).toHaveCount(0);
+  expect((await source.locator('.cm-line').allTextContents()).join('\n')).toBe(literal);
+  expect(await page.evaluate(() => diagramEditor.getActiveSession().get())).toBe(literal);
+  await page.evaluate(() => { diagramEditor.search({ query: 'A[' }); diagramEditor.selectSearch(0); });
+  expect(await page.evaluate(() => getSelection().toString())).toBe('A[');
+  await page.evaluate(() => diagramEditor.setReadOnly(true));
+  const before = await page.evaluate(() => diagramEditor.get());
+  const light = await source.locator('.tok-keyword').first().evaluate(element => getComputedStyle(element).color);
+  await page.evaluate(() => diagramEditor.setTheme('dark'));
+  await expect(source.locator('.tok-keyword').first()).not.toHaveCSS('color', light);
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(before);
+  await page.evaluate(() => { diagramEditor.setReadOnly(false); diagramEditor.execute('mermaid:undo'); });
+  expect(await page.evaluate(() => diagramEditor.get())).toBe(initial);
+  await expect(source.locator('.tok-keyword').first()).toHaveText('flowchart');
+  await source.click();
+  await page.keyboard.press('Control+a');
+  await page.evaluate(() => diagramEditor.execute('mermaid:snippet', 'flowchart LR\n' + 'x'.repeat(20000)));
+  await expect(workspace.locator('.markian-mermaid-highlight-status')).toContainText('Highlighting limit exceeded');
+  await expect(source.locator('[class^="tok-"]')).toHaveCount(0);
+  await page.evaluate(() => diagramEditor.execute('mermaid:undo'));
+  await expect(workspace.locator('.markian-mermaid-highlight-status')).toBeEmpty();
+  await expect(source.locator('.tok-keyword').first()).toHaveText('flowchart');
+  await source.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n%% pending');
+  await page.evaluate(() => diagramEditor.destroy());
 });
 
 test('Mermaid no-op Back, conflicts, deleted targets and permission transitions retain drafts', async ({ page }) => {
@@ -2078,7 +2226,7 @@ test('W14 language metadata has local history, projected saves, Help suspension 
 test('W14 selected offline language packs highlight literal source and deduplicate independent instances', async ({ page }) => {
   const requests = [];
   page.on('request', request => { if (request.url().includes('/extensions/languages/')) requests.push(new URL(request.url()).pathname); });
-  const samples = { javascript: 'const value = "text";', typescript: 'const value: string = "text";', json: '{"value": true}', css: 'body { color: red; }', html: '<div title="safe">text</div>', php: '<?php echo "text";', sql: 'SELECT name FROM items WHERE id = 1;', python: 'def value():\n    return "text"', yaml: 'value: true' };
+  const samples = { javascript: 'const value = "text";', typescript: 'const value: string = "text";', json: '{"value": true}', css: 'body { color: red; }', html: '<div title="safe">text</div>', xml: '<?xml version="1.0"?>\n<app:config xmlns:app="urn:test"><![CDATA[<literal>]]><!-- note --></app:config>', php: '<?php echo "text";', sql: 'SELECT name FROM items WHERE id = 1;', python: 'def value():\n    return "text"', yaml: 'value: true' };
   await page.evaluate(async samples => {
     window.codeEditors = Object.entries(samples).map(([language, value]) => {
       const mount = document.createElement('div');
@@ -2095,21 +2243,48 @@ test('W14 selected offline language packs highlight literal source and deduplica
     await expect(code.locator('[class^="tok-"]').first()).toBeAttached();
     await expect(code).toHaveText(value);
   }
-  expect(requests).toHaveLength(9);
-  expect(new Set(requests).size).toBe(9);
+  expect(requests).toHaveLength(Object.keys(samples).length);
+  expect(new Set(requests).size).toBe(Object.keys(samples).length);
   await page.evaluate(async () => {
     const mount = document.createElement('div'); document.querySelector('main').append(mount);
     window.codeDuplicate = Markian.create(mount, { markdown: '```javascript\nconst second = 2;\n```', theme: 'dark', extensions: { code: { enabled: true } } });
     codeDuplicate.element.classList.add('code-duplicate'); await codeDuplicate.ready;
   });
   await expect(page.locator('.code-duplicate .tok-keyword')).toBeAttached();
-  expect(requests).toHaveLength(9);
+  expect(requests).toHaveLength(Object.keys(samples).length);
   const original = await page.locator('.code-pack-test').first().locator('.tok-keyword').evaluate(element => getComputedStyle(element).color);
   const dark = await page.locator('.code-duplicate .tok-keyword').evaluate(element => getComputedStyle(element).color);
   expect(dark).not.toBe(original);
   await page.evaluate(() => { codeEditors.forEach(instance => { instance.destroy(); instance.destroy(); }); });
   await expect(page.locator('.code-duplicate .tok-keyword')).toBeAttached();
   expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('XML code blocks have a distinct language choice and preserve source through local history', async ({ page }) => {
+  const xml = '<?xml version="1.0"?>\n<app:settings xmlns:app="urn:test" enabled="true"><![CDATA[<raw> & text]]><!-- note --></app:settings>';
+  await page.evaluate(value => editor.set('```xml\n' + value + '\n```'), xml);
+  const root = page.locator('[data-markian]').first();
+  const code = root.locator('.ProseMirror code.language-xml');
+  await expect(code.locator('.tok-tag').first()).toBeAttached();
+  await expect(code).toHaveText(xml);
+  await root.locator('.markian-code-preview').first().hover();
+  await root.getByRole('button', { name: 'Expand code block', exact: true }).first().click();
+  await expect(root.locator('.markian-code .cm-content .tok-tag').first()).toBeAttached();
+  const choice = await revealCommand(root, 'code:language:xml');
+  await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  await expect(choice).toHaveAccessibleName('XML');
+  await root.locator('summary[aria-label="Code language"]').click();
+  const initial = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.execute('code:language:html'));
+  expect(await page.evaluate(() => editor.get())).toContain('```html');
+  await page.evaluate(() => editor.execute('code:language:xml'));
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await page.evaluate(() => editor.execute('code:undo'));
+  expect(await page.evaluate(() => editor.get())).toContain('```html');
+  await page.evaluate(() => editor.execute('code:redo'));
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
+  await page.evaluate(() => editor.back());
+  expect(await page.evaluate(() => editor.get())).toBe(initial);
 });
 
 test('W14 Tab width, indent history, escape and source deletion remain literal', async ({ page }) => {

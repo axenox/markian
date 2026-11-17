@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 /** Shares bundle inputs with license generation without writing assets during npm hooks. */
 export async function buildBundles(write = true) {
   const modules = new Set();
-  const languages = ['javascript', 'typescript', 'json', 'css', 'html', 'php', 'sql', 'python', 'yaml'];
+  const languages = ['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml'];
   for (const [entry, name, fileName, emptyOutDir] of [
     ['src/browser.ts', 'Markian', 'markian.min.js', true],
     ['src/viewer.ts', 'MarkianViewer', 'markian-viewer.min.js', false],
