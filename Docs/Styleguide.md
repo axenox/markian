@@ -70,7 +70,7 @@ An ordinary prose caret does not show the toolbar unless contextual commands are
 
 ### Placement and Interaction
 
-Position text/caret controls outside the selection without covering it. Rendered blocks show their own controls at the top right on hover or focus, with visible touch controls; error states keep diagram controls visible. Do not show a second caret toolbar over a rendered block. Controls never reserve document space or enter saved Markdown.
+Position text/caret controls outside the selection without covering it. Whole-block actions attach to the block's top-right corner instead of following the caret. Rendered blocks show their own controls there on hover or focus, with visible touch controls; error states keep diagram controls visible. Do not show a second caret toolbar over a rendered block. Controls never reserve document space or enter saved Markdown.
 
 Use the shared button dimensions, MDI icons, tooltips and visible keyboard focus. Pointer activation preserves the document selection. Keep the toolbar on one row and allow horizontal scrolling when it does not fit, so every action remains reachable in narrow editors.
 
@@ -136,7 +136,7 @@ Active inline code shows backtick boundaries on the same background as its text.
 
 Expanded code uses the same bounded shell and Back-first toolbar as other tasks. Keep Undo/Redo in History, indentation in Format, and language choices in the shared Code language menu. The source surface owns its scrolling and line-number gutter; a compact diagnostic/retry row stays outside it. Avoid a second editor frame or a programming-language sidebar.
 
-Visual fence presentation and controls are described in the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks). Escape then Tab provides a keyboard exit from indentation handling.
+Visual fence presentation, space-based indentation, and keyboard controls are described in the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks). Direct code editing and both expanded source workspaces use the same Tab/Shift+Tab behavior. Escape then Tab provides a keyboard exit from indentation handling.
 
 Loading messages (e.g. for code and Mermaid diagrams) and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
 

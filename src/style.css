@@ -50,6 +50,12 @@
 .markian-visual .ProseMirror { flex: 1; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
 .markian-visual .ProseMirror-selectednode { outline: 2px solid var(--markian-accent); }
 .markian-inline-code-marker { font-family: var(--markian-mono, Consolas, monospace); font-size: 13px; background: var(--markian-code); color: var(--markian-muted); cursor: text; user-select: none; }
+.markian-fenced-code > .markian-code-fence { display: block; color: var(--markian-muted); font: inherit; }
+.markian-fenced-code > [hidden] { display: none; }
+.markian-code-language { box-sizing: content-box; min-width: 1ch; max-width: 80%; padding: 0; border: 0; border-radius: 0; outline: none; color: inherit; background: transparent; font: inherit; }
+.markian-code-language:focus-visible, .markian-code-fence-closing:focus-visible { outline: 1px solid var(--markian-accent); outline-offset: 1px; }
+.markian-code-fence { cursor: text; user-select: none; }
+.markian-code-rendering { white-space: normal; }
 .markian-visual a { cursor: text; }
 .markian-link-navigation .markian-visual a, .markian[data-readonly='true'] .markian-visual a { cursor: pointer; }
 .markian .cm-editor { color: var(--markian-text); background: var(--markian-surface); }

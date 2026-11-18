@@ -15,6 +15,7 @@ import { colorSyntax, type TextColor } from '../render/colors';
 import { inlineHtmlSyntax, type InlineHtml } from '../render/inline-html';
 import { tableControls } from './table-controls';
 import { inlineCodeBoundaries } from './inline-code';
+import { fencedCodeEditing, fenceDraftMeta } from './fenced-code';
 
 export interface VisualEngine {
   view: EditorView;
@@ -63,6 +64,7 @@ export async function createVisual(
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
   allowedHtml: readonly InlineHtmlTag[] = [],
+  tabWidth = 4,
 ): Promise<VisualEngine> {
   let editor: Editor;
   let replacing = false;
@@ -148,7 +150,8 @@ export async function createVisual(
     });
     return found;
   };
-  const plugins = [history(), tableControls(readOnly, executeTableCommand), inlineCodeBoundaries(readOnly), new Plugin({
+  const fences = fencedCodeEditing(readOnly, tabWidth);
+  const plugins = [history(), tableControls(readOnly, executeTableCommand), inlineCodeBoundaries(readOnly), fences.plugin, new Plugin({
     props: {
       handleTextInput(view, from, to, text) {
         if (readOnly() || view.composing || from !== to || text.includes('\n')) return false;
@@ -183,7 +186,7 @@ export async function createVisual(
     },
   }), inputRules({ rules: [new InputRule(/^ {0,3}(`{3,}|~{3,})([^\s`~]*)\s$/, (state, match, start, end) => {
     if (state.selection.$from.parent.type.name !== 'paragraph') return null;
-    return state.tr.delete(start, end).setBlockType(start, start, state.schema.nodes.code_block, { language: match[2] });
+    return state.tr.delete(start, end).setBlockType(start, start, state.schema.nodes.code_block, { language: match[2] }).setMeta(fenceDraftMeta, start - 1);
   }), new InputRule(/(?<![\w:/~])~~([^~]+)~~$/, (state, match, start, end) => {
     const mark = state.schema.marks.strike_through;
     return state.tr.insertText(match[1], start, end).addMark(start, start + match[1].length, mark.create()).removeStoredMark(mark);
@@ -197,7 +200,7 @@ export async function createVisual(
       && position.parentOffset === position.parent.content.size
       ? position.parent.textContent.match(/^ {0,3}(`{3,}|~{3,})([^\s`~]*)$/) : null;
     if (fence) {
-      dispatch?.(state.tr.delete(position.start(), position.end()).setBlockType(position.start(), position.start(), state.schema.nodes.code_block, { language: fence[2] }).scrollIntoView());
+      dispatch?.(state.tr.delete(position.start(), position.end()).setBlockType(position.start(), position.start(), state.schema.nodes.code_block, { language: fence[2] }).setMeta(fenceDraftMeta, position.before()).scrollIntoView());
       return true;
     }
     const item = state.schema.nodes.list_item;
@@ -280,18 +283,11 @@ export async function createVisual(
         if (!readOnly()) view.dispatch(closeHistory(state.tr.delete(start, start + adjacent.nodeSize)).scrollIntoView());
         return true;
       },
-      nodeViews: { ...options.nodeViews, code_block: (node, _view, getPos) => {
-        const dom = element.ownerDocument.createElement('pre');
-        const content = element.ownerDocument.createElement('code');
-        content.className = `language-${String(node.attrs.language ?? '')}`;
-        dom.append(content);
+      nodeViews: { ...options.nodeViews, code_block: (node, view, getPos) => fences.nodeView(node, view, getPos, (current, target) => {
         const position = getPos();
-        const topLevel = position !== undefined && _view.state.doc.resolve(position).depth === 0;
-        const dispose = renderCode?.(node.textContent, String(node.attrs.language ?? ''), dom, getPos, topLevel);
-        if (dispose) renderedCodeBlocks.add(dom);
-        return dispose ? { dom, destroy: dispose, stopEvent: () => true, ignoreMutation: () => true }
-          : { dom, contentDOM: content };
-      } },
+        const topLevel = position !== undefined && view.state.doc.resolve(position).depth === 0;
+        return renderCode?.(current.textContent, String(current.attrs.language ?? ''), target, getPos, topLevel);
+      }, renderedCodeBlocks) },
       dispatchTransaction(transaction) {
         const view = ctx.get(editorViewCtx);
         const result = view.state.applyTransaction(transaction);

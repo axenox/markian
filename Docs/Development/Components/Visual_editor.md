@@ -53,17 +53,29 @@ Keep document presentation consistent across Visual, Preview, and viewer output.
 
 Submitted backtick/tilde fences behave like ordinary Markdown editing, without invisible inserted characters. Code-block typing stays literal. Converting consecutive selected paragraphs to code creates one block, with blank lines between the original paragraphs; separate list items, table cells, and quote containers remain separate.
 
-Highlighted visual fences retain literal text and use the shared [caret toolbar appearance and placement](../../Styleguide.md#placement-and-interaction). Opening a dedicated block view uses the shared edit icon. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it.
+Typing three or more backticks or tildes, optionally followed by a language, and pressing Enter creates an empty code block with both boundaries visible. Space submission remains supported. The displayed backtick fences grow when necessary to avoid collisions with literal backticks in the body; they are controls, not extra saved text. Saving always uses the ordinary Markdown serializer.
+
+Active editable blocks show an opening fence, a borderless language field beside it, literal code, and a closing fence. The language field inherits the code font and colors, sizes to its text up to 80% of the block width, and accepts up to 80 characters without whitespace, backticks, or tildes. Its changes participate in document undo/redo; Ctrl/Cmd+Z and redo shortcuts work while it is focused. Enter or Down from the language field returns to the start of the code. Up from the first code line opens language editing.
+
+Right at the end of the body moves the caret directly to the start of the following paragraph, ready for ordinary typing. Down from the last code line focuses the closing fence. Enter, Down, or Right from that fence continues after the block; clicking it also continues after the block. A missing following paragraph is inserted as an undoable edit, including at the document end and after an empty code block. Left/Up/Backspace from the focused closing fence returns to the body. Left at the beginning of the body, Left at the beginning of the language field, or clicking the outer half of the opening fence continues before the block, inserting a paragraph if needed.
+
+Backspace at the start of the body and Delete at its end do not merge neighboring prose into code or remove boundary controls. Deleting body text, including the final character, keeps the empty block editable. Text selection inside a block keeps its boundaries visible. Fence controls and language fields are excluded from copied code and document serialization.
+
+Tab in the code body inserts spaces to the next configured tab stop, replacing a single-line selection when present. A multiline selection indents its lines, excluding a final line whose start is the selection endpoint. Shift+Tab removes leading indentation to the previous tab stop. Both preserve selection direction and undo history. This behavior is shared with the Code and Mermaid source workspaces; `tabWidth` defaults to 4. Escape then Tab leaves indentation handling so keyboard users can move focus out. Read-only editors do not indent. Incoming code tabs expand to spaces; existing content is not normalized on import. See [clipboard limits](../../Interoperability.md#clipboard-formats-and-smart-paste).
+
+Highlighted visual fences retain literal text and use the shared [caret toolbar appearance and placement](../../Styleguide.md#placement-and-interaction). Clicking highlighted code switches to native editing; leaving it restores highlighting. Opening a dedicated block view uses the shared edit icon. Plain-text and unknown-language fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it.
+
+With Mermaid enabled, a newly typed fence stays in direct editing until the selection leaves the block. It then renders and uses Edit diagram for later edits, just like an imported diagram. Permission changes may also end direct editing; making a rendered diagram editable again does not expose its source. Without a matching renderer, the fence remains ordinary editable code.
 
 ### Contextual Controls
 
 | Context | Default controls |
 | --- | --- |
 | Ordinary editable code fence in Visual | Copy code, Delete code block. These core actions work for plain-text and unknown-language fences without an extension. |
-| Code extension | Adds Expand code block before the core block actions. Top-level highlighted fences use their own hover/focus toolbar: Expand code block, Retry highlighting, Copy code, Delete code block. |
+| Code extension | By default, adds Expand code block before the core block actions. `showExpandButton: false` omits that command and its buttons. Top-level inactive highlighted fences use their own hover/focus toolbar: Expand code block when enabled, Retry highlighting, Copy code, Delete code block. |
 | Mermaid extension | Replaces the fence presentation with a diagram and its own toolbar: Edit diagram, Zoom in, Zoom out, Reset diagram view, Retry diagram, Copy code, Delete code block. Target-aware block actions are available for top-level diagrams only. |
 
-Inside an editable fence, a caret or partial text selection offers whole-block actions instead of prose formatting; native inline typing stays available.
+Inside an editable fence, a caret or partial text selection offers whole-block actions instead of prose formatting; native inline typing stays available. Anchor this toolbar inside the block's top-right corner, with a 4px inset, rather than beside the caret. Keep it attached while the caret moves or the document scrolls; hide it when that corner is outside the visible editing surface. Constrain its width to the visible block area and retain horizontal scrolling for narrow blocks.
 
 Copy code copies the complete literal block body, including indentation and line breaks, without Markdown fence markers or rendered HTML/SVG. It does not change the document, selection, or undo history. It remains available when read-only or disabled. Clipboard access requires browser permission and a secure context; failures are reported through the editor.
 

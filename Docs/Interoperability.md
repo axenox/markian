@@ -13,9 +13,11 @@ An application can put several representations of the same content on the clipbo
 | HTML table in Visual view | Import table values into Markdown cells rather than retain the source application's styling. |
 | Spreadsheet values with an accompanying clipboard image | Paste the values without also inserting the image. |
 | Image-only clipboard content | Use normal image insertion. |
-| Text in a code block | Keep it literal rather than create a table. |
+| Text in a code block | Keep it as code rather than create a table; incoming tabs expand to space-based tab stops. |
 
 Use Source view to paste literal Markdown rather than import rich-text formatting. Read-only and disabled editors do not accept document-changing pastes.
+
+Visual code bodies and the expanded Code/Mermaid editors expand newly typed or pasted tabs to spaces using their configured `tabWidth` (4 by default), restarting tab stops on each line. This also converts tabs inside pasted string literals; use escapes such as `\t` when a literal tab is semantically required. Importing or opening existing code does not convert its tabs. Indenting or outdenting a line can normalize its leading tabs, but leaves tabs elsewhere in that line intact. Source view preserves pasted Markdown tabs rather than applying this code-only conversion.
 
 Block copying supplies the complete literal body as plain text, preserving indentation and line breaks but omitting fence markers and renderer output. It does not copy a diagram image or syntax-highlighted HTML. For control availability and interaction, see the [caret toolbar](Styleguide.md#caret-toolbar). Clipboard access depends on browser permissions and a secure context; failures are reported rather than silently falling back to another format.
 

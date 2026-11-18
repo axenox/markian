@@ -6,7 +6,7 @@ export declare class SourceEditor {
     private highlights;
     private searchHighlights;
     private query;
-    constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected?: () => void, options?: SourceOptions);
+    constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected?: () => void, options?: SourceOptions, convertTabs?: boolean);
     get(): string;
     getLanguage(): string;
     setLanguage(language: string): void;
@@ -17,6 +17,7 @@ export declare class SourceEditor {
     replaceSearch(replacement: string, all?: boolean): void;
     undo(): void;
     redo(): void;
+    private indentSelection;
     indent(outdent?: boolean): void;
     setReadOnly(value: boolean): void;
     focus(): void;

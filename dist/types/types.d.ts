@@ -212,6 +212,7 @@ export interface EditorOptions {
     readOnly?: boolean;
     disabled?: boolean;
     softbreaks?: boolean;
+    tabWidth?: number;
     label?: string;
     toolbar?: readonly ToolbarEntry[];
     floatingToolbar?: readonly string[];

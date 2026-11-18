@@ -1,9 +1,10 @@
-import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state';
+import { EditorState, EditorSelection, Compartment, StateEffect, StateField, type ChangeSpec } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, drawSelection, Decoration } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, isolateHistory, invertedEffects, undo, redo, indentMore, indentLess, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, isolateHistory, invertedEffects, undo, redo } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
 import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { findMatches } from '../search';
+import { expandTabs, indentationChanges } from './indentation';
 import type { SearchMatch, SearchOptions, SourceOptions, SourceToken } from '../types';
 
 const languageEffect = StateEffect.define<string>();
@@ -19,14 +20,26 @@ export class SourceEditor {
   private searchHighlights = new Compartment();
   private query: SearchOptions = { query: '' };
 
-  constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected: () => void = () => {}, options: SourceOptions = {}) {
-    const tabWidth = options.tabWidth ?? 2;
+  constructor(element: HTMLElement, value: string, readOnly: boolean, changed: (value: string) => void, selected: () => void = () => {}, options: SourceOptions = {}, convertTabs = true) {
+    const tabWidth = options.tabWidth ?? 4;
     if (!Number.isInteger(tabWidth) || tabWidth < 1 || tabWidth > 8) throw new TypeError('Source tabWidth must be an integer from 1 to 8.');
     this.view = new EditorView({
       parent: element,
       state: EditorState.create({ doc: value, extensions: [
-        history(), lineNumbers(), drawSelection(), search(), keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+        history(), lineNumbers(), drawSelection(), search(), keymap.of([{ key: 'Tab', run: () => this.indentSelection(), shift: () => this.indentSelection(true) }, ...defaultKeymap, ...historyKeymap]),
         EditorState.tabSize.of(tabWidth), indentUnit.of(' '.repeat(tabWidth)), languageField.init(() => options.language ?? ''),
+        EditorState.transactionFilter.of(transaction => {
+          if (!convertTabs || !transaction.docChanged || !transaction.isUserEvent('input')) return transaction;
+          const changes: ChangeSpec[] = [];
+          transaction.changes.iterChanges((_from, _to, from, to, inserted) => {
+            const text = inserted.toString();
+            if (!text.includes('\t')) return;
+            const line = transaction.newDoc.lineAt(from);
+            const prefix = transaction.newDoc.sliceString(line.from, from);
+            changes.push({ from, to, insert: expandTabs(text, tabWidth, expandTabs(prefix, tabWidth).length) });
+          });
+          return changes.length ? [transaction, { changes, sequential: true }] : transaction;
+        }),
         invertedEffects.of(transaction => transaction.effects.some(effect => effect.is(languageEffect)) ? [languageEffect.of(transaction.startState.field(languageField))] : []),
         this.highlights.of([]),
         this.searchHighlights.of([]),
@@ -79,7 +92,18 @@ export class SourceEditor {
   }
   undo(): void { undo(this.view); }
   redo(): void { redo(this.view); }
-  indent(outdent = false): void { if (!this.view.state.readOnly) (outdent ? indentLess : indentMore)(this.view); }
+  private indentSelection(outdent = false, linewise = false): boolean {
+    const { state } = this.view;
+    if (state.readOnly) return false;
+    const changes = state.changeByRange(range => {
+      const edits = indentationChanges(state.doc.toString(), range.from, range.to, state.tabSize, outdent, linewise);
+      const mapping = state.changes(edits);
+      return { changes: edits, range: EditorSelection.range(mapping.mapPos(range.anchor, 1), mapping.mapPos(range.head, 1)) };
+    });
+    this.view.dispatch({ ...changes, scrollIntoView: true, userEvent: outdent ? 'delete.dedent' : 'input.indent', annotations: isolateHistory.of('full') });
+    return true;
+  }
+  indent(outdent = false): void { this.indentSelection(outdent, true); }
   setReadOnly(value: boolean): void { this.view.dispatch({ effects: this.permissions.reconfigure(EditorState.readOnly.of(value)) }); }
   focus(): void { this.view.focus(); }
   destroy(): void { this.view.destroy(); }

@@ -95,6 +95,7 @@ export class EditorInstance implements MarkianInstance {
     for (const [name, callback] of Object.entries(options)) if (name.startsWith('on') && callback !== undefined && typeof callback !== 'function') throw new TypeError(`${name} must be a callback function.`);
     for (const name of ['readOnly', 'disabled', 'softbreaks', 'allowTextColors', 'sidebarVisible'] as const) if (options[name] !== undefined && typeof options[name] !== 'boolean') throw new TypeError(`${name} must be a boolean.`);
     if (options.toolbar !== undefined) validateToolbar(options.toolbar);
+    if (options.tabWidth !== undefined && (!Number.isInteger(options.tabWidth) || options.tabWidth < 1 || options.tabWidth > 8)) throw new TypeError('tabWidth must be an integer from 1 to 8.');
     if (options.floatingToolbar !== undefined && (!Array.isArray(options.floatingToolbar) || options.floatingToolbar.some(id => typeof id !== 'string'))) throw new TypeError('floatingToolbar must be an array of command IDs.');
     if (options.textColors && (!Array.isArray(options.textColors) || options.textColors.length < 5 || options.textColors.length > 10 || options.textColors.some(color => typeof color !== 'string' || !/^#[a-f0-9]{6}$/i.test(color)) || new Set(options.textColors.map(color => color.toLowerCase())).size !== options.textColors.length)) throw new TypeError('Text colors require 5-10 unique hexadecimal #rrggbb swatches.');
     if (options.toolbarPlacement && !['top', 'bottom'].includes(options.toolbarPlacement)) throw new TypeError('Unknown toolbar placement.');
@@ -351,7 +352,7 @@ export class EditorInstance implements MarkianInstance {
       }, delete: () => {
         try { this.deleteCodeBlock(position()); } catch (error) { this.report(error); }
       } } : undefined);
-    }, this.options.allowedHtml);
+    }, this.options.allowedHtml, this.options.tabWidth ?? 4);
     if (this.destroyed) { await visual.destroy(); throw new Error('Editor destroyed during initialization.'); }
     this.visual = visual;
     this.cleanups.push(installMentions(this, visual.view, this.options, error => this.report(error), match => this.emit('tag-click', 'user', undefined, { rule: match.rule, value: match.value, destination: match.destination })));
@@ -491,7 +492,7 @@ export class EditorInstance implements MarkianInstance {
     }, () => {
       this.refreshToolbar();
       this.refreshFloating();
-    });
+    }, { tabWidth: this.options.tabWidth ?? 4 }, false);
   }
 
   private dropRaw(): void { this.raw?.destroy(); this.raw = undefined; this.rawBaseline = undefined; }
@@ -511,7 +512,7 @@ export class EditorInstance implements MarkianInstance {
     if (!this.element.contains(element)) throw new Error('Source editors must mount within their owning instance.');
     const source = new SourceEditor(element, value, this.readOnly, next => {
       if (!this.readOnly && !this.destroyed) changed(next);
-    }, () => {}, { ...options, onLanguageChange: language => { if (!this.readOnly && !this.destroyed) options.onLanguageChange?.(language); } });
+    }, () => {}, { ...options, tabWidth: options.tabWidth ?? this.options.tabWidth ?? 4, onLanguageChange: language => { if (!this.readOnly && !this.destroyed) options.onLanguageChange?.(language); } });
     let disposed = false;
     const editable = () => !this.readOnly && !disposed && this.frames.at(-1)?.element.contains(element);
     const handle: SourceHandle = {
@@ -999,6 +1000,7 @@ export class EditorInstance implements MarkianInstance {
 
   private refreshFloating(contextual = false): void {
     this.floating.replaceChildren();
+    this.floating.style.removeProperty('max-width');
     const visual = this.activeView === 'visual' ? this.visual?.view : undefined;
     const raw = this.activeView === 'raw' ? this.raw?.view : undefined;
     const selection = visual?.state.selection ?? raw?.state.selection.main;
@@ -1033,6 +1035,7 @@ export class EditorInstance implements MarkianInstance {
       this.floating.append(...buttons);
     }
     this.floating.hidden = !this.floating.childElementCount;
+    if (this.positionCodeToolbar()) return;
     const position = visual ? visual.coordsAtPos(selection.from) : raw?.coordsAtPos(selection.from);
     const end = visual ? visual.coordsAtPos(selection.to) : raw?.coordsAtPos(selection.to);
     if (position && end) {
@@ -1056,6 +1059,29 @@ export class EditorInstance implements MarkianInstance {
       this.floating.style.left = `${Math.max(8, Math.min(root.width - this.floating.offsetWidth - 8, position.left - root.left))}px`;
       this.floating.style.right = 'auto';
     } else this.floating.hidden = true;
+  }
+
+  private positionCodeToolbar(): boolean {
+    const view = this.activeView === 'visual' ? this.visual?.view : undefined;
+    if (!view || !this.floating.childElementCount || view.state.selection.$from.parent.type.name !== 'code_block') return false;
+    const block = view.nodeDOM(view.state.selection.$from.before());
+    const surface = view.dom.closest<HTMLElement>('.markian-visual');
+    if (!(block instanceof HTMLElement) || !surface) return false;
+    const bounds = block.getBoundingClientRect();
+    const visible = surface.getBoundingClientRect();
+    const root = this.element.getBoundingClientRect();
+    const viewport = this.host.ownerDocument.documentElement;
+    const left = Math.max(bounds.left, visible.left, 0) + 4;
+    const right = Math.min(bounds.right, visible.left + surface.clientWidth, viewport.clientWidth) - 4;
+    const top = bounds.top + 4;
+    this.floating.style.maxWidth = `${Math.max(0, right - left)}px`;
+    this.floating.hidden = right <= left;
+    this.floating.hidden ||= top < Math.max(visible.top, 0)
+      || top + this.floating.offsetHeight > Math.min(visible.bottom, viewport.clientHeight);
+    this.floating.style.top = `${top - root.top - this.element.clientTop}px`;
+    this.floating.style.left = `${right - this.floating.offsetWidth - root.left - this.element.clientLeft}px`;
+    this.floating.style.right = 'auto';
+    return true;
   }
 
   private closeSearch(restoreFocus = true): void {
@@ -1111,6 +1137,7 @@ export class EditorInstance implements MarkianInstance {
 
   private positionPanels(): void {
     if (this.destroyed) return;
+    this.positionCodeToolbar();
     const viewport = this.host.ownerDocument.defaultView!;
     for (const popup of [this.searchElement, this.destination?.element]) {
       if (!popup?.isConnected || !popup.matches(':popover-open')) continue;

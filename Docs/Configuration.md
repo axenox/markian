@@ -20,6 +20,7 @@ This JSON is the default declarative configuration with an empty required docume
   "readOnly": false,
   "disabled": false,
   "softbreaks": false,
+  "tabWidth": 4,
   "label": "Markdown editor",
   "toolbar": [
     { "id": "history", "type": "group", "items": ["undo", "redo"] },
@@ -61,6 +62,7 @@ This JSON is the default declarative configuration with an empty required docume
 | `readOnly`          | `false`                                         | Block user edits while retaining selection, navigation, copying, search, Help, and fullscreen.                                                                                               |
 | `disabled`          | `false`                                         | Also block user edits without making the editor inert or changing native textarea disabled/submission semantics.                                                                             |
 | `softbreaks`        | `false`                                         | Display ordinary soft line breaks as hard breaks in Preview/Help without rewriting source or code fences.                                                                                    |
+| `tabWidth` | `4` | Integer 1-8. Space-based tab stops for Visual code blocks, Source, and Code/Mermaid workspaces. Source handles and the Code extension can override this width locally. Existing tabs remain unchanged until their indentation is edited; incoming code tabs expand to spaces. |
 | `label`             | `"Markdown editor"`                             | Accessible editor-region name.                                                                                                                                                               |
 | `toolbar`           | Layout above                                    | Ordered recursive entries. `[]` removes pinned document controls. Layout controls visibility, not permissions.                                                                               |
 | `floatingToolbar`   | Array above                                     | Text-selection command IDs, including text inside table cells. Table carets and complete row/column selections use separate edge controls; partial multi-cell ranges and whole tables hide those controls.                                                                                                           |
@@ -233,12 +235,13 @@ An omitted/disabled entry contributes nothing. Loading and registration alone do
 Script: `dist/extensions/code.min.js`. CSS: `dist/extensions/code.css`. Factory: `MarkianCode.codeExtension`, normally registered as `code`.
 
 ```json
-{ "enabled": false, "config": { "tabWidth": 2, "maxCharacters": 100000, "maxLines": 5000 } }
+{ "enabled": false, "config": { "showExpandButton": true, "maxCharacters": 100000, "maxLines": 5000 } }
 ```
 
 | Local option | Default | Description |
 | --- | --- | --- |
-| `tabWidth` | `2` | Integer 1-8; both Tab display width and inserted indentation. |
+| `showExpandButton` | `true` | Register the Expand code block command and show its visual block buttons. Set `false` for direct fence editing without those controls; the Code workspace remains available through `openView()`. |
+| `tabWidth` | Editor `tabWidth` (`4` by default) | Optional integer 1-8 override for this extension's workspace; both Tab display width and inserted indentation. |
 | `maxCharacters` | `100000` | Highlighting limit per fence; integer 1-100000. Larger blocks retain editable plain source. |
 | `maxLines` | `5000` | Highlighting limit per fence; integer 1-5000. |
 | `languageBase` | `languages/` beside the loaded Code script | Trusted HTTP(S) base for optional assets. Set explicitly when evaluating scripts inline. Query parameters propagate to language URLs. |
@@ -250,7 +253,7 @@ Each language entry is `{ id, label, aliases?: string[], source?: string, highli
 
 Highlighting failures are nonfatal and expose Retry highlighting. Compatible URL loads are deduplicated per document and retained after editor disposal; rejected loads can be retried. Syntax presentation does not change source, history, or dirty state. Expanded language changes do change the ordinary fence and participate in local undo/redo and the one-step Back commit. See [Code usage](Extensibility.md#code).
 
-Block controls follow the shared [caret toolbar](Styleguide.md#caret-toolbar) defaults and permission rules.
+Direct fence editing and block controls follow the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks).
 
 For example, enable only PHP, JavaScript, HTML, and JSON. Load core and Code JS/CSS first and provide a `#notes` host:
 

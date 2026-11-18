@@ -14,6 +14,7 @@ export interface CodeLanguage {
     highlighter?: CodeHighlighter;
 }
 export interface CodeConfig {
+    showExpandButton?: boolean;
     tabWidth?: number;
     languageBase?: string;
     languages?: readonly CodeLanguage[];
