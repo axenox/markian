@@ -58,22 +58,15 @@ For technical details - see [toolbar component guide](Development/Components/Too
 
 ## Caret Toolbar
 
-The caret toolbar is the compact contextual `.markian-floating` surface near the current caret, selected text, or active block. It shows commands for that context, not another pinned toolbar. This chapter owns its default buttons and interaction rules; other guides should link here rather than repeat button lists.
+The caret toolbar is the compact contextual `.markian-floating` surface near the current caret, selected text, or active block. It shows commands for that context, not another pinned toolbar. This chapter owns its shared appearance and prose controls. Fenced-block controls and editing rules belong in the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks).
 
 ### Context and Default Buttons
 
 | Context | Default controls |
 | --- | --- |
 | Selected prose in Visual or Source | Bold, Italic, Inline code, Strikethrough, Link, Clear formatting. Hosts can replace these through `floatingToolbar`. |
-| Ordinary editable code fence in Visual | Copy code, Delete code block. These core actions work for plain-text and unknown-language fences without an extension. |
-| Code extension | Adds Expand code block before the core block actions. Top-level highlighted fences use their own hover/focus toolbar: Expand code block, Retry highlighting, Copy code, Delete code block. |
-| Mermaid extension | Replaces the fence presentation with a diagram and its own toolbar: Edit diagram, Zoom in, Zoom out, Reset diagram view, Retry diagram, Copy code, Delete code block. Target-aware block actions are available for top-level diagrams only. |
 
-An ordinary prose caret does not show the toolbar unless contextual commands are requested. Inside an editable fence, a caret or partial text selection offers whole-block actions instead of prose formatting; native inline typing stays available. A table caret or cell range uses the separate [table controls](Development/Components/Table_editor.md), while selected text inside a cell retains the prose toolbar.
-
-Copy code copies the complete literal block body, including indentation and line breaks, without Markdown fence markers or rendered HTML/SVG. It does not change the document, selection, or undo history. It remains available when read-only or disabled. Clipboard access requires browser permission and a secure context; failures are reported through the editor.
-
-Delete code block removes the entire fence as one undoable edit and returns focus to the document. Hide mutating block actions when read-only or disabled, while retaining inspection and copying. Keep Copy immediately before Delete when both are present. Block actions are not added to Preview or a dedicated block workspace.
+An ordinary prose caret does not show the toolbar unless contextual commands are requested. A table caret or cell range uses the separate [table controls](Development/Components/Table_editor.md), while selected text inside a cell retains the prose toolbar.
 
 ### Placement and Interaction
 
@@ -135,13 +128,15 @@ Clipboard formats, smart paste, and compatibility with other applications are de
 
 Alert quotes retain ordinary `> [!TYPE]` source markers on their own first line. Presentation hides the marker and shows a type label and colored border: Note blue, Tip green, Important magenta, Warning amber, Caution red, with corresponding dark colors. Quote choices are mutually exclusive toggles; selecting the active type removes the wrapper, while changing type does not nest quotes. See [alert portability](Interoperability.md#alert-quotes) for the saved syntax and receiving-renderer limits.
 
-Backtick inline-code typing and submitted backtick/tilde fences should behave like ordinary Markdown editing, without invisible inserted characters. Enter in a heading starts a regular paragraph. Enter continues lists; Enter on an empty item exits or lifts it. Code-block typing stays literal. Converting consecutive selected paragraphs to code creates one block, with blank lines between the original paragraphs; separate list items, table cells, and quote containers remain separate.
+Backtick inline-code typing should behave like ordinary Markdown editing, without invisible inserted characters. Enter in a heading starts a regular paragraph. Enter continues lists; Enter on an empty item exits or lifts it. For fenced-block typing and conversion rules, see the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks).
+
+Active inline code shows backtick boundaries on the same background as its text. They remain visible when part or all of the code text is selected, alongside the regular caret toolbar. Deleting text from inside either boundary keeps the caret in code while code text remains. Arrow keys cross either boundary to leave or re-enter code, including at the end of a paragraph. Clicking the outer half of a boundary places the caret outside; its inner half keeps it inside. Boundaries disappear outside code and in read-only mode. These markers are presentation only: selecting, copying, saving, or undoing does not add extra backticks. A typed empty pair of backticks stays literal until text is entered between them; an empty code span has no ordinary Markdown representation.
 
 ## Code Workspace
 
 Expanded code uses the same bounded shell and Back-first toolbar as other tasks. Keep Undo/Redo in History, indentation in Format, and language choices in the shared Code language menu. The source surface owns its scrolling and line-number gutter; a compact diagnostic/retry row stays outside it. Avoid a second editor frame or a programming-language sidebar.
 
-Highlighted visual fences retain literal text and use the [caret toolbar](#caret-toolbar) patterns. Opening a dedicated block view uses the shared edit icon. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it. Escape then Tab provides a keyboard exit from indentation handling.
+Visual fence presentation and controls are described in the [visual editor guide](Development/Components/Visual_editor.md#fenced-blocks). Escape then Tab provides a keyboard exit from indentation handling.
 
 Loading messages (e.g. for code and Mermaid diagrams) and other temporary elements of the editor UI must not cause changes to the text structure to avoid flickering while typing. Hide these transient messages while focus is inside their owning editor, including a source workspace. Keep failure diagnostics visible regardless of focus.
 
@@ -159,7 +154,7 @@ Default shapes use the light-gray code surface and darker muted-text borders, ra
 
 Pointer/touch dragging pans. A focused preview uses arrows to pan, plus/minus to zoom, and Home to reset; Ctrl/Cmd-wheel also zooms. Labeled controls provide equivalent actions. Read-only inspection retains these presentation controls.
 
-Backspace/Delete at the adjacent visual paragraph boundary removes a rendered diagram as one object rather than merging text into its hidden source. Undo restores it; read-only state blocks removal. Ordinary unrendered fences retain regular code editing.
+Visual diagram deletion follows the [rendered-block rules](Development/Components/Visual_editor.md#fenced-blocks).
 
 ## Stylesheets and Themes
 

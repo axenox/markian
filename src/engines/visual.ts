@@ -14,6 +14,7 @@ import { findMatches } from '../search';
 import { colorSyntax, type TextColor } from '../render/colors';
 import { inlineHtmlSyntax, type InlineHtml } from '../render/inline-html';
 import { tableControls } from './table-controls';
+import { inlineCodeBoundaries } from './inline-code';
 
 export interface VisualEngine {
   view: EditorView;
@@ -147,7 +148,7 @@ export async function createVisual(
     });
     return found;
   };
-  const plugins = [history(), tableControls(readOnly, executeTableCommand), new Plugin({
+  const plugins = [history(), tableControls(readOnly, executeTableCommand), inlineCodeBoundaries(readOnly), new Plugin({
     props: {
       handleTextInput(view, from, to, text) {
         if (readOnly() || view.composing || from !== to || text.includes('\n')) return false;
@@ -177,17 +178,6 @@ export async function createVisual(
         transaction.setSelection(TextSelection.create(transaction.doc, from - 1 + text.length));
         transaction.setStoredMarks([code.create()]);
         view.dispatch(transaction.scrollIntoView());
-        return true;
-      },
-      handleKeyDown(view, event) {
-        if (view.composing || event.key !== 'ArrowRight' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
-        const { state } = view;
-        if (!state.selection.empty) return false;
-        const position = state.selection.$from;
-        const code = state.schema.marks.inlineCode;
-        if (!(state.storedMarks ?? position.marks()).some(mark => mark.type === code)
-          || position.nodeAfter?.marks.some(mark => mark.type === code)) return false;
-        view.dispatch(state.tr.removeStoredMark(code));
         return true;
       },
     },

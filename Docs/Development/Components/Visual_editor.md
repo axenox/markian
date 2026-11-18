@@ -1,6 +1,6 @@
 # Visual Editor
 
-This guide records layout dimensions, spacing, and responsive thresholds for contributors maintaining the visual editor. Shared controls and document styling also affect other editor views, Preview, and the viewer. For design and interaction principles, see the [style guide](../../Styleguide.md).
+This guide records layout dimensions, spacing, responsive thresholds, and fenced-block rules for contributors maintaining the visual editor. Shared controls and document styling also affect other editor views, Preview, and the viewer. For shared design and interaction principles, see the [style guide](../../Styleguide.md).
 
 These are implementation values, not separate host configuration options. Keep them synchronized with the owning styles, including [base editor CSS](../../../src/style.css). Hosts should use the supported [stylesheet configuration](../../Configuration.md) rather than duplicate structural normalization in a theme.
 
@@ -40,11 +40,36 @@ Base editor CSS removes accidental outer paragraph margins inside lists and tabl
 | Additional paragraphs inside list items or table cells | 4px gap. |
 | Task checkboxes | 16px, aligned to the first text line. Disabled viewer tasks retain the same dimensions and checked colors. |
 | Mention chips | Inline with inherited font/line height, zero vertical and 0.35em horizontal padding, no border, and a 999px pill radius. Background mixes the configured color (or theme accent) at 18% with transparency; text color is inherited. Wrapped fragments clone their decoration without raising line boxes. |
+| Active inline-code boundaries | Selection-local backtick widgets use the shared code background and monospace font at 13px, with muted text. They add no document characters; each marker's inner/outer half selects inside/outside the mark. |
 | Keyboard keys | Inline-block, 1px vertical/5px horizontal padding; monospace at 0.85em and 1.5 line height. 1px border with a 2px lower edge, 3px radius and a 1px lower shadow. Template CSS may override this shared default. |
 | Alert quotes | Shared base styling uses a 3px solid left border, 18px left padding, zero left margin, and a label with a 6px bottom gap. These values also apply with replacement prose stylesheets. |
 | Example initialization references | Full-width track below the primary experience, 24px top margin and a code block bounded to 480px height with internal scrolling. No extra document-wrapper padding. Demo-only styling, not an editor option. |
 
 Keep document presentation consistent across Visual, Preview, and viewer output. Shared structural resets belong in base styling, not look-alike host overrides.
+
+## Fenced Blocks
+
+### Typing and Presentation
+
+Submitted backtick/tilde fences behave like ordinary Markdown editing, without invisible inserted characters. Code-block typing stays literal. Converting consecutive selected paragraphs to code creates one block, with blank lines between the original paragraphs; separate list items, table cells, and quote containers remain separate.
+
+Highlighted visual fences retain literal text and use the shared [caret toolbar appearance and placement](../../Styleguide.md#placement-and-interaction). Opening a dedicated block view uses the shared edit icon. Plain-text fences keep native visual caret editing. Syntax tokens use scoped light/dark colors independent of document value. Source remains available when highlighting fails; diagnostics must never replace it.
+
+### Contextual Controls
+
+| Context | Default controls |
+| --- | --- |
+| Ordinary editable code fence in Visual | Copy code, Delete code block. These core actions work for plain-text and unknown-language fences without an extension. |
+| Code extension | Adds Expand code block before the core block actions. Top-level highlighted fences use their own hover/focus toolbar: Expand code block, Retry highlighting, Copy code, Delete code block. |
+| Mermaid extension | Replaces the fence presentation with a diagram and its own toolbar: Edit diagram, Zoom in, Zoom out, Reset diagram view, Retry diagram, Copy code, Delete code block. Target-aware block actions are available for top-level diagrams only. |
+
+Inside an editable fence, a caret or partial text selection offers whole-block actions instead of prose formatting; native inline typing stays available.
+
+Copy code copies the complete literal block body, including indentation and line breaks, without Markdown fence markers or rendered HTML/SVG. It does not change the document, selection, or undo history. It remains available when read-only or disabled. Clipboard access requires browser permission and a secure context; failures are reported through the editor.
+
+Delete code block removes the entire fence as one undoable edit and returns focus to the document. Hide mutating block actions when read-only or disabled, while retaining inspection and copying. Keep Copy immediately before Delete when both are present. Block actions are not added to Preview or a dedicated block workspace.
+
+Backspace/Delete at the adjacent visual paragraph boundary removes a rendered diagram as one object rather than merging text into its hidden source. Undo restores it; read-only state blocks removal. Ordinary unrendered fences retain regular code editing.
 
 ## Responsive Thresholds
 

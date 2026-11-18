@@ -17,6 +17,7 @@ This guide maps current source responsibilities for contributors. Public concept
 | [styles.ts](../../src/styles.ts) | Stylesheet URL validation, ordered loading, and owned link cleanup. |
 | [search.ts](../../src/search.ts) | Bounded literal Unicode-aware matching independent of engines. |
 | [visual.ts](../../src/engines/visual.ts) | Milkdown construction, schema bridge, import/serialization checks, and ProseMirror integration. |
+| [inline-code.ts](../../src/engines/inline-code.ts) | Selection-local code delimiter decorations and keyboard/pointer boundary navigation, without document or history mutations. |
 | [prose.ts](../../src/engines/prose.ts) | Internal ProseMirror re-exports over the pinned/deduplicated graph. |
 | [source.ts](../../src/engines/source.ts) | CodeMirror buffers, selection, history, search, and permissions. |
 | [markdown.ts](../../src/render/markdown.ts) | GFM parsing, safe rendering, semantic comparison, mismatch diagnostics, URLs, and heading IDs. |

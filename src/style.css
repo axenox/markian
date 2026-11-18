@@ -49,6 +49,7 @@
 .markian-visual > .milkdown { display: flex; flex-direction: column; min-height: 100%; }
 .markian-visual .ProseMirror { flex: 1; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
 .markian-visual .ProseMirror-selectednode { outline: 2px solid var(--markian-accent); }
+.markian-inline-code-marker { font-family: var(--markian-mono, Consolas, monospace); font-size: 13px; background: var(--markian-code); color: var(--markian-muted); cursor: text; user-select: none; }
 .markian-visual a { cursor: text; }
 .markian-link-navigation .markian-visual a, .markian[data-readonly='true'] .markian-visual a { cursor: pointer; }
 .markian .cm-editor { color: var(--markian-text); background: var(--markian-surface); }

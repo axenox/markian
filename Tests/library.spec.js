@@ -3856,15 +3856,192 @@ test('typed backticks create inline code and leave following text unformatted', 
   expect((await page.evaluate(() => editor.get())).trim()).toBe('`code` normal');
 });
 
+test('inline code exposes boundaries with keyboard exits and re-entry at both ends', async ({ page }) => {
+  await page.evaluate(() => editor.set('`code`'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  await document.locator('code').click();
+  await expect(markers).toHaveText(['`', '`']);
+  expect(await page.evaluate(() => editor.get())).toBe('`code`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  for (let index = 0; index < 4; index++) await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.type('X');
+  expect(await page.evaluate(() => editor.get())).toBe('`codeX`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.type('Y');
+  expect(await page.evaluate(() => editor.get())).toBe('`YcodeX`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('Outside ');
+  expect(await page.evaluate(() => editor.get())).toBe('Outside `YcodeX`');
+  await expect(markers).toHaveCount(0);
+});
+
+for (const edge of ['start', 'end']) test(`inline code retains its ${edge} boundary while deleting inside it`, async ({ page }) => {
+  await page.evaluate(() => editor.set('Before `code` after'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  await document.locator('code').click();
+  const marker = document.locator(`.markian-inline-code-marker[data-edge="${edge}"]`);
+  const bounds = await marker.boundingBox();
+  await marker.click({ position: { x: bounds.width * (edge === 'start' ? 0.75 : 0.25), y: bounds.height / 2 } });
+  const key = edge === 'start' ? 'Delete' : 'Backspace';
+  for (const remaining of edge === 'start' ? ['ode', 'de', 'e'] : ['cod', 'co', 'c']) {
+    await page.keyboard.press(key);
+    await expect(document.locator('code')).toHaveText(remaining);
+    await expect(markers).toHaveText(['`', '`']);
+    expect(await page.evaluate(() => editor.get())).toBe(`Before \`${remaining}\` after`);
+  }
+  await page.keyboard.type('X');
+  expect(await page.evaluate(() => editor.get())).toBe(edge === 'start' ? 'Before `Xe` after' : 'Before `cX` after');
+  await page.keyboard.press(edge === 'start' ? 'ArrowLeft' : 'ArrowRight');
+  if (edge === 'start') await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press(key);
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.type(' outside ');
+  expect(await page.evaluate(() => editor.get())).toContain(edge === 'start' ? ' outside `e`' : '`c` outside ');
+});
+
+test('deleting selected code at either boundary keeps subsequent typing inside', async ({ page }) => {
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  for (const edge of ['start', 'end']) {
+    await page.evaluate(() => editor.set('Before `code` after'));
+    await document.locator('code').click();
+    await document.locator('code').evaluate((element, edge) => {
+      const text = element.firstChild;
+      window.getSelection().setBaseAndExtent(text, 2, text, edge === 'start' ? 0 : text.length);
+    }, edge);
+    await expect.poll(() => page.evaluate(() => window.getSelection().toString())).toBe(edge === 'start' ? 'co' : 'de');
+    await page.keyboard.press('Backspace');
+    await expect(markers).toHaveText(['`', '`']);
+    await page.keyboard.type('X');
+    expect(await page.evaluate(() => editor.get())).toBe(edge === 'start' ? 'Before `Xde` after' : 'Before `coX` after');
+  }
+});
+
+test('inline code selections retain backticks and the caret toolbar', async ({ page }) => {
+  const markdown = 'Before `first second` after';
+  await page.evaluate(markdown => editor.set(markdown), markdown);
+  const root = page.locator('[data-markian]').first();
+  const document = root.locator('.ProseMirror');
+  const markers = document.locator('.markian-inline-code-marker');
+  const toolbar = root.getByRole('toolbar', { name: 'Selection commands' });
+  await document.locator('code').dblclick();
+  await expect(toolbar).toBeVisible();
+  await expect(markers).toHaveText(['`', '`']);
+  for (const backward of [false, true]) {
+    await document.locator('code').evaluate((element, backward) => {
+      const text = element.firstChild;
+      window.getSelection().setBaseAndExtent(text, backward ? text.length : 0, text, backward ? 0 : text.length);
+    }, backward);
+    await expect.poll(() => page.evaluate(() => window.getSelection().toString())).toBe('first second');
+    await expect(toolbar).toBeVisible();
+    await expect(markers).toHaveText(['`', '`']);
+  }
+  await toolbar.getByRole('button', { name: 'Inline code', exact: true }).hover();
+  await expect(markers).toHaveCount(2);
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await expect(toolbar).toBeVisible();
+});
+
+test('inline code marker pointer exits preserve Markdown, clipboard, and instance isolation', async ({ page }) => {
+  await page.evaluate(() => editor.set('`code`'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => editor.setTheme(theme), theme);
+    await document.locator('code').click();
+    await expect(markers).toHaveText(['`', '`']);
+    const background = await document.locator('code').evaluate(element => getComputedStyle(element).backgroundColor);
+    await expect(markers.first()).toHaveCSS('background-color', background);
+    const start = markers.first();
+    const startBounds = await start.boundingBox();
+    await start.click({ position: { x: startBounds.width * 0.75, y: startBounds.height / 2 } });
+    await page.keyboard.type('X');
+    expect(await page.evaluate(() => editor.get())).toBe('`Xcode`');
+    await page.evaluate(() => editor.execute('undo'));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    await start.click({ position: { x: 1, y: startBounds.height / 2 } });
+    await expect(markers).toHaveCount(0);
+    await page.keyboard.type('Before ');
+    expect(await page.evaluate(() => editor.get())).toBe('Before `code`');
+    await page.evaluate(() => editor.execute('undo'));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    const end = markers.last();
+    const bounds = await end.boundingBox();
+    await end.click({ position: { x: bounds.width * 0.75, y: bounds.height / 2 } });
+    await expect(markers).toHaveCount(0);
+    expect(await page.evaluate(() => editor.get())).toBe('`code`');
+    await page.keyboard.type(' outside');
+    expect(await page.evaluate(() => editor.get())).toBe('`code` outside');
+    await page.evaluate(() => editor.execute('undo'));
+    expect(await page.evaluate(() => editor.get())).toBe('`code`');
+    await document.locator('code').click();
+    await page.keyboard.press('Home');
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('End');
+    await page.keyboard.up('Shift');
+    const copied = await document.evaluate(element => {
+      const data = new DataTransfer();
+      element.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }));
+      return { text: data.getData('text/plain'), html: data.getData('text/html') };
+    });
+    expect(copied.text).toBe('code');
+    expect(copied.html).not.toContain('markian-inline-code-marker');
+    expect(await document.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    await page.evaluate(() => editor.setReadOnly(true));
+    await expect(markers).toHaveCount(0);
+    await page.evaluate(() => editor.setReadOnly(false));
+    expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+    await expect(page.locator('.demo-secondary .markian-inline-code-marker')).toHaveCount(0);
+  }
+});
+
+test('inline code boundaries activate for single characters and accommodate literal backticks', async ({ page }) => {
+  const document = page.locator('.ProseMirror').first();
+  await page.evaluate(() => editor.set('`x`'));
+  await document.locator('code').click();
+  await expect(document.locator('.markian-inline-code-marker')).toHaveText(['`', '`']);
+  expect(await page.evaluate(() => editor.get())).toBe('`x`');
+  await page.evaluate(() => editor.set('`` a`b ``'));
+  await document.locator('code').click({ position: { x: 18, y: 7 } });
+  await expect(document.locator('.markian-inline-code-marker')).toHaveText(['``', '``']);
+  expect(equivalentMarkdown('`` a`b ``', await page.evaluate(() => editor.get()))).toBe(true);
+  await page.evaluate(() => { editor.setMode('raw'); editor.setMode('visual'); });
+  await expect(document.locator('code')).toHaveText('a`b');
+});
+
 for (const exit of ['ArrowRight', 'backtick']) test(`paired backticks create inline code with ${exit} exit and undo`, async ({ page }) => {
   await page.evaluate(() => editor.set(''));
   await page.locator('.ProseMirror').first().click();
   await page.keyboard.type('``');
+  await expect(page.locator('.ProseMirror p').first()).toHaveText('``');
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.type('code');
   await expect(page.locator('.ProseMirror p code').first()).toHaveText('code');
+  await expect(page.locator('.ProseMirror').first().locator('.markian-inline-code-marker')).toHaveText(['`', '`']);
   if (exit === 'backtick') await page.keyboard.type('`');
   else await page.keyboard.press(exit);
+  await expect(page.locator('.ProseMirror').first().locator('.markian-inline-code-marker')).toHaveCount(0);
   await page.keyboard.type(' normal');
   const value = await page.evaluate(() => editor.get());
   expect(value.trim()).toBe('`code` normal');
