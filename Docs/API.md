@@ -176,6 +176,8 @@ Returned disposers are idempotent and affect only their owned additions or remov
 | `RendererContext` | `open(view: string): void` navigates to a block workspace. `copy(): void` and `delete(): void` perform the corresponding core block operations on the renderer's current target, reporting clipboard, permission or stale-target errors through the editor. |
 | `StructuralNode` | Required `id`, ProseMirror `schema: NodeSpec`, `fromMarkdown(node: RootContent): Attrs \| null`, and `toMarkdown(node: ProseNode): RootContent`. Current bridge supports atomic mappings over existing mdast types. |
 
+Visual renderers receive a disposable presentation element inside a core-owned fence. They may replace that element's children, but must not edit its parent or the native code surface. Ordinary code switches from rendering to direct editing on activation; the renderer is disposed and recreated when needed. Mermaid rendering starts after a newly typed draft is left; rendered diagrams retain workspace-only editing.
+
 `ViewContext` is `{ element: HTMLElement, signal: AbortSignal, session?: BlockSession }`. Extensions own rendering and must treat provider/document content as untrusted. See [writing extensions](Development/Writing_extensions.md) for initialization and cleanup rules.
 
 Configured templates register `template:<id>` commands for Visual/Source and a `templates` menu. Use the same `execute()` and toolbar APIs as other commands. Mention insertion, details and host actions use rule-local configuration callbacks; see [templates and mentions](Configuration.md#templates-and-inline-html) for their exported types and result shapes.
@@ -195,7 +197,7 @@ Configured templates register `template:<id>` commands for Visual/Source and a `
 
 `BlockSession` exposes readonly `target`, `get(): string`, `set(value: string): void`, `getLanguage(): string`, and `setLanguage(language: string): void`. Setting requires the active editable block view. Languages are empty for an unlabelled fence or at most 80 letters/digits/underscore/plus/hash/dot/hyphen characters. Help may suspend that session but cannot mutate it. The editor's `get()` projects the full document with its text and language drafts before commit. Conflicts retain drafts rather than overwriting changed documents.
 
-`SourceOptions` is `{ tabWidth?: number, label?: string, language?: string, onLanguageChange?: (language: string) => void }`. Defaults are width 2, label `Markdown source`, empty language, and no language callback. Tab width is an integer from 1-8. Text uses `changed`; language changes notify `onLanguageChange`, including local undo/redo. Bind both to the owning block session when supporting editable fence metadata.
+`SourceOptions` is `{ tabWidth?: number, label?: string, language?: string, onLanguageChange?: (language: string) => void }`. Defaults are the owning editor's `tabWidth` (4 unless configured), label `Markdown source`, empty language, and no language callback. A local tab width overrides the editor setting and must be an integer from 1-8. Tab inserts spaces to a tab stop or indents selected lines; Shift+Tab outdents. Newly typed or pasted tabs expand to spaces, while initial content is preserved. Text uses `changed`; language changes notify `onLanguageChange`, including local undo/redo. Bind both to the owning block session when supporting editable fence metadata.
 
 ### Source Handles
 

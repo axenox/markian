@@ -6,9 +6,11 @@ The optional Code extension highlights fenced code and provides an expanded sour
 
 Load `dist/extensions/code.min.js` and `dist/extensions/code.css` after core. Register `MarkianCode.codeExtension` as `code` and enable it for each editor. The extension adds Expand code block to the code-caret floating toolbar and highlighted-block controls.
 
+Clicking highlighted code switches to core's direct fence editing, with visible boundaries and a language field beside the opening backticks. `config.showExpandButton: false` omits the expanded editor command and buttons without disabling direct editing. See the [fenced-block guide](../Development/Components/Visual_editor.md#fenced-blocks) for navigation and controls.
+
 The workspace provides line numbers, Undo/Redo, Indent/Outdent and a Code language menu. Back commits text and language changes once; unchanged Back adds no history step. Help suspends the workspace without losing its draft, selection or history.
 
-Tab inserts the configured indentation; Shift+Tab outdents. Escape then Tab leaves source Tab handling. Read-only/disabled state retains inspection and search but blocks text, language and history edits. Complete `get()` values and textarea submission include pending language/source drafts before Back. Current block sessions target top-level fences; nested highlighted fences remain presentation-only.
+Tab inserts the configured indentation; Shift+Tab outdents. Incoming code tabs expand to space-based tab stops; existing imported code is unchanged. See [clipboard behavior](../Interoperability.md#clipboard-formats-and-smart-paste) for limits. Escape then Tab leaves source Tab handling. Read-only/disabled state retains inspection and search but blocks text, language and history edits. Complete `get()` values and textarea submission include pending language/source drafts before Back. Current block sessions target top-level fences; nested ordinary fences can still be edited directly.
 
 ## Languages and XML
 

@@ -3299,7 +3299,7 @@ test('Markdown paste stays literal in code blocks and is blocked by editor permi
     element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, markdown);
   await paste();
-  expect(await prose.locator('pre code').textContent()).toBe('prefix' + markdown);
+  expect(await prose.locator('pre code').textContent()).toBe('prefix# Heading\n\n**bold**\n- item\nliteral tab');
   await expect(prose.locator('h1, strong, li, table')).toHaveCount(0);
   await page.evaluate(() => editor.execute('undo'));
   expect(await page.evaluate(() => editor.get())).toBe('```text\nprefix\n```');
@@ -3552,7 +3552,7 @@ test('spreadsheet quoted line breaks normalize to portable single-row Markdown t
   expect(equivalentMarkdown(markdown, await page.evaluate(() => editor.get()))).toBe(true);
 });
 
-test('spreadsheet pasting creates a table outside cells but leaves code and read-only content unchanged', async ({ page }) => {
+test('spreadsheet pasting creates a table outside cells but keeps code literal and read-only content unchanged', async ({ page }) => {
   const prose = page.locator('.ProseMirror').first();
   const paste = text => prose.evaluate((element, text) => {
     const data = new DataTransfer();
@@ -3572,7 +3572,7 @@ test('spreadsheet pasting creates a table outside cells but leaves code and read
   await prose.locator('pre').click();
   await paste('literal\ttabs');
   await expect(prose.locator('table')).toHaveCount(0);
-  expect(await page.evaluate(() => editor.get())).toContain('literal\ttabs');
+  expect(await page.evaluate(() => editor.get())).toContain('literal tabs');
 });
 
 for (const [key, side] of [['Delete', 'before'], ['Backspace', 'after']]) test(`table ${key} from ${side} removes the whole table and is undoable`, async ({ page }) => {
@@ -4164,15 +4164,192 @@ test('typed backticks create inline code and leave following text unformatted', 
   expect((await page.evaluate(() => editor.get())).trim()).toBe('`code` normal');
 });
 
+test('inline code exposes boundaries with keyboard exits and re-entry at both ends', async ({ page }) => {
+  await page.evaluate(() => editor.set('`code`'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  await document.locator('code').click();
+  await expect(markers).toHaveText(['`', '`']);
+  expect(await page.evaluate(() => editor.get())).toBe('`code`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  for (let index = 0; index < 4; index++) await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.type('X');
+  expect(await page.evaluate(() => editor.get())).toBe('`codeX`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press('ArrowRight');
+  await expect(markers).toHaveCount(2);
+  await page.keyboard.type('Y');
+  expect(await page.evaluate(() => editor.get())).toBe('`YcodeX`');
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.type('Outside ');
+  expect(await page.evaluate(() => editor.get())).toBe('Outside `YcodeX`');
+  await expect(markers).toHaveCount(0);
+});
+
+for (const edge of ['start', 'end']) test(`inline code retains its ${edge} boundary while deleting inside it`, async ({ page }) => {
+  await page.evaluate(() => editor.set('Before `code` after'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  await document.locator('code').click();
+  const marker = document.locator(`.markian-inline-code-marker[data-edge="${edge}"]`);
+  const bounds = await marker.boundingBox();
+  await marker.click({ position: { x: bounds.width * (edge === 'start' ? 0.75 : 0.25), y: bounds.height / 2 } });
+  const key = edge === 'start' ? 'Delete' : 'Backspace';
+  for (const remaining of edge === 'start' ? ['ode', 'de', 'e'] : ['cod', 'co', 'c']) {
+    await page.keyboard.press(key);
+    await expect(document.locator('code')).toHaveText(remaining);
+    await expect(markers).toHaveText(['`', '`']);
+    expect(await page.evaluate(() => editor.get())).toBe(`Before \`${remaining}\` after`);
+  }
+  await page.keyboard.type('X');
+  expect(await page.evaluate(() => editor.get())).toBe(edge === 'start' ? 'Before `Xe` after' : 'Before `cX` after');
+  await page.keyboard.press(edge === 'start' ? 'ArrowLeft' : 'ArrowRight');
+  if (edge === 'start') await page.keyboard.press('ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.press(key);
+  await expect(markers).toHaveCount(0);
+  await page.keyboard.type(' outside ');
+  expect(await page.evaluate(() => editor.get())).toContain(edge === 'start' ? ' outside `e`' : '`c` outside ');
+});
+
+test('deleting selected code at either boundary keeps subsequent typing inside', async ({ page }) => {
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  for (const edge of ['start', 'end']) {
+    await page.evaluate(() => editor.set('Before `code` after'));
+    await document.locator('code').click();
+    await document.locator('code').evaluate((element, edge) => {
+      const text = element.firstChild;
+      window.getSelection().setBaseAndExtent(text, 2, text, edge === 'start' ? 0 : text.length);
+    }, edge);
+    await expect.poll(() => page.evaluate(() => window.getSelection().toString())).toBe(edge === 'start' ? 'co' : 'de');
+    await page.keyboard.press('Backspace');
+    await expect(markers).toHaveText(['`', '`']);
+    await page.keyboard.type('X');
+    expect(await page.evaluate(() => editor.get())).toBe(edge === 'start' ? 'Before `Xde` after' : 'Before `coX` after');
+  }
+});
+
+test('inline code selections retain backticks and the caret toolbar', async ({ page }) => {
+  const markdown = 'Before `first second` after';
+  await page.evaluate(markdown => editor.set(markdown), markdown);
+  const root = page.locator('[data-markian]').first();
+  const document = root.locator('.ProseMirror');
+  const markers = document.locator('.markian-inline-code-marker');
+  const toolbar = root.getByRole('toolbar', { name: 'Selection commands' });
+  await document.locator('code').dblclick();
+  await expect(toolbar).toBeVisible();
+  await expect(markers).toHaveText(['`', '`']);
+  for (const backward of [false, true]) {
+    await document.locator('code').evaluate((element, backward) => {
+      const text = element.firstChild;
+      window.getSelection().setBaseAndExtent(text, backward ? text.length : 0, text, backward ? 0 : text.length);
+    }, backward);
+    await expect.poll(() => page.evaluate(() => window.getSelection().toString())).toBe('first second');
+    await expect(toolbar).toBeVisible();
+    await expect(markers).toHaveText(['`', '`']);
+  }
+  await toolbar.getByRole('button', { name: 'Inline code', exact: true }).hover();
+  await expect(markers).toHaveCount(2);
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(markers).toHaveCount(0);
+  await expect(toolbar).toBeVisible();
+});
+
+test('inline code marker pointer exits preserve Markdown, clipboard, and instance isolation', async ({ page }) => {
+  await page.evaluate(() => editor.set('`code`'));
+  const document = page.locator('.ProseMirror').first();
+  const markers = document.locator('.markian-inline-code-marker');
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => editor.setTheme(theme), theme);
+    await document.locator('code').click();
+    await expect(markers).toHaveText(['`', '`']);
+    const background = await document.locator('code').evaluate(element => getComputedStyle(element).backgroundColor);
+    await expect(markers.first()).toHaveCSS('background-color', background);
+    const start = markers.first();
+    const startBounds = await start.boundingBox();
+    await start.click({ position: { x: startBounds.width * 0.75, y: startBounds.height / 2 } });
+    await page.keyboard.type('X');
+    expect(await page.evaluate(() => editor.get())).toBe('`Xcode`');
+    await page.evaluate(() => editor.execute('undo'));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    await start.click({ position: { x: 1, y: startBounds.height / 2 } });
+    await expect(markers).toHaveCount(0);
+    await page.keyboard.type('Before ');
+    expect(await page.evaluate(() => editor.get())).toBe('Before `code`');
+    await page.evaluate(() => editor.execute('undo'));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    const end = markers.last();
+    const bounds = await end.boundingBox();
+    await end.click({ position: { x: bounds.width * 0.75, y: bounds.height / 2 } });
+    await expect(markers).toHaveCount(0);
+    expect(await page.evaluate(() => editor.get())).toBe('`code`');
+    await page.keyboard.type(' outside');
+    expect(await page.evaluate(() => editor.get())).toBe('`code` outside');
+    await page.evaluate(() => editor.execute('undo'));
+    expect(await page.evaluate(() => editor.get())).toBe('`code`');
+    await document.locator('code').click();
+    await page.keyboard.press('Home');
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('End');
+    await page.keyboard.up('Shift');
+    const copied = await document.evaluate(element => {
+      const data = new DataTransfer();
+      element.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }));
+      return { text: data.getData('text/plain'), html: data.getData('text/html') };
+    });
+    expect(copied.text).toBe('code');
+    expect(copied.html).not.toContain('markian-inline-code-marker');
+    expect(await document.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    await page.evaluate(() => editor.setReadOnly(true));
+    await expect(markers).toHaveCount(0);
+    await page.evaluate(() => editor.setReadOnly(false));
+    expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+    await expect(page.locator('.demo-secondary .markian-inline-code-marker')).toHaveCount(0);
+  }
+});
+
+test('inline code boundaries activate for single characters and accommodate literal backticks', async ({ page }) => {
+  const document = page.locator('.ProseMirror').first();
+  await page.evaluate(() => editor.set('`x`'));
+  await document.locator('code').click();
+  await expect(document.locator('.markian-inline-code-marker')).toHaveText(['`', '`']);
+  expect(await page.evaluate(() => editor.get())).toBe('`x`');
+  await page.evaluate(() => editor.set('`` a`b ``'));
+  await document.locator('code').click({ position: { x: 18, y: 7 } });
+  await expect(document.locator('.markian-inline-code-marker')).toHaveText(['``', '``']);
+  expect(equivalentMarkdown('`` a`b ``', await page.evaluate(() => editor.get()))).toBe(true);
+  await page.evaluate(() => { editor.setMode('raw'); editor.setMode('visual'); });
+  await expect(document.locator('code')).toHaveText('a`b');
+});
+
 for (const exit of ['ArrowRight', 'backtick']) test(`paired backticks create inline code with ${exit} exit and undo`, async ({ page }) => {
   await page.evaluate(() => editor.set(''));
   await page.locator('.ProseMirror').first().click();
   await page.keyboard.type('``');
+  await expect(page.locator('.ProseMirror p').first()).toHaveText('``');
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.type('code');
   await expect(page.locator('.ProseMirror p code').first()).toHaveText('code');
+  await expect(page.locator('.ProseMirror').first().locator('.markian-inline-code-marker')).toHaveText(['`', '`']);
   if (exit === 'backtick') await page.keyboard.type('`');
   else await page.keyboard.press(exit);
+  await expect(page.locator('.ProseMirror').first().locator('.markian-inline-code-marker')).toHaveCount(0);
   await page.keyboard.type(' normal');
   const value = await page.evaluate(() => editor.get());
   expect(value.trim()).toBe('`code` normal');
@@ -4181,6 +4358,325 @@ for (const exit of ['ArrowRight', 'backtick']) test(`paired backticks create inl
   expect(await page.evaluate(() => editor.get())).not.toBe(value);
   await page.evaluate(() => editor.execute('redo'));
   expect(await page.evaluate(() => editor.get())).toBe(value);
+});
+
+test('active code fences expose language editing and a keyboard exit at document end', async ({ page }) => {
+  await page.evaluate(() => editor.set(''));
+  const root = page.locator('[data-markian]').first();
+  const prose = root.locator('.ProseMirror');
+  await prose.click();
+  await page.keyboard.type('```php');
+  await page.keyboard.press('Enter');
+  const block = prose.locator('.markian-fenced-code');
+  await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+  await expect(block.locator('.markian-code-fence-closing')).toHaveText('```');
+  await expect(block.getByRole('textbox', { name: 'Code block language' })).toHaveValue('php');
+  await page.keyboard.type('echo 1;');
+  const language = block.getByRole('textbox', { name: 'Code block language' });
+  await language.fill('custom-language');
+  await page.keyboard.press('Control+z');
+  await expect(language).toHaveValue('php');
+  await page.keyboard.press('Control+Shift+z');
+  await expect(language).toHaveValue('custom-language');
+  await page.keyboard.press('Enter');
+  await expect(prose).toBeFocused();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Backspace');
+  await expect(block.locator(':scope > code')).toHaveText('echo 1');
+  await expect(block.locator('.markian-code-fence-closing')).toBeVisible();
+  await page.keyboard.type(';');
+  await page.keyboard.press('ArrowDown');
+  await expect(block.locator('.markian-code-fence-closing')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Outside');
+  expect(await page.evaluate(() => editor.get())).toBe('```custom-language\necho 1;\n```\n\nOutside');
+  await expect(block.locator('.markian-code-fence-opening')).toBeHidden();
+  await expect(prose.locator('p').last()).toHaveText('Outside');
+});
+
+for (const [name, body, following] of [
+  ['document end', 'value', ''],
+  ['existing prose', 'value', '\n\nFollowing'],
+  ['empty code', '', ''],
+]) test(`Right Arrow leaves code with a prose caret at ${name}`, async ({ page }) => {
+  await page.evaluate(markdown => editor.set(markdown), '```unknown\n' + body + '\n```' + following);
+  const prose = page.locator('.ProseMirror').first();
+  const block = prose.locator('.markian-fenced-code');
+  await prose.focus();
+  await block.locator('.markian-code-language').focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowRight');
+  const paragraph = prose.locator(':scope > p').last();
+  await expect(prose).toBeFocused();
+  await expect(paragraph).toBeVisible();
+  await expect.poll(() => paragraph.evaluate(element => {
+    const selection = getSelection();
+    return selection.isCollapsed && selection.anchorOffset === 0 && element.contains(selection.anchorNode);
+  })).toBe(true);
+  await expect(block.locator('.markian-code-fence-closing')).toBeHidden();
+  expect(await block.locator(':scope > code').textContent()).toBe(body);
+  await page.keyboard.type('Outside');
+  expect(await paragraph.textContent()).toBe('Outside' + (following ? 'Following' : ''));
+  expect(await block.locator(':scope > code').textContent()).toBe(body);
+});
+
+test('code fence pointer boundaries preserve source and permit editing before and after the block', async ({ page }) => {
+  await page.evaluate(() => editor.set('```unknown\nvalue\n```'));
+  const prose = page.locator('.ProseMirror').first();
+  const block = prose.locator('.markian-fenced-code');
+  await block.locator(':scope > code').click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Delete');
+  await expect(block.locator(':scope > code')).toHaveText('alue');
+  await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+  await block.locator('.markian-code-fence-closing').click();
+  await page.keyboard.type('After');
+  await block.locator(':scope > code').click();
+  const ticks = block.locator('.markian-code-fence-opening > span');
+  const bounds = await ticks.boundingBox();
+  await ticks.click({ position: { x: bounds.width * 0.25, y: bounds.height / 2 } });
+  await page.keyboard.type('Before');
+  expect(await page.evaluate(() => editor.get())).toBe('Before\n\n```unknown\nalue\n```\n\nAfter');
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await page.evaluate(() => editor.get())).not.toContain('Before');
+});
+
+test('highlighted code switches to native fence editing and can hide the expanded editor button', async ({ page }) => {
+  await page.evaluate(async () => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: 'Before\n\n```javascript\nconst value = 1;\n```\n\nAfter',
+      extensions: { code: { enabled: true, config: { showExpandButton: false } } },
+    });
+    await editor.ready;
+  });
+  const root = page.locator('[data-markian]').first();
+  const block = root.locator('.ProseMirror .markian-fenced-code');
+  await expect(block.locator('.tok-keyword')).toHaveText('const');
+  await expect(root.getByRole('button', { name: 'Expand code block' })).toHaveCount(0);
+  await block.locator('.markian-code-preview > code').click();
+  await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' // edited');
+  expect(await page.evaluate(() => editor.get())).toContain('const value = 1; // edited');
+  const value = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.setReadOnly(true));
+  await expect(block.locator('.markian-code-fence-opening')).toBeHidden();
+  await expect(block.getByRole('textbox', { name: 'Code block language', includeHidden: true })).toBeDisabled();
+  expect(await page.evaluate(() => editor.get())).toBe(value);
+  await page.evaluate(() => editor.setReadOnly(false));
+});
+
+for (const tabWidth of [undefined, 2]) test(`native code Tab and Shift-Tab use space tab stops (${tabWidth ?? 'default'})`, async ({ page }) => {
+  await page.evaluate(async tabWidth => {
+    editor.destroy();
+    window.editor = Markian.create(document.querySelector('#editor'), { markdown: '```text\nab\n  cd\nlast\tkeep\n```', tabWidth });
+    await editor.ready;
+  }, tabWidth);
+  const width = tabWidth ?? 4;
+  const root = page.locator('[data-markian]').first();
+  const prose = root.locator('.ProseMirror');
+  const code = prose.locator('pre > code');
+  const body = () => code.textContent();
+  await code.click({ position: { x: 8, y: 8 } });
+  await code.evaluate(element => {
+    getSelection().setBaseAndExtent(element.firstChild, 1, element.firstChild, 1);
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  await expect.poll(() => page.evaluate(() => getSelection().anchorOffset)).toBe(1);
+  await page.keyboard.press('Tab');
+  expect(await body()).toBe('a' + ' '.repeat(width - 1) + 'b\n  cd\nlast\tkeep');
+  await expect(prose).toBeFocused();
+  await page.evaluate(() => editor.execute('undo'));
+  expect(await body()).toBe('ab\n  cd\nlast\tkeep');
+  await code.evaluate(element => {
+    getSelection().setBaseAndExtent(element.firstChild, 8, element.firstChild, 0);
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  await expect.poll(() => page.evaluate(() => getSelection().toString())).toBe('ab\n  cd\n');
+  await page.keyboard.press('Tab');
+  expect(await body()).toBe(' '.repeat(width) + 'ab\n    cd\nlast\tkeep');
+  expect(await page.evaluate(() => getSelection().anchorOffset > getSelection().focusOffset)).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  expect(await body()).toBe('ab\n' + ' '.repeat(width === 4 ? 0 : 2) + 'cd\nlast\tkeep');
+  expect(await page.evaluate(() => getSelection().anchorOffset > getSelection().focusOffset)).toBe(true);
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Home');
+  await prose.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '\tX\tY\n\tZ');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(await body()).toContain(' '.repeat(width) + 'X' + ' '.repeat(width - 1) + 'Y\n' + ' '.repeat(width) + 'Z');
+  expect(await body()).toContain('last\tkeep');
+  await page.evaluate(() => editor.setReadOnly(true));
+  const unchanged = await body();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  expect(await body()).toBe(unchanged);
+  await page.evaluate(() => editor.setReadOnly(false));
+  await code.click({ position: { x: 8, y: 8 } });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  await expect(prose).not.toBeFocused();
+});
+
+for (const extension of ['code', 'mermaid']) test(`${extension} workspace shares space indentation and pasted-tab conversion`, async ({ page }) => {
+  if (extension === 'mermaid') {
+    await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+    await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  }
+  await page.evaluate(async extension => {
+    editor.destroy();
+    if (extension === 'mermaid') Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: '```' + (extension === 'mermaid' ? 'mermaid' : 'text') + '\nab\n  cd\nlast\tkeep\n```',
+      tabWidth: 2,
+      extensions: { [extension]: { enabled: true, config: extension === 'mermaid' ? { renderer: { render: () => '<svg xmlns="http://www.w3.org/2000/svg"><text>Diagram</text></svg>' } } : {} } },
+    });
+    await editor.ready;
+    editor.openView(extension, editor.getCodeTarget());
+  }, extension);
+  const source = page.locator('[data-markian]').first().locator('.cm-content');
+  await source.click();
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Tab');
+  await expect(source).toBeFocused();
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('a b\n  cd\nlast\tkeep');
+  await page.evaluate(extension => editor.execute(extension + ':undo'), extension);
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('ab\n  cd\nlast\tkeep');
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('  ab\n    cd\n  last\tkeep');
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('ab\n  cd\nlast\tkeep');
+  await page.keyboard.press('Control+Home');
+  await source.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '\tX\tY\n\tZ');
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('  X Y\n  Zab\n  cd\nlast\tkeep');
+  await page.evaluate(extension => editor.execute(extension + ':undo'), extension);
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('ab\n  cd\nlast\tkeep');
+  await page.evaluate(() => editor.setReadOnly(true));
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => editor.getActiveSession().get())).toBe('ab\n  cd\nlast\tkeep');
+});
+
+for (const [width, theme] of [[960, 'light'], [390, 'dark']]) test(`code block toolbar stays at the block top right (${theme}, ${width})`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(theme => {
+    editor.setTheme(theme);
+    editor.set('```custom\n' + Array.from({ length: 40 }, (_, index) => `Line ${index}`).join('\n') + '\n```\n\nAfter');
+  }, theme);
+  const root = page.locator('[data-markian]').first();
+  const block = root.locator('.ProseMirror pre').first();
+  const toolbar = root.getByRole('toolbar', { name: 'Selection commands' });
+  await block.locator(':scope > code').click({ position: { x: 10, y: 10 } });
+  const expectCorner = async () => {
+    await expect(toolbar).toBeVisible();
+    const bounds = await block.boundingBox();
+    const controls = await toolbar.boundingBox();
+    expect(Math.abs(controls.y - bounds.y - 4)).toBeLessThan(1);
+    expect(Math.abs(controls.x + controls.width - bounds.x - bounds.width + 4)).toBeLessThan(1);
+    expect(controls.x).toBeGreaterThanOrEqual(bounds.x);
+  };
+  await expectCorner();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Shift+End');
+  await expect.poll(() => page.evaluate(() => getSelection().toString())).not.toBe('');
+  await expectCorner();
+  await block.locator('.markian-code-language').focus();
+  await expectCorner();
+  const surface = root.locator('.markian-visual');
+  await surface.evaluate(element => { element.scrollTop = 16; });
+  await expect.poll(() => surface.evaluate(element => element.scrollTop)).toBe(16);
+  await expect.poll(async () => {
+    const bounds = await block.boundingBox();
+    const controls = await toolbar.boundingBox();
+    return Math.abs(controls.y - bounds.y - 4);
+  }).toBeLessThan(1);
+  await surface.evaluate(element => { element.scrollTop = 150; });
+  await expect(toolbar).toBeHidden();
+  await surface.evaluate(element => { element.scrollTop = 0; });
+  await expectCorner();
+  await expect(page.locator('[data-markian]').nth(1).locator('.markian-floating')).toBeHidden();
+  await testInfo.attach('code-block-toolbar', { body: await root.screenshot(), contentType: 'image/png' });
+});
+
+test('active fences keep selection, empty code, clipboard and layout local in light and dark editors', async ({ page }, testInfo) => {
+  const prose = page.locator('.ProseMirror').first();
+  const secondaryValue = await page.evaluate(() => secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => { editor.setTheme(theme); editor.set('`````custom\nfirst\n````\nlast\n`````'); }, theme);
+    const block = prose.locator('.markian-fenced-code');
+    const code = block.locator(':scope > code');
+    await code.click();
+    await expect(block.locator('.markian-code-fence-closing')).toHaveText('`````');
+    await code.evaluate(element => {
+      const text = element.firstChild;
+      window.getSelection().setBaseAndExtent(text, 0, text, text.length);
+    });
+    await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+    const copied = await prose.evaluate(element => {
+      const data = new DataTransfer();
+      element.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }));
+      return { text: data.getData('text/plain'), html: data.getData('text/html') };
+    });
+    expect(copied.text).toBe('first\n````\nlast');
+    expect(copied.html).not.toContain('markian-code-fence');
+    await page.keyboard.press('Backspace');
+    await expect(code).toHaveText('');
+    await expect(block.locator('.markian-code-fence-closing')).toBeVisible();
+    await page.keyboard.type('New code');
+    expect(await page.evaluate(() => editor.get())).toBe('```custom\nNew code\n```');
+    await expect.poll(() => prose.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: testInfo.outputPath(`fence-${theme}-${width}.png`) });
+    expect(await page.evaluate(() => secondary.get())).toBe(secondaryValue);
+    await expect(page.locator('.demo-secondary .markian-code-fence:visible')).toHaveCount(0);
+  }
+});
+
+test('new Mermaid fence stays editable until exit and then requires the diagram editor', async ({ page }) => {
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    editor.destroy();
+    window.draftDiagramRenders = 0;
+    window.editor = Markian.create(document.querySelector('#editor'), {
+      markdown: '',
+      extensions: { mermaid: { enabled: true, config: { renderer: { render: () => {
+        draftDiagramRenders++;
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><text x="10" y="20">Diagram</text></svg>';
+      } } } } },
+    });
+    await editor.ready;
+  });
+  const root = page.locator('[data-markian]').first();
+  const prose = root.locator('.ProseMirror');
+  await prose.click();
+  await page.keyboard.type('```mermaid');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('flowchart LR');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('A --> B');
+  await expect(prose.locator('.markian-diagram')).toHaveCount(0);
+  expect(await page.evaluate(() => draftDiagramRenders)).toBe(0);
+  await prose.locator('.markian-code-fence-closing').click();
+  await page.keyboard.type('After');
+  await expect(prose.locator('.markian-diagram')).toHaveAttribute('data-state', 'ready');
+  await page.evaluate(() => { editor.setReadOnly(true); editor.setReadOnly(false); });
+  await prose.locator('.markian-diagram-viewport').click();
+  await expect(prose.locator('.markian-code-fence-opening')).toBeHidden();
+  await prose.getByRole('button', { name: 'Edit diagram', exact: true }).click();
+  await expect(root).toHaveAttribute('data-view', 'mermaid');
+  expect(await page.evaluate(() => editor.get())).toContain('```mermaid\nflowchart LR\nA --> B\n```');
 });
 
 for (const fence of ['```', '````', '```javascript', '````c++', '~~~', '~~~~c++']) {

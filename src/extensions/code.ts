@@ -18,6 +18,7 @@ export interface CodeLanguage {
   highlighter?: CodeHighlighter;
 }
 export interface CodeConfig {
+  showExpandButton?: boolean;
   tabWidth?: number;
   languageBase?: string;
   languages?: readonly CodeLanguage[];
@@ -86,10 +87,12 @@ export const codeExtension: ExtensionFactory = () => ({
   init(instance, supplied, lifetime) {
     const config = (supplied ?? {}) as CodeConfig;
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('Code config must be an object.');
-    const tabWidth = config.tabWidth ?? 2;
+    const tabWidth = config.tabWidth;
+    const showExpandButton = config.showExpandButton ?? true;
+    if (typeof showExpandButton !== 'boolean') throw new TypeError('Code showExpandButton must be a boolean.');
     const characters = config.maxCharacters ?? 100000;
     const lines = config.maxLines ?? 5000;
-    if (!Number.isInteger(tabWidth) || tabWidth < 1 || tabWidth > 8 || !Number.isInteger(characters) || characters < 1 || characters > 100000 || !Number.isInteger(lines) || lines < 1 || lines > 5000) throw new TypeError('Code limits: tabWidth 1-8, maxCharacters 1-100000, maxLines 1-5000.');
+    if ((tabWidth !== undefined && (!Number.isInteger(tabWidth) || tabWidth < 1 || tabWidth > 8)) || !Number.isInteger(characters) || characters < 1 || characters > 100000 || !Number.isInteger(lines) || lines < 1 || lines > 5000) throw new TypeError('Code limits: tabWidth 1-8, maxCharacters 1-100000, maxLines 1-5000.');
     if (config.languageBase !== undefined && (typeof config.languageBase !== 'string' || !config.languageBase.trim())) throw new TypeError('Code languageBase must be a nonempty URL.');
     if (config.languages !== undefined && !Array.isArray(config.languages)) throw new TypeError('Code languages must be an array.');
     const document = instance.element.ownerDocument;
@@ -172,7 +175,7 @@ export const codeExtension: ExtensionFactory = () => ({
         },
         focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value),
       }));
-      disposers.push(instance.getCommands().insert({
+      if (showExpandButton) disposers.push(instance.getCommands().insert({
         id: 'code:expand', label: 'Expand code block', icon: 'visual', views: ['visual'],
         enabled: () => instance.getCodeTarget() !== null,
         run: () => { const target = instance.getCodeTarget(); if (!target) throw new Error('Place the caret inside a fenced code block.'); instance.openView('code', target); },
@@ -198,7 +201,7 @@ export const codeExtension: ExtensionFactory = () => ({
           status.setAttribute('role', 'status');
           const controls = document.createElement('div');
           controls.className = 'markian-floating markian-code-controls';
-          if (context) controls.append(commandButton(document, 'Expand code block', 'visual', () => context.open('code')));
+          if (context && showExpandButton) controls.append(commandButton(document, 'Expand code block', 'visual', () => context.open('code')));
           controls.append(commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh()));
           if (context) {
             controls.append(commandButton(document, 'Copy code', 'copy', () => context.copy()));

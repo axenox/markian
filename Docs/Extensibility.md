@@ -80,12 +80,6 @@ Extension settings belong in their `config`, not in an asset `source` option. Th
 
 ### Code
 
-Load `dist/extensions/code.min.js` and `dist/extensions/code.css` after core. The `MarkianCode.codeExtension` factory adds expanded editing and highlighted-block presentation using the shared [caret toolbar](Styleguide.md#caret-toolbar) patterns. The workspace reuses core CodeMirror with line numbers, Undo/Redo, Indent/Outdent, and a Code language menu. Back commits text and language changes once; unchanged Back adds no history step. Help suspends the workspace without losing draft, selection, or local history.
-
-Tab inserts the configured indentation; Shift+Tab outdents. Escape then Tab leaves source Tab handling. Read-only/disabled state retains inspection/search but blocks text, language, and history edits. Complete `get()` values and textarea submission include pending language/source drafts before Back. Current block sessions target top-level fences; nested highlighted fences remain presentation-only.
-
-Selected Highlight.js grammars ship as separate offline script assets with no editing engines. Only matching enabled languages load; Code has no Mermaid dependency. Hosts may replace the catalogue or supply token highlighters through [Code configuration](Configuration.md#code). Unknown, failed, or oversized highlighting retains plain source. A highlight failure does not block saving; Retry retries a failed asset. `MarkianCode.loadCodeLanguage(document, language)` returns a checked highlighter and shares successful compatible loads between editors. The [Code blocks example](../Examples/code-blocks.html) demonstrates ordinary script-tag delivery.
-
 See the [Code guide](Extensions/Code.md) for setup, expanded editing, language choices, XML highlighting and public helpers. Options and defaults remain in [Configuration](Configuration.md#code).
 
 ### Mermaid

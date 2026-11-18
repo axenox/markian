@@ -31,6 +31,8 @@ Pele can be supplied separately through `npm-asset/pele` on PHP hosts. Consumers
 
 ## Editing Diagrams
 
+Typing a new `mermaid` fence and pressing Enter starts direct literal editing. Leaving that block renders it; subsequent edits use Edit diagram and the existing workspace. Imported diagrams render immediately. This requires the enabled Mermaid extension; otherwise `mermaid` remains an ordinary editable code fence.
+
 Use Insert diagram to add a simple flowchart, or Edit diagram on an existing rendered block to open the workspace. It has a left snippet sidebar, source editor and live preview. Source and preview use equal constrained columns when space permits; narrow hosts stack them beside the sidebar. Each surface scrolls independently.
 
 The workspace provides local Undo/Redo, indentation, search and Back. Tab inserts indentation; Shift+Tab outdents. Press Escape then Tab to leave source Tab handling. Help suspends the workspace without losing its draft, selection or history.

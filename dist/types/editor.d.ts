@@ -113,6 +113,7 @@ export declare class EditorInstance implements MarkianInstance {
     private layoutToolbar;
     private trimSeparators;
     private refreshFloating;
+    private positionCodeToolbar;
     private closeSearch;
     private openSearch;
     private closeDestination;

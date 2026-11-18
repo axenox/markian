@@ -4,7 +4,7 @@ This guide covers toolbar implementation details. For shared appearance and inte
 
 ## Floating Control Positioning
 
-Floating controls leave an 8px gap outside the complete selection. Prefer placement above it, flip below when necessary, and hide contextual controls if neither position fits in the visible work area without covering selected text.
+Text-selection controls leave an 8px gap outside the complete selection. Prefer placement above it, flip below when necessary, and hide contextual controls if neither position fits in the visible work area without covering selected text. Code-block actions instead follow the block's top-right corner; see [fenced-block controls](Visual_editor.md#contextual-controls).
 
 Selection-toolbar positioning is implemented in [editor.ts](../../../src/editor.ts).
 
