@@ -6,7 +6,7 @@ const draftKey = new PluginKey<number | null>('markian-fence-draft');
 
 export const fenceDraftMeta = 'markian-new-fence';
 
-export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number) {
+export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number, rendered: WeakSet<Node>) {
   let releaseTab = false;
   const surfaces = new Set<() => void>();
   const keyHandlers = new Set<(event: KeyboardEvent) => boolean>();
@@ -31,6 +31,33 @@ export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number) {
         const inCode = selection instanceof TextSelection && selection.$from.sameParent(selection.$to) && selection.$from.parent.type.name === 'code_block';
         const released = releaseTab;
         releaseTab = event.key === 'Escape' && inCode;
+        if (inCode && event.key === 'Enter' && !readOnly() && !view.composing
+          && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          const line = selection.$from.parent.textContent.slice(0, selection.$from.parentOffset).split('\n').at(-1)!;
+          const indentation = expandTabs(line.match(/^[ \t]*/)![0], tabWidth);
+          view.dispatch(closeHistory(state.tr).insertText('\n' + indentation).scrollIntoView());
+          return true;
+        }
+        if (!inCode && selection instanceof TextSelection && selection.empty && !readOnly() && !view.composing
+          && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+          const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+          const head = selection.$head;
+          const horizontal = event.key === 'ArrowRight' || event.key === 'ArrowLeft';
+          const atEdge = horizontal ? head.parentOffset === (forward ? head.parent.content.size : 0)
+            : (forward || backward) && view.endOfTextblock(forward ? 'down' : 'up');
+          if ((forward || backward) && atEdge && head.depth > 0) {
+            const boundary = forward ? head.after() : head.before();
+            const adjacent = forward ? state.doc.resolve(boundary).nodeAfter : state.doc.resolve(boundary).nodeBefore;
+            const position = forward ? boundary : boundary - (adjacent?.nodeSize ?? 0);
+            const dom = view.nodeDOM(position);
+            if (adjacent?.type.name === 'code_block' && dom && !rendered.has(dom)) {
+              const target = forward ? position + 1 : position + adjacent.nodeSize - 1;
+              view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, target)).scrollIntoView());
+              return true;
+            }
+          }
+        }
         if (inCode && event.key === 'Tab' && !released && !readOnly() && !view.composing && !event.ctrlKey && !event.metaKey && !event.altKey) {
           const start = selection.$from.start();
           const changes = indentationChanges(selection.$from.parent.textContent, selection.from - start, selection.to - start, tabWidth, event.shiftKey);
@@ -65,7 +92,6 @@ export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number) {
     view: EditorView,
     getPos: () => number | undefined,
     render: (node: ProseNode, element: HTMLElement) => (() => void) | undefined,
-    rendered: WeakSet<Node>,
   ) => {
     const document = view.dom.ownerDocument;
     const dom = document.createElement('pre');
@@ -194,7 +220,22 @@ export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number) {
       if (event.button !== 0 || readOnly() || String(node.attrs.language).toLowerCase() === 'mermaid'
         || (event.target as Element).closest('button')) return;
       event.preventDefault();
-      selectBody(false);
+      const code = preview.querySelector('code');
+      const caret = document.caretPositionFromPoint?.(event.clientX, event.clientY);
+      const range = caret ? null : document.caretRangeFromPoint?.(event.clientX, event.clientY);
+      const container = caret?.offsetNode ?? range?.startContainer;
+      const offset = caret?.offset ?? range?.startOffset;
+      let textOffset = 0;
+      if (code && container && offset !== undefined && code.contains(container)) {
+        const prefix = document.createRange();
+        prefix.setStart(code, 0);
+        prefix.setEnd(container, offset);
+        textOffset = prefix.toString().length;
+      }
+      const position = getPos();
+      if (position === undefined) return;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position + 1 + Math.min(textOffset, node.content.size))));
+      view.focus();
     });
     const handleKeyDown = (event: KeyboardEvent): boolean => {
       const position = getPos();

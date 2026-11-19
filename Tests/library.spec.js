@@ -4360,6 +4360,120 @@ for (const exit of ['ArrowRight', 'backtick']) test(`paired backticks create inl
   expect(await page.evaluate(() => editor.get())).toBe(value);
 });
 
+for (const contentStyle of ['default', 'host']) test(`code block menu focuses an empty editable line between the fences (${contentStyle} styles)`, async ({ page }, testInfo) => {
+  if (contentStyle === 'host') {
+    await page.route('**/host-fence-content.css', route => route.fulfill({
+      contentType: 'text/css',
+      body: '.markdown-body pre { padding: 16px; line-height: 1.45; } .markdown-body pre code { display: inline; white-space: pre; line-height: inherit; }',
+    }));
+    await page.evaluate(async () => {
+      editor.destroy();
+      window.editor = Markian.create(document.querySelector('#editor'), {
+        markdown: '',
+        markdownCssUrls: ['/host-fence-content.css'],
+        markdownCssClasses: ['markdown-body'],
+        extensions: { code: { enabled: true } },
+      });
+      await editor.ready;
+    });
+  }
+  const secondary = await page.evaluate(() => window.secondary.get());
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => { editor.setTheme(theme); editor.set(''); }, theme);
+    const root = page.locator('[data-markian]').first();
+    const prose = root.locator('.ProseMirror');
+    await prose.click();
+    await (await revealCommand(root, 'codeblock')).click();
+    const block = prose.locator('.markian-fenced-code');
+    const code = block.locator(':scope > code');
+    await expect(prose).toBeFocused();
+    await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+    await expect(code).toHaveCSS('display', 'block');
+    await expect.poll(() => code.evaluate(element => {
+      const selection = getSelection();
+      const range = selection.getRangeAt(0);
+      const body = element.getBoundingClientRect();
+      const opening = element.previousElementSibling.getBoundingClientRect();
+      const closing = element.parentElement.querySelector('.markian-code-fence-closing').getBoundingClientRect();
+      const caret = range.getBoundingClientRect();
+      return selection.isCollapsed && element.contains(selection.anchorNode) && body.height > 0
+        && body.top >= opening.bottom && closing.top >= body.bottom
+        && (caret.height === 0 || (caret.top >= body.top && caret.bottom <= body.bottom));
+    })).toBe(true);
+    await root.screenshot({ path: testInfo.outputPath(`empty-code-${theme}.png`), caret: 'initial' });
+    await page.locator('.demo-secondary .ProseMirror').click();
+    await expect(code).toHaveCSS('display', 'block');
+    expect(await code.evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(20);
+    await code.click({ position: { x: 8, y: 8 } });
+    await expect.poll(() => code.evaluate(element => element.contains(getSelection().anchorNode))).toBe(true);
+    await expect(prose).toBeFocused();
+    await page.keyboard.type('typed');
+    await expect(code).toHaveText('typed');
+    expect(await page.evaluate(() => editor.get())).toBe('```\ntyped\n```');
+    expect(await page.evaluate(() => window.secondary.get())).toBe(secondary);
+  }
+});
+
+for (const [key, backward] of [['ArrowRight', false], ['ArrowDown', false], ['ArrowLeft', true], ['ArrowUp', true]]) {
+  for (const language of ['unknown', 'javascript']) test(`${key} activates adjacent ${language} code at the body boundary`, async ({ page }) => {
+    const markdown = `Before\n\n\`\`\`${language}\nconst first = 1;\nconst last = 2;\n\`\`\`\n\nAfter`;
+    await page.evaluate(markdown => editor.set(markdown), markdown);
+    const root = page.locator('[data-markian]').first();
+    const prose = root.locator('.ProseMirror');
+    const paragraph = prose.locator(':scope > p').nth(backward ? 1 : 0);
+    const block = prose.locator('.markian-fenced-code');
+    if (language === 'javascript') await expect(block.locator('.tok-keyword').first()).toHaveText('const');
+    await paragraph.click();
+    await page.keyboard.press(backward ? 'Home' : 'End');
+    await page.keyboard.press(key);
+    await expect(prose).toBeFocused();
+    await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+    const code = block.locator(':scope > code');
+    await expect.poll(() => code.evaluate((element, backward) => {
+      const selection = getSelection();
+      if (!selection.isCollapsed || !element.contains(selection.anchorNode)) return false;
+      const prefix = document.createRange();
+      prefix.setStart(element, 0);
+      prefix.setEnd(selection.anchorNode, selection.anchorOffset);
+      return prefix.toString().length === (backward ? element.textContent.length : 0);
+    }, backward)).toBe(true);
+    await page.keyboard.type('X');
+    await expect(code).toHaveText(backward ? 'const first = 1;\nconst last = 2;X' : 'Xconst first = 1;\nconst last = 2;');
+    expect(await page.evaluate(() => editor.get())).toContain(backward ? 'const last = 2;X' : 'Xconst first = 1;');
+  });
+}
+
+for (const language of ['unknown', 'javascript']) test(`clicking ${language} code keeps the clicked source offset when fences appear`, async ({ page }) => {
+  const body = 'const first = 1;\nconst second = "text";';
+  const markdown = '```' + language + '\n' + body + '\n```';
+  await page.evaluate(markdown => editor.set(markdown), markdown);
+  const block = page.locator('[data-markian]').first().locator('.ProseMirror .markian-fenced-code');
+  for (const offset of [9, 25]) {
+    const preview = block.locator(language === 'javascript' ? '.markian-code-preview > code' : ':scope > code');
+    if (language === 'javascript') await expect(preview.locator('.tok-keyword').first()).toHaveText('const');
+    const point = await preview.evaluate((element, offset) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let text = walker.nextNode();
+      while (text && offset >= text.textContent.length) {
+        offset -= text.textContent.length;
+        text = walker.nextNode();
+      }
+      const range = document.createRange();
+      range.setStart(text, offset);
+      range.setEnd(text, offset + 1);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width * 0.1, y: rect.top + rect.height / 2 };
+    }, offset);
+    await page.mouse.click(point.x, point.y);
+    await expect(block.locator('.markian-code-fence-opening')).toBeVisible();
+    await page.keyboard.type('X');
+    await expect(block.locator(':scope > code')).toHaveText(body.slice(0, offset) + 'X' + body.slice(offset));
+    await page.evaluate(markdown => editor.set(markdown), markdown);
+    await page.locator('.demo-secondary .ProseMirror').click();
+  }
+});
+
 test('active code fences expose language editing and a keyboard exit at document end', async ({ page }) => {
   await page.evaluate(() => editor.set(''));
   const root = page.locator('[data-markian]').first();
@@ -4466,6 +4580,43 @@ test('highlighted code switches to native fence editing and can hide the expande
   await expect(block.getByRole('textbox', { name: 'Code block language', includeHidden: true })).toBeDisabled();
   expect(await page.evaluate(() => editor.get())).toBe(value);
   await page.evaluate(() => editor.setReadOnly(false));
+});
+
+test('native code Enter copies leading indentation and preserves selection replacement and history', async ({ page }) => {
+  const prose = page.locator('[data-markian]').first().locator('.ProseMirror');
+  for (const [body, from, to, expected] of [
+    ['    first', 9, 9, '    first\n    X'],
+    ['  if (ready) {', 14, 14, '  if (ready) {\n  X'],
+    ['  first\n    second', 18, 18, '  first\n    second\n    X'],
+    ['    ', 4, 4, '    \n    X'],
+    ['    first', 2, 2, '  \n  X  first'],
+    ['  first\n    second', 4, 14, '  fi\n  Xcond'],
+    ['\tfirst', 6, 6, '\tfirst\n    X'],
+    ['first', 5, 5, 'first\nX'],
+  ]) {
+    await page.evaluate(body => editor.set('```unknown\n' + body + '\n```'), body);
+    const code = prose.locator('.markian-fenced-code > code');
+    await code.click();
+    await code.evaluate((element, { from, to }) => {
+      getSelection().setBaseAndExtent(element.firstChild, from, element.firstChild, to);
+      document.dispatchEvent(new Event('selectionchange'));
+    }, { from, to });
+    await expect.poll(() => page.evaluate(() => getSelection().anchorOffset)).toBe(from);
+    await page.keyboard.press('Enter');
+    await expect(prose).toBeFocused();
+    await expect(code).toHaveText(expected.replace('X', ''));
+    await page.evaluate(() => editor.execute('undo'));
+    await expect(code).toHaveText(body);
+    await page.evaluate(() => editor.execute('redo'));
+    await page.keyboard.type('X');
+    await expect(code).toHaveText(expected);
+    expect(await page.evaluate(() => editor.get())).toBe('```unknown\n' + expected + '\n```');
+  }
+  const value = await page.evaluate(() => editor.get());
+  await page.evaluate(() => editor.setReadOnly(true));
+  await prose.focus();
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => editor.get())).toBe(value);
 });
 
 for (const tabWidth of [undefined, 2]) test(`native code Tab and Shift-Tab use space tab stops (${tabWidth ?? 'default'})`, async ({ page }) => {

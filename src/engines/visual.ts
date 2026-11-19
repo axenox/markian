@@ -152,7 +152,7 @@ export async function createVisual(
     });
     return found;
   };
-  const fences = fencedCodeEditing(readOnly, tabWidth);
+  const fences = fencedCodeEditing(readOnly, tabWidth, renderedCodeBlocks);
   const plugins = [history(), tableControls(readOnly, executeTableCommand), inlineCodeBoundaries(readOnly), fences.plugin, new Plugin({
     props: {
       handleTextInput(view, from, to, text) {
@@ -310,7 +310,7 @@ export async function createVisual(
         const position = getPos();
         const topLevel = position !== undefined && view.state.doc.resolve(position).depth === 0;
         return renderCode?.(current.textContent, String(current.attrs.language ?? ''), target, getPos, topLevel);
-      }, renderedCodeBlocks) },
+      }) },
       dispatchTransaction(transaction) {
         const view = ctx.get(editorViewCtx);
         const result = view.state.applyTransaction(transaction);

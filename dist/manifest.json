@@ -208,15 +208,15 @@
       "bytes": 215352
     },
     "markian.css": {
-      "sha256": "ccf2c2f23d01cd17c506d4568af705df4298b2897e4e53861499bbd214ecc894",
-      "bytes": 17204
+      "sha256": "8889dc7f485fde84418a7f6e03c3e084a63c7e08ecf9e5b41bfc834ec8bc88b9",
+      "bytes": 17273
     },
     "markian.min.js": {
-      "sha256": "cb16c0726d0abf8771ddf96e555940c4ea15b0748ee1c9d86029f134188a0640",
-      "bytes": 1012674
+      "sha256": "de0fe6cd004232bf41825b5433e795912932cf4cecd3ab4e8c12b01251299468",
+      "bytes": 1014006
     },
     "sizes.json": {
-      "sha256": "08c031dea2cc8a90024c26a6a494eff359bf98eab1959fc1e57add8ac8683af2",
+      "sha256": "1df287d732b0474f9e1d68cd282fc69d1a802c9354f48232bc0d88dc617eda4e",
       "bytes": 3142
     },
     "types/browser.d.ts": {
@@ -232,7 +232,7 @@
       "bytes": 4327
     },
     "types/engines/fenced-code.d.ts": {
-      "sha256": "5a3484e04aa5a4160a80fc93ceca8fdf1f7e04d596a9ddf1778e42fb63b70bb4",
+      "sha256": "d63dcf3ca9c52a5385292bfe4dc1a8466b8d0bb0ef6002ecc1803c167c8eab01",
       "bytes": 871
     },
     "types/engines/indentation.d.ts": {
