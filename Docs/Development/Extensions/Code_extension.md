@@ -6,6 +6,8 @@ This contributor guide describes the Code extension's highlighting boundary. Set
 
 [code.ts](../../../src/extensions/code.ts) owns the language catalogue, optional asset loading, renderer registrations and expanded workspace. It uses public source handles and block sessions rather than another editing engine.
 
+UI text uses `instance.translate` with `CODE.*`, shared `TOOLBAR.*`, and `HELP.CODE` keys from the core dictionaries. No translation loader or dictionary is bundled in the extension. Language catalogue labels and source remain literal; host/highlighter errors keep their supplied diagnostic text.
+
 [code-language.ts](../../../src/extensions/code-language.ts) wraps an isolated Highlight.js instance and converts highlighted output into ordered source-offset tokens. Language scripts contain the selected grammar and token extraction only. [build.mjs](../../../Scripts/build.mjs) maps both HTML and XML assets to the installed XML grammar while keeping their public language IDs separate. Keep the catalogue, build inputs, artifact manifest and package checks synchronized when adding languages.
 
 ## Presentation and Lifecycle

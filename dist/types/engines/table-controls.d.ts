@@ -3,4 +3,4 @@
  * See Docs/Development/Components/Table_editor.md for interaction rules.
  */
 import { Plugin } from './prose';
-export declare function tableControls(readOnly: () => boolean, execute: (command: string) => void): Plugin;
+export declare function tableControls(readOnly: () => boolean, execute: (command: string) => void, translate: (key: string) => string): Plugin;

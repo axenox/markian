@@ -17,6 +17,7 @@ function field(document: Document, parent: HTMLElement, label: string, type = 't
 }
 
 export function searchPanel(instance: MarkianInstance, close: () => void, initial = { query: '', caseSensitive: false, wholeWord: false }): HTMLElement {
+  const t = (key: string) => instance.translate(key);
   const document = instance.element.ownerDocument;
   const panel = document.createElement('div');
   panel.className = 'markian-panel markian-search';
@@ -25,10 +26,10 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
   const replaceRow = document.createElement('div');
   findRow.className = replaceRow.className = 'markian-search-row';
   panel.append(findRow, replaceRow);
-  const query = field(document, findRow, 'Find');
-  const replacement = field(document, replaceRow, 'Replace');
-  const sensitive = field(document, panel, 'Match case', 'checkbox');
-  const whole = field(document, panel, 'Whole word', 'checkbox');
+  const query = field(document, findRow, t('SEARCH.FIND'));
+  const replacement = field(document, replaceRow, t('SEARCH.REPLACE'));
+  const sensitive = field(document, panel, t('SEARCH.CASE'), 'checkbox');
+  const whole = field(document, panel, t('SEARCH.WORD'), 'checkbox');
   query.value = initial.query;
   sensitive.checked = initial.caseSensitive;
   whole.checked = initial.wholeWord;
@@ -42,9 +43,9 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
     count.textContent = `${matches.length ? index + 1 : 0} / ${matches.length}`;
   };
   for (const input of [query, sensitive, whole]) input.addEventListener('input', () => { index = 0; find(); });
-  const replace = commandButton(document, 'Replace match', 'replace', () => { instance.replaceSearch(replacement.value); find(); });
-  const replaceAll = commandButton(document, 'Replace all', 'replaceAll', () => { instance.replaceSearch(replacement.value, true); find(); });
-  findRow.append(commandButton(document, 'Next match', 'down', () => find(1)), commandButton(document, 'Previous match', 'up', () => find(-1)));
+  const replace = commandButton(document, t('SEARCH.REPLACE_MATCH'), 'replace', () => { instance.replaceSearch(replacement.value); find(); });
+  const replaceAll = commandButton(document, t('SEARCH.REPLACE_ALL'), 'replaceAll', () => { instance.replaceSearch(replacement.value, true); find(); });
+  findRow.append(commandButton(document, t('SEARCH.NEXT'), 'down', () => find(1)), commandButton(document, t('SEARCH.PREVIOUS'), 'up', () => find(-1)));
   replaceRow.append(replace, replaceAll);
   const permissions = () => {
     const supported = !instance.readOnly && !['help', 'preview'].includes(instance.activeView);
@@ -55,7 +56,7 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
   observer.observe(instance.element, { attributes: true, attributeFilter: ['data-readonly', 'data-view'] });
   const actions = document.createElement('div');
   actions.className = 'markian-panel-actions';
-  actions.append(count, commandButton(document, 'Close search', 'close', close));
+  actions.append(count, commandButton(document, t('SEARCH.CLOSE'), 'close', close));
   panel.append(actions);
   panel.addEventListener('pointerdown', () => {
     if (!panel.contains(document.activeElement)) query.focus({ preventScroll: true });
@@ -77,18 +78,19 @@ export function searchPanel(instance: MarkianInstance, close: () => void, initia
 }
 
 export function destinationPanel(instance: MarkianInstance, options: EditorOptions, image: boolean, visual: EditorView, raw: SourceEditor | undefined, close: () => void): { element: HTMLElement; dispose: Disposer } {
+  const t = (key: string) => instance.translate(key);
   const document = instance.element.ownerDocument;
   const panel = document.createElement('form');
   panel.className = 'markian-panel markian-destination';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', image ? 'Image' : 'Link');
-  const destination = field(document, panel, image ? 'Image URL' : 'Link destination');
-  const file = image ? field(document, panel, 'Upload new image', 'file') : undefined;
-  const label = field(document, panel, image ? 'Tooltip (alternative text)' : 'Link text');
+  panel.setAttribute('aria-label', t(image ? 'DIALOG.IMAGE' : 'DIALOG.LINK'));
+  const destination = field(document, panel, t(image ? 'DIALOG.IMAGE_URL' : 'DIALOG.DESTINATION'));
+  const file = image ? field(document, panel, t('DIALOG.UPLOAD'), 'file') : undefined;
+  const label = field(document, panel, t(image ? 'DIALOG.ALT' : 'DIALOG.LINK_TEXT'));
   const headingLabel = document.createElement('label');
-  headingLabel.textContent = 'Target heading';
+  headingLabel.textContent = t('DIALOG.HEADING');
   const heading = document.createElement('select');
-  heading.setAttribute('aria-label', 'Target heading');
+  heading.setAttribute('aria-label', t('DIALOG.HEADING'));
   headingLabel.append(heading);
   headingLabel.hidden = image;
   panel.append(headingLabel);
@@ -133,10 +135,10 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
     const request = new AbortController();
     pending = request;
     suggestions.replaceChildren();
-    heading.replaceChildren(new Option('None', ''));
+    heading.replaceChildren(new Option(t('DIALOG.NONE'), ''));
     const provider = image ? options.onImageSuggest : options.onLinkSuggest;
     if (!provider && (image || !options.onLinkInspect)) return;
-    status.textContent = 'Searching documents...';
+    status.textContent = t('DIALOG.SEARCHING');
     try {
       const results = provider ? await provider(context(request.signal)) : [];
       if (request.signal.aborted || !current()) return;
@@ -150,7 +152,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
         button.addEventListener('click', () => { destination.value = result.destination; void inspect(request); });
         suggestions.append(button);
       }
-      status.textContent = provider ? (results.length ? `${results.length} suggestions` : 'No suggestions') : '';
+      status.textContent = provider ? (results.length ? instance.translate('DIALOG.SUGGESTIONS', { count: results.length }) : t('DIALOG.NO_SUGGESTIONS')) : '';
       await inspect(request);
     } catch (error) { if (!request.signal.aborted && current()) showError(error); }
   };
@@ -160,28 +162,28 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
       const result = await options.onLinkInspect({ ...context(request.signal), destination: destination.value });
       if (request.signal.aborted || !current()) return;
       if (!result || !['exists', 'missing', 'unknown'].includes(result.status) || (result.headings && (!Array.isArray(result.headings) || result.headings.length > 500))) throw new TypeError('Invalid link inspection result.');
-      heading.replaceChildren(new Option('None', ''));
+      heading.replaceChildren(new Option(t('DIALOG.NONE'), ''));
       for (const item of result.headings ?? []) {
         if (typeof item.id !== 'string' || typeof item.label !== 'string') throw new TypeError('Invalid target heading.');
         heading.append(new Option(item.label, item.id));
       }
-      status.textContent = result.status === 'missing' ? 'No exact match' : result.status;
+      status.textContent = t(result.status === 'missing' ? 'DIALOG.NO_MATCH' : `DIALOG.${result.status.toUpperCase()}`);
     } catch (error) { if (!request.signal.aborted && current()) showError(error); }
   };
   destination.addEventListener('input', () => { pending?.abort(); clearTimeout(timer); timer = setTimeout(() => { void lookup(); }, 180); });
   const apply = document.createElement('button');
   apply.type = 'submit';
-  apply.textContent = image ? 'Insert image' : 'Apply link';
+  apply.textContent = t(image ? 'TOOLBAR.IMAGE' : 'DIALOG.APPLY_LINK');
   const actions = document.createElement('div');
   actions.className = 'markian-panel-actions';
-  actions.append(apply, commandButton(document, 'Close', 'close', close));
+  actions.append(apply, commandButton(document, t('DIALOG.CLOSE'), 'close', close));
   panel.addEventListener('submit', event => {
     event.preventDefault();
     try {
-      if (!current()) throw new Error('Document or permissions changed; reopen this dialog.');
+      if (!current()) throw new Error(t('DIALOG.PERMISSIONS_CHANGED'));
       let url = destination.value;
       if (heading.value) url = url.split('#')[0] + '#' + encodeURIComponent(heading.value);
-      if (!url || !safeUrl(url, image)) throw new Error('Choose a safe destination.');
+      if (!url || !safeUrl(url, image)) throw new Error(t('DIALOG.UNSAFE'));
       if (raw) {
         const text = label.value.replace(/[\\\[\]]/g, '\\$&');
         const escaped = url.replace(/[<>\s]/g, character => encodeURIComponent(character));
@@ -211,7 +213,7 @@ export function destinationPanel(instance: MarkianInstance, options: EditorOptio
       if (next < 0 || next >= controls.length) { event.preventDefault(); controls[(next + controls.length) % controls.length]?.focus(); }
     }
   });
-  const unsubscribe = instance.on('change', () => { pending?.abort(); apply.disabled = true; status.textContent = 'Document changed; reopen this dialog.'; });
+  const unsubscribe = instance.on('change', () => { pending?.abort(); apply.disabled = true; status.textContent = t('DIALOG.CHANGED'); });
   const permissions = new MutationObserver(() => { if (!current()) { pending?.abort(); apply.disabled = true; } });
   permissions.observe(instance.element, { attributes: true, attributeFilter: ['data-readonly', 'data-view'] });
   queueMicrotask(() => destination.focus());

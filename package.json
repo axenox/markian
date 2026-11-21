@@ -16,6 +16,7 @@
   "files": [
     "dist",
     "Examples",
+    "Translations",
     "includes.json",
     "README.md",
     "LICENSE"

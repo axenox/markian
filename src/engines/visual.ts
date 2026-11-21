@@ -61,6 +61,7 @@ export async function createVisual(
   selectionChanged: () => void,
   executeTableCommand: (command: string) => void,
   reportError: (error: unknown) => void,
+  translate: (key: string) => string,
   documentBase?: string,
   allowTextColors = false,
   renderCode?: (code: string, language: string, element: HTMLElement, position: () => number | undefined, topLevel: boolean) => (() => void) | undefined,
@@ -152,8 +153,8 @@ export async function createVisual(
     });
     return found;
   };
-  const fences = fencedCodeEditing(readOnly, tabWidth, renderedCodeBlocks);
-  const plugins = [history(), tableControls(readOnly, executeTableCommand), inlineCodeBoundaries(readOnly), fences.plugin, new Plugin({
+  const fences = fencedCodeEditing(readOnly, tabWidth, renderedCodeBlocks, translate);
+  const plugins = [history(), tableControls(readOnly, executeTableCommand, translate), inlineCodeBoundaries(readOnly), fences.plugin, new Plugin({
     props: {
       handleTextInput(view, from, to, text) {
         if (readOnly() || view.composing || from !== to || text.includes('\n')) return false;
@@ -261,7 +262,7 @@ export async function createVisual(
     ctx.update(prosePluginsCtx, current => [...current, ...plugins]);
     ctx.update(editorViewOptionsCtx, options => ({
       ...options,
-      attributes: { class: 'markian-document', 'aria-label': 'Markdown document', role: 'textbox', 'aria-multiline': 'true' },
+      attributes: { class: 'markian-document', 'aria-label': translate('EDITOR.DOCUMENT'), role: 'textbox', 'aria-multiline': 'true' },
       editable: () => !readOnly(),
       clipboardTextSerializer(slice) {
         const cells = clipboardCells(slice);
@@ -405,7 +406,7 @@ export async function createVisual(
     ...previous(ctx),
     toDOM: node => node.attrs.checked === null ? previous(ctx).toDOM!(node) : ['li', {
       'data-item-type': 'task', 'data-checked': String(node.attrs.checked), 'data-label': node.attrs.label, 'data-list-type': node.attrs.listType, 'data-spread': String(node.attrs.spread),
-    }, ['input', { type: 'checkbox', checked: node.attrs.checked ? 'checked' : null, disabled: readOnly() ? 'disabled' : null, contenteditable: 'false', 'aria-label': 'Toggle task' }], ['div', 0]],
+    }, ['input', { type: 'checkbox', checked: node.attrs.checked ? 'checked' : null, disabled: readOnly() ? 'disabled' : null, contenteditable: 'false', 'aria-label': translate('EDITOR.TOGGLE_TASK') }], ['div', 0]],
   }))).use(imageSchema.extendSchema(previous => ctx => ({
     ...previous(ctx),
     toDOM: node => ['img', { ...node.attrs, src: documentBase && safeUrl(String(node.attrs.src), true) ? new URL(String(node.attrs.src), new URL(documentBase, element.ownerDocument.baseURI)).href : node.attrs.src }],

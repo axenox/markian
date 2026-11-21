@@ -85,6 +85,7 @@ function validTokens(value: readonly SourceToken[], length: number): readonly So
 /** Optional syntax presentation uses the same public sessions and source engine as hosts. */
 export const codeExtension: ExtensionFactory = () => ({
   init(instance, supplied, lifetime) {
+    const t = (key: string) => instance.translate(key);
     const config = (supplied ?? {}) as CodeConfig;
     if (!config || typeof config !== 'object' || Array.isArray(config)) throw new TypeError('Code config must be an object.');
     const tabWidth = config.tabWidth;
@@ -126,10 +127,10 @@ export const codeExtension: ExtensionFactory = () => ({
         status.dataset.state = '';
         const text = value();
         const selected = find(language());
-        if (!selected) { status.textContent = language() && !['text', 'plain', 'plaintext'].includes(language()) ? 'Highlighting unavailable for this language.' : ''; return; }
-        if (text.length > characters || text.split('\n').length > lines) { status.textContent = 'Highlighting limit exceeded; source remains editable.'; return; }
+        if (!selected) { status.textContent = language() && !['text', 'plain', 'plaintext'].includes(language()) ? t('CODE.UNAVAILABLE') : ''; return; }
+        if (text.length > characters || text.split('\n').length > lines) { status.textContent = t('CODE.LIMIT'); return; }
         status.dataset.state = 'loading';
-        status.textContent = 'Loading highlighting...';
+        status.textContent = t('CODE.LOADING');
         timer = setTimeout(async () => {
           try {
             const highlighter = await loadCodeLanguage(document, selected);
@@ -160,12 +161,12 @@ export const codeExtension: ExtensionFactory = () => ({
           const status = document.createElement('div');
           status.className = 'markian-code-status';
           status.setAttribute('role', 'status');
-          const retry = commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh());
+          const retry = commandButton(document, t('CODE.RETRY'), 'retry', () => rendering.refresh());
           const message = document.createElement('span');
           status.append(message, retry);
           element.append(editor, status);
           source = instance.createSourceEditor(editor, session.get(), value => { session.set(value); rendering.refresh(); }, {
-            tabWidth, label: 'Code source. Press Escape then Tab to move focus out.', language: session.getLanguage(),
+            tabWidth, label: t('CODE.SOURCE'), language: session.getLanguage(),
             onLanguageChange: value => { session.setLanguage(value); rendering.refresh(); },
           });
           const activeSource = source;
@@ -176,21 +177,21 @@ export const codeExtension: ExtensionFactory = () => ({
         focus: () => source?.focus(), resize: () => source?.resize(), setReadOnly: value => source?.setReadOnly(value),
       }));
       if (showExpandButton) disposers.push(instance.getCommands().insert({
-        id: 'code:expand', label: 'Expand code block', icon: 'visual', views: ['visual'],
+        id: 'code:expand', label: t('CODE.EXPAND'), icon: 'visual', views: ['visual'],
         enabled: () => instance.getCodeTarget() !== null,
         run: () => { const target = instance.getCodeTarget(); if (!target) throw new Error('Place the caret inside a fenced code block.'); instance.openView('code', target); },
       }));
       for (const id of ['undo', 'redo', 'indent', 'outdent'] as const) {
-        disposers.push(instance.getCommands().insert({ id: `code:${id}`, label: { undo: 'Undo', redo: 'Redo', indent: 'Indent', outdent: 'Outdent' }[id], icon: id, mutates: true, views: ['code'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
+        disposers.push(instance.getCommands().insert({ id: `code:${id}`, label: t(`${id === 'undo' || id === 'redo' ? 'TOOLBAR' : 'CODE'}.${id.toUpperCase()}`), icon: id, mutates: true, views: ['code'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
         disposers.push(instance.getToolbar().insert({ id: `code:${id}`, command: `code:${id}` }, id === 'undo' || id === 'redo' ? 'history' : 'format', id));
       }
-      const choices = [{ id: '', label: 'Plain text' }, ...languages];
+      const choices = [{ id: '', label: t('CODE.PLAIN') }, ...languages];
       for (const language of choices) disposers.push(instance.getCommands().insert({
         id: `code:language:${language.id || 'plain'}`, label: language.label, icon: 'code', views: ['code'], mutates: true,
         active: () => language.id === '' ? !source?.getLanguage() : find(source?.getLanguage() ?? '')?.id === language.id,
         run: () => source?.setLanguage(language.id),
       }));
-      disposers.push(instance.getToolbar().insert({ id: 'code:language', label: 'Code language', icon: 'code', type: 'menu', items: choices.map(language => `code:language:${language.id || 'plain'}`) }, 'format'));
+      disposers.push(instance.getToolbar().insert({ id: 'code:language', label: t('CODE.LANGUAGE'), icon: 'code', type: 'menu', items: choices.map(language => `code:language:${language.id || 'plain'}`) }, 'format'));
       for (const language of [...languages.flatMap(item => [item.id, ...(item.aliases ?? [])]), 'text', 'plain', 'plaintext']) disposers.push(instance.getRenderers().insert({
         id: `code:${language}`, language, visual: !['text', 'plain', 'plaintext'].includes(language),
         render(value, element, context) {
@@ -201,11 +202,11 @@ export const codeExtension: ExtensionFactory = () => ({
           status.setAttribute('role', 'status');
           const controls = document.createElement('div');
           controls.className = 'markian-floating markian-code-controls';
-          if (context && showExpandButton) controls.append(commandButton(document, 'Expand code block', 'visual', () => context.open('code')));
-          controls.append(commandButton(document, 'Retry highlighting', 'retry', () => rendering.refresh()));
+          if (context && showExpandButton) controls.append(commandButton(document, t('CODE.EXPAND'), 'visual', () => context.open('code')));
+          controls.append(commandButton(document, t('CODE.RETRY'), 'retry', () => rendering.refresh()));
           if (context) {
-            controls.append(commandButton(document, 'Copy code', 'copy', () => context.copy()));
-            const remove = commandButton(document, 'Delete code block', 'delete', () => context.delete());
+            controls.append(commandButton(document, t('CODE.COPY'), 'copy', () => context.copy()));
+            const remove = commandButton(document, t('CODE.DELETE'), 'delete', () => context.delete());
             remove.dataset.markianBlockDelete = '';
             controls.append(remove);
           }
@@ -216,7 +217,7 @@ export const codeExtension: ExtensionFactory = () => ({
           return () => { rendering.dispose(); element.classList.remove('markian-code-preview'); };
         },
       }));
-      disposers.push(instance.getHelp().insert({ id: 'code', markdown: '\n## Code blocks\n\nExpand a fenced block to edit its complete literal source. Back applies text and language changes as one document undo step. Undo/Redo and indentation affect the local draft; saved Markdown includes the draft before Back. The Code language menu chooses highlighting without translating source. Tab indents using the configured width; Shift+Tab outdents. Press Escape then Tab to leave Tab handling. Unknown, failed, or oversized highlighting retains plain editable source. Retry highlighting retries failed assets.\n' }));
+      disposers.push(instance.getHelp().insert({ id: 'code', markdown: t('HELP.CODE') }));
     } catch (error) { disposers.reverse().forEach(dispose => dispose()); throw error; }
     return () => disposers.reverse().forEach(dispose => dispose());
   },

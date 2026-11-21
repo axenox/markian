@@ -6,7 +6,7 @@ const draftKey = new PluginKey<number | null>('markian-fence-draft');
 
 export const fenceDraftMeta = 'markian-new-fence';
 
-export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number, rendered: WeakSet<Node>) {
+export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number, rendered: WeakSet<Node>, translate: (key: string) => string) {
   let releaseTab = false;
   const surfaces = new Set<() => void>();
   const keyHandlers = new Set<(event: KeyboardEvent) => boolean>();
@@ -103,7 +103,7 @@ export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number, ren
     const ticks = document.createElement('span');
     const language = document.createElement('input');
     language.className = 'markian-code-language';
-    language.setAttribute('aria-label', 'Code block language');
+    language.setAttribute('aria-label', translate('CODE.LANGUAGE_FIELD'));
     language.setAttribute('autocomplete', 'off');
     language.setAttribute('spellcheck', 'false');
     language.maxLength = 80;
@@ -117,7 +117,7 @@ export function fencedCodeEditing(readOnly: () => boolean, tabWidth: number, ren
     closing.contentEditable = 'false';
     closing.tabIndex = 0;
     closing.setAttribute('role', 'button');
-    closing.setAttribute('aria-label', 'Closing code fence. Press Enter to continue after the block.');
+    closing.setAttribute('aria-label', translate('CODE.CLOSING_FENCE'));
     dom.append(opening, content, preview, closing);
     let node = initial;
     let dispose: (() => void) | undefined;

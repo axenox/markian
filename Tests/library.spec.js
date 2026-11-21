@@ -29,6 +29,149 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(async () => { await Promise.all([window.editor.ready, window.secondary.ready]); });
 });
 
+test('translations localize controls and dialogs with ordered overrides and instance isolation', async ({ page }) => {
+  await page.route('**/app-translations.json', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ 'TOOLBAR.BOLD': 'App bold', 'EXAMPLE.ACTION': 'Eigene Aktion' }),
+  }));
+  await page.evaluate(async () => {
+    Markian.registerExtension('localized-example', () => ({
+      init(instance) {
+        const removeDefaults = instance.registerTranslations({ 'EXAMPLE.ACTION': 'Custom action', 'EXAMPLE.HELP': 'Custom help' });
+        const removeCommand = instance.getCommands().insert({
+          id: 'example:localized', label: instance.translate('EXAMPLE.ACTION'), views: ['visual'], run: () => {},
+        });
+        const removeButton = instance.getToolbar().insert({ id: 'example:localized' }, 'history', 'undo');
+        return () => { removeButton(); removeCommand(); removeDefaults(); };
+      },
+    }));
+    const host = document.createElement('div');
+    host.style.height = '440px';
+    document.querySelector('main').prepend(host);
+    window.localizedEditor = Markian.create(host, {
+      markdown: '# Notizen\n\nalpha alpha',
+      translations: ['/Translations/de.json', '/app-translations.json', { 'TOOLBAR.BOLD': 'Kräftig' }],
+      extensions: { 'localized-example': { enabled: true } },
+    });
+    localizedEditor.element.id = 'localized-editor';
+    await localizedEditor.ready;
+  });
+  const root = page.locator('#localized-editor');
+  await expect(root).toHaveAttribute('aria-label', 'Markdown-Editor');
+  await expect(root.locator('[data-command="bold"]').first()).toHaveAttribute('aria-label', 'Kräftig');
+  await expect(root.locator('[data-command="bold"]').first()).toHaveAttribute('title', 'Kräftig');
+  await expect(root.locator('[data-command="example:localized"]').first()).toHaveAttribute('title', 'Eigene Aktion');
+  expect(await page.evaluate(() => localizedEditor.translate('EXAMPLE.HELP'))).toBe('Custom help');
+  expect(await page.evaluate(() => localizedEditor.translate('EXAMPLE.UNKNOWN'))).toBe('EXAMPLE.UNKNOWN');
+  await expect(page.locator('.demo-secondary [data-command="bold"]')).toHaveAttribute('title', 'Bold');
+  for (const [width, theme] of [[960, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(theme => localizedEditor.setTheme(theme), theme);
+    await page.evaluate(() => localizedEditor.execute('search'));
+    const search = root.getByRole('search');
+    await search.getByRole('textbox', { name: 'Suchen', exact: true }).fill('alpha');
+    await expect(search.locator('output')).toHaveText('1 / 2');
+    await search.getByRole('button', { name: 'Nächster Treffer', exact: true }).click();
+    await expect(search.locator('output')).toHaveText('2 / 2');
+    expect(await search.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return bounds.left >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+    })).toBe(true);
+    await search.getByRole('button', { name: 'Suche schließen', exact: true }).click();
+    await expect(root.locator('.ProseMirror')).toBeFocused();
+    await page.evaluate(() => localizedEditor.execute('link'));
+    const dialog = root.getByRole('dialog', { name: 'Link', exact: true });
+    await expect(dialog.getByRole('textbox', { name: 'Linkziel', exact: true })).toBeFocused();
+    await dialog.getByRole('button', { name: 'Link übernehmen', exact: true }).click();
+    await expect(dialog.locator('output')).toHaveText('Wählen Sie ein sicheres Ziel.');
+    await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+    await page.evaluate(() => localizedEditor.setMode('raw'));
+    await expect(root.locator('.cm-content')).toHaveAttribute('aria-label', 'Markdown-Quelltext');
+    await expect(root.locator('.markian-status')).toContainText('Quelltext');
+    await page.evaluate(() => localizedEditor.setMode('visual'));
+  }
+  await page.evaluate(() => localizedEditor.execute('help'));
+  await expect(root.locator('.markian-view.markian-document h2').first()).toHaveText('Tastatur');
+  expect(await page.evaluate(() => localizedEditor.get())).toBe('# Notizen\n\nalpha alpha');
+  await page.evaluate(() => localizedEditor.destroy());
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('translations localize bundled code and Mermaid workspaces without changing source examples', async ({ page }) => {
+  await page.addScriptTag({ url: '/dist/extensions/mermaid.min.js' });
+  await page.addStyleTag({ url: '/dist/extensions/mermaid.css' });
+  await page.evaluate(async () => {
+    Markian.registerExtension('mermaid', MarkianMermaid.mermaidExtension);
+    const host = document.createElement('div');
+    host.style.height = '500px';
+    document.querySelector('main').prepend(host);
+    window.localizedEditor = Markian.create(host, {
+      markdown: '```text\nliteral code\n```',
+      translations: ['/Translations/de.json'],
+      extensions: {
+        code: { enabled: true, config: { languages: [] } },
+        mermaid: { enabled: true, config: { renderer: { render: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><text x="10" y="50" font-size="14">Example</text></svg>' } } },
+      },
+    });
+    localizedEditor.element.id = 'localized-editor';
+    await localizedEditor.ready;
+  });
+  const root = page.locator('#localized-editor');
+  await root.locator('.ProseMirror pre > code').click();
+  await page.evaluate(() => localizedEditor.execute('code:expand'));
+  await expect(root.locator('.cm-content')).toHaveAttribute('aria-label', 'Code-Quelltext. Drücken Sie Escape und dann Tab, um den Fokus zu verlassen.');
+  await expect(root.getByRole('button', { name: 'Zurück', exact: true })).toBeVisible();
+  await expect(root.locator('summary[aria-label="Codesprache"]')).toBeVisible();
+  await page.evaluate(() => { localizedEditor.back(); return localizedEditor.execute('mermaid:insert'); });
+  await page.evaluate(() => localizedEditor.openView('mermaid', localizedEditor.getCodeTarget()));
+  await expect(root.locator('.markian-mermaid-snippets h2')).toHaveText('Fragmente: Flussdiagramm');
+  await expect(root.locator('.cm-content')).toHaveAttribute('aria-label', 'Mermaid-Quelltext');
+  await expect(root.locator('summary[aria-label="Diagrammtyp"]')).toBeVisible();
+  await expect(root.locator('.markian-mermaid .markian-diagram')).toHaveAttribute('data-state', 'ready');
+  await expect(root.locator('.markian-mermaid-snippet').first()).toHaveAttribute('aria-label', 'Rechteck einfügen');
+  await root.locator('.markian-mermaid-snippet').first().click();
+  expect(await page.evaluate(() => localizedEditor.get())).toContain('A[Label]');
+  for (const type of ['class', 'flowchart', 'sequence', 'state', 'usecase', 'erd', 'git']) {
+    await page.evaluate(type => localizedEditor.execute(`mermaid:type:${type}`), type);
+    expect(await root.locator('.markian-mermaid-snippets').textContent()).not.toMatch(/MERMAID\.[A-Z_]+/);
+  }
+  await page.evaluate(() => localizedEditor.execute('help'));
+  await expect(root.locator('.markian-view.markian-document')).toContainText('Codeblöcke');
+  await expect(root.locator('.markian-view.markian-document')).toContainText('Mermaid-Diagramme');
+  await page.evaluate(() => localizedEditor.destroy());
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+test('translation initialization errors restore the host and destruction rejects late assets', async ({ page }) => {
+  await page.route('**/invalid-translations.json', route => route.fulfill({
+    contentType: 'application/json', body: '{"TOOLBAR.BOLD": {"nested": true}}',
+  }));
+  await page.route('**/late-translations.json', async route => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await route.fulfill({ contentType: 'application/json', body: '{"TOOLBAR.BOLD": "Late"}' });
+  });
+  const result = await page.evaluate(async () => {
+    const host = document.createElement('div');
+    document.querySelector('main').prepend(host);
+    const failed = Markian.create(host, { markdown: '', translations: ['/invalid-translations.json'] });
+    let reported;
+    failed.on('error', event => { reported = event.error.message; });
+    const error = await failed.ready.then(() => null, error => error.message);
+    const restored = !host.hidden && !failed.element.isConnected;
+    const late = Markian.create(host, { markdown: '', translations: ['/late-translations.json'] });
+    const rejected = late.ready.then(() => false, () => true);
+    late.destroy();
+    return { error, reported, restored, cancelled: await rejected, detached: !late.element.isConnected, hidden: host.hidden };
+  });
+  expect(result.error).toContain('Invalid translation asset');
+  expect(result.reported).toBe(result.error);
+  expect(result.restored).toBe(true);
+  expect(result.cancelled).toBe(true);
+  expect(result.detached).toBe(true);
+  expect(result.hidden).toBe(false);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
 test('configured CSS URLs replace content styles and overlay the editor theme', async ({ page }) => {
   await page.route('**/host-content.css', route => route.fulfill({ contentType: 'text/css', body: '.css-configured .markian-document p { color: rgb(18, 52, 86); font-size: 19px; }' }));
   await page.route('**/host-theme.css', route => route.fulfill({ contentType: 'text/css', body: '.css-configured.markian { --markian-accent: rgb(170, 20, 40); }' }));

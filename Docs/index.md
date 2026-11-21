@@ -14,6 +14,7 @@ Start with the usage guides to embed and customize Markian. The development guid
   - [Mermaid diagrams](Extensions/Mermaid.md): editor workspace, snippets, templates and viewer setup.
 - [Interoperability](Interoperability.md): smart paste, spreadsheet round trips, images, and compatibility with other software.
 - [Style guide](Styleguide.md): shared controls, themes, and responsive layout.
+- [Matching the host application](Host_application_styling.md): theme integration approach and styling checklist.
 - [Examples](Examples.md): runnable pages and their host asset requirements.
 
 ## Contributing

@@ -13,6 +13,8 @@ import { installMentions, validateTags } from './mentions';
 import { StaticSearch } from './ui/static-search';
 import { loadStylesheets, markdownClasses, stylesheetUrls } from './styles';
 import { installTemplateStyles, templateStyles } from './render/template-styles';
+import { Translations } from './translations';
+import type { TranslationDictionary, TranslationParameters } from './types';
 import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, SourceOptions, StructuralNode, Theme, ToolbarEntry, ToolbarItem, ViewDefinition, SearchOptions, SearchMatch } from './types';
 
 interface Frame {
@@ -76,6 +78,7 @@ export class EditorInstance implements MarkianInstance {
   private cleanups: Disposer[] = [];
   private cssUrls: readonly string[];
   private lastValue: string;
+  private translations: Translations;
   private commands = new Items<CommandDefinition>(() => this.refreshToolbar(), () => this.alive());
   private toolbarItems = new ToolbarItems(() => this.options.toolbar ?? defaultToolbar, () => this.refreshToolbar(), () => this.alive());
   private views = new Items<ViewDefinition>(() => {}, () => this.alive());
@@ -86,6 +89,7 @@ export class EditorInstance implements MarkianInstance {
   });
 
   constructor(private host: HTMLElement, private options: EditorOptions, private factories: ReadonlyMap<string, ExtensionFactory>) {
+    this.translations = new Translations(options.translations);
     validateMarkdown(options.markdown);
     validateTemplates(options.templates, options.allowedHtml);
     validateTags(options.tags);
@@ -110,13 +114,13 @@ export class EditorInstance implements MarkianInstance {
     this.element = document.createElement('section');
     this.element.className = 'markian';
     this.element.classList.toggle('markian-outline-open', options.sidebarVisible ?? true);
-    this.element.setAttribute('aria-label', options.label ?? 'Markdown editor');
+    this.element.setAttribute('aria-label', this.translations.label(options.label ?? 'EDITOR.LABEL'));
     this.element.dataset.markian = '';
     this.element.dataset.readonly = String(this.readOnly);
     this.toolbar = document.createElement('div');
     this.toolbar.className = 'markian-toolbar';
     this.toolbar.setAttribute('role', 'toolbar');
-    this.toolbar.setAttribute('aria-label', 'Editor commands');
+    this.toolbar.setAttribute('aria-label', this.translate('EDITOR.COMMANDS'));
     this.work = document.createElement('div');
     this.work.className = 'markian-work';
     this.visualElement = document.createElement('div');
@@ -127,11 +131,11 @@ export class EditorInstance implements MarkianInstance {
     this.floating = document.createElement('div');
     this.floating.className = 'markian-floating';
     this.floating.setAttribute('role', 'toolbar');
-    this.floating.setAttribute('aria-label', 'Selection commands');
+    this.floating.setAttribute('aria-label', this.translate('EDITOR.SELECTION_COMMANDS'));
     this.floating.hidden = true;
     this.outline = document.createElement('nav');
     this.outline.className = 'markian-outline';
-    this.outline.setAttribute('aria-label', 'Document outline');
+    this.outline.setAttribute('aria-label', this.translate('TOOLBAR.OUTLINE'));
     this.work.append(this.outline);
     this.diagnostic = document.createElement('div');
     this.diagnostic.className = 'markian-diagnostic';
@@ -144,7 +148,6 @@ export class EditorInstance implements MarkianInstance {
     host.after(this.element);
     host.hidden = true;
     this.setTheme(options.theme ?? 'light');
-    this.installCommands();
     this.listen(this.element, 'focusin', () => this.emit('focus', 'user'));
     this.listen(this.element, 'focusout', event => {
       if (!this.element.contains((event as FocusEvent).relatedTarget as Node | null)) this.emit('blur', 'user');
@@ -230,7 +233,7 @@ export class EditorInstance implements MarkianInstance {
       event.preventDefault();
       event.stopPropagation();
       if (this.readOnly) return;
-      if (files.length > 1) { this.report(new Error('Insert one image at a time.')); return; }
+      if (files.length > 1) { this.report(new Error(this.translate('IMAGE.ONE_AT_A_TIME'))); return; }
       void this.insertImage(files[0]).catch(() => {});
     });
     this.listen(this.element, 'click', event => {
@@ -272,7 +275,7 @@ export class EditorInstance implements MarkianInstance {
       this.listen(textarea.form, 'submit', event => {
         if ([...this.pendingImages.values()].includes(this.revision) || this.imageFailure) {
           event.preventDefault();
-          this.report(new Error('Finish, retry, or remove pending images before submitting.'));
+          this.report(new Error(this.translate('IMAGE.PENDING')));
         }
       });
     }
@@ -287,6 +290,14 @@ export class EditorInstance implements MarkianInstance {
 
   get activeView(): string { return this.frames.at(-1)?.id ?? this.mode; }
   get readOnly(): boolean { return this.locked || this.disabled; }
+  translate(key: string, parameters?: TranslationParameters): string {
+    this.alive();
+    return this.translations.translate(key, parameters);
+  }
+  registerTranslations(defaults: TranslationDictionary): Disposer {
+    this.alive();
+    return this.translations.register(defaults);
+  }
   getCommands() { return this.commands; }
   getToolbar() { return this.toolbarItems; }
   getViews() { return this.views; }
@@ -308,6 +319,13 @@ export class EditorInstance implements MarkianInstance {
   private usable(): void { this.alive(); if (!this.initialized) throw new Error('Await editor.ready before using this operation.'); }
 
   private async initialize(): Promise<void> {
+    await this.translations.load(this.host.ownerDocument.baseURI, this.lifetime.signal);
+    this.alive();
+    this.element.setAttribute('aria-label', this.translations.label(this.options.label ?? 'EDITOR.LABEL'));
+    this.toolbar.setAttribute('aria-label', this.translate('EDITOR.COMMANDS'));
+    this.floating.setAttribute('aria-label', this.translate('EDITOR.SELECTION_COMMANDS'));
+    this.outline.setAttribute('aria-label', this.translate('TOOLBAR.OUTLINE'));
+    this.installCommands();
     await loadStylesheets(this.element, this.cssUrls, this.lifetime.signal, dispose => this.cleanups.push(dispose));
     this.alive();
     this.cleanups.push(installTemplateStyles(this.element, templateStyles(this.options.templates)));
@@ -336,7 +354,7 @@ export class EditorInstance implements MarkianInstance {
       this.source = value;
       this.changed('user');
     }, () => { if (this.initialized) { this.refreshToolbar(); this.refreshFloating(); } },
-    command => { void this.execute(command).catch(error => this.report(error)); }, error => this.report(error), this.options.documentBase, this.options.allowTextColors,
+    command => { void this.execute(command).catch(error => this.report(error)); }, error => this.report(error), key => this.translate(key), this.options.documentBase, this.options.allowTextColors,
     (code, language, element, position, topLevel) => {
       const renderer = this.renderers.items().find(item => item.visual === true && item.language === language);
       if (!renderer) return undefined;
@@ -492,7 +510,7 @@ export class EditorInstance implements MarkianInstance {
     }, () => {
       this.refreshToolbar();
       this.refreshFloating();
-    }, { tabWidth: this.options.tabWidth ?? 4 }, false);
+    }, { tabWidth: this.options.tabWidth ?? 4, label: this.translate('EDITOR.SOURCE') }, false);
   }
 
   private dropRaw(): void { this.raw?.destroy(); this.raw = undefined; this.rawBaseline = undefined; }
@@ -512,7 +530,7 @@ export class EditorInstance implements MarkianInstance {
     if (!this.element.contains(element)) throw new Error('Source editors must mount within their owning instance.');
     const source = new SourceEditor(element, value, this.readOnly, next => {
       if (!this.readOnly && !this.destroyed) changed(next);
-    }, () => {}, { ...options, tabWidth: options.tabWidth ?? this.options.tabWidth ?? 4, onLanguageChange: language => { if (!this.readOnly && !this.destroyed) options.onLanguageChange?.(language); } });
+    }, () => {}, { ...options, label: this.translations.label(options.label ?? 'EDITOR.SOURCE'), tabWidth: options.tabWidth ?? this.options.tabWidth ?? 4, onLanguageChange: language => { if (!this.readOnly && !this.destroyed) options.onLanguageChange?.(language); } });
     let disposed = false;
     const editable = () => !this.readOnly && !disposed && this.frames.at(-1)?.element.contains(element);
     const handle: SourceHandle = {
@@ -624,8 +642,8 @@ export class EditorInstance implements MarkianInstance {
     const pending = this.host.ownerDocument.createElement('div');
     pending.className = 'markian-panel';
     const pendingLabel = this.host.ownerDocument.createElement('span');
-    pendingLabel.textContent = 'Inserting image';
-    pending.append(pendingLabel, commandButton(this.host.ownerDocument, 'Cancel image insertion', 'close', () => controller.abort()));
+    pendingLabel.textContent = this.translate('IMAGE.INSERTING');
+    pending.append(pendingLabel, commandButton(this.host.ownerDocument, this.translate('IMAGE.CANCEL'), 'close', () => controller.abort()));
     this.element.insertBefore(pending, this.work);
     this.status.setAttribute('aria-busy', 'true');
     try { await operation; }
@@ -636,9 +654,9 @@ export class EditorInstance implements MarkianInstance {
         const retry = this.host.ownerDocument.createElement('div');
         retry.className = 'markian-panel';
         const label = this.host.ownerDocument.createElement('span');
-        label.textContent = 'Image insertion failed';
-        const retryButton = commandButton(this.host.ownerDocument, 'Retry image', 'redo', () => { retry.remove(); void this.insertImage(blob).catch(() => {}); });
-        const remove = commandButton(this.host.ownerDocument, 'Remove pending image', 'close', () => { this.imageFailure = undefined; retry.remove(); });
+        label.textContent = this.translate('IMAGE.FAILED');
+        const retryButton = commandButton(this.host.ownerDocument, this.translate('IMAGE.RETRY'), 'redo', () => { retry.remove(); void this.insertImage(blob).catch(() => {}); });
+        const remove = commandButton(this.host.ownerDocument, this.translate('IMAGE.REMOVE'), 'close', () => { this.imageFailure = undefined; retry.remove(); });
         retry.append(label, retryButton, remove);
         this.element.insertBefore(retry, this.work);
         this.imageRetry = retry;
@@ -783,8 +801,9 @@ export class EditorInstance implements MarkianInstance {
   }
 
   private updateStatus(): void {
-    const labels: Record<string, string> = { visual: 'Visual', raw: 'Source', code: 'Code', mermaid: 'Mermaid', help: 'Help', preview: 'Preview' };
-    this.status.textContent = `${labels[this.activeView] ?? this.activeView} · ${this.get().length} characters`;
+    const views = ['visual', 'raw', 'code', 'mermaid', 'help', 'preview'];
+    const view = views.includes(this.activeView) ? this.translate(`VIEW.${this.activeView.toUpperCase()}`) : this.activeView;
+    this.status.textContent = this.translate('EDITOR.STATUS', { view, count: this.get().length });
   }
 
   private refreshToolbar(): void {
@@ -792,7 +811,7 @@ export class EditorInstance implements MarkianInstance {
     this.toolbar.replaceChildren();
     const hasBack = this.frames.length > 0 || this.mode === 'raw';
     if (hasBack) {
-      const back = commandButton(this.host.ownerDocument, 'Back', 'back', () => { try { this.back(); } catch (error) { this.report(error); } });
+      const back = commandButton(this.host.ownerDocument, this.translate('TOOLBAR.BACK'), 'back', () => { try { this.back(); } catch (error) { this.report(error); } });
       back.dataset.fixed = 'true';
       const divider = this.host.ownerDocument.createElement('span');
       divider.className = 'markian-separator';
@@ -836,7 +855,7 @@ export class EditorInstance implements MarkianInstance {
       if (item.type === 'menu') {
         const children = renderEntries(item.items ?? []);
         if (!children.length) return null;
-        const label = item.label ?? command?.label ?? item.id;
+        const label = this.translations.label(item.label ?? command?.label ?? item.id);
         const menu = this.host.ownerDocument.createElement('details');
         menu.className = 'markian-menu';
         menu.dataset.toolbarItem = item.id;
@@ -860,9 +879,9 @@ export class EditorInstance implements MarkianInstance {
       }
       if (!command) return null;
       const expanded = command.id === 'fullscreen' && Boolean(this.fullscreenRestore);
-      const label = command.id === 'fullscreen' ? (expanded ? 'Restore original size' : 'Maximize') : item.label ?? command.label;
+      const label = this.translations.label(command.id === 'fullscreen' ? (expanded ? 'TOOLBAR.RESTORE' : 'TOOLBAR.FULLSCREEN') : item.label ?? command.label);
       const button = commandButton(this.host.ownerDocument, label, expanded ? 'fullscreenExit' : item.icon ?? command.icon, () => { void this.execute(command.id).catch(error => this.report(error)); });
-      if (command.hint) button.title = command.hint;
+      if (command.hint) button.title = this.translations.label(command.hint);
       if (command.id === 'fullscreen') button.setAttribute('aria-pressed', String(expanded));
       button.disabled = !this.initialized || Boolean(command.mutates && this.readOnly) || command.enabled?.(this) === false;
       if (this.initialized && command.active) button.setAttribute('aria-pressed', String(command.active(this)));
@@ -970,9 +989,9 @@ export class EditorInstance implements MarkianInstance {
     const overflow = this.host.ownerDocument.createElement('details');
     overflow.className = 'markian-menu markian-overflow';
     const summary = this.host.ownerDocument.createElement('summary');
-    summary.setAttribute('aria-label', 'More commands');
-    summary.title = 'More commands';
-    summary.append(...commandButton(this.host.ownerDocument, 'More commands', 'more', () => {}).childNodes);
+    summary.setAttribute('aria-label', this.translate('TOOLBAR.MORE'));
+    summary.title = this.translate('TOOLBAR.MORE');
+    summary.append(...commandButton(this.host.ownerDocument, this.translate('TOOLBAR.MORE'), 'more', () => {}).childNodes);
     const choices = this.host.ownerDocument.createElement('div');
     choices.className = 'markian-menu-items';
     const fixed = controls.filter(control => control.dataset.fixed === 'true');
@@ -1020,7 +1039,7 @@ export class EditorInstance implements MarkianInstance {
       for (const id of items) {
         const command = this.commands.items().find(item => item.id === id);
         if (!command || !command.views.includes(this.activeView)) continue;
-        const button = commandButton(this.host.ownerDocument, command.label, command.icon, () => { void this.execute(id).catch(error => this.report(error)); });
+        const button = commandButton(this.host.ownerDocument, this.translations.label(command.label), command.icon, () => { void this.execute(id).catch(error => this.report(error)); });
         button.dataset.command = id;
         button.disabled = command.enabled?.(this) === false;
         if (command.active) button.setAttribute('aria-pressed', String(command.active(this)));
@@ -1171,7 +1190,7 @@ export class EditorInstance implements MarkianInstance {
     this.outlineTargets = [];
     const title = this.host.ownerDocument.createElement('h2');
     title.className = 'markian-outline-title';
-    title.textContent = 'Outline';
+    title.textContent = this.translate('OUTLINE.TITLE');
     this.outline.append(title);
     const entries = headings(this.get());
     this.visual?.setHeadingIds(entries.map(entry => entry.id));
@@ -1224,6 +1243,7 @@ export class EditorInstance implements MarkianInstance {
   }
 
   private installCommands(): void {
+    const t = (key: string) => this.translate(key);
     const add = (id: string, label: string, icon: string, mutates: boolean, views: string[], run: CommandDefinition['run']) => {
       this.commands.insert({ id, label, icon, mutates, views, run,
         enabled: id === 'undo' || id === 'redo' ? () => this.mode === 'raw' || (id === 'undo' ? undo : redo)(this.visual!.view.state) : undefined,
@@ -1236,22 +1256,22 @@ export class EditorInstance implements MarkianInstance {
       });
       this.toolbarItems.register({ id, command: id });
     };
-    for (const id of ['undo', 'redo']) add(id, id === 'undo' ? 'Undo' : 'Redo', id, true, ['visual', 'raw'], () => {
+    for (const id of ['undo', 'redo']) add(id, t(`TOOLBAR.${id.toUpperCase()}`), id, true, ['visual', 'raw'], () => {
       if (this.mode === 'raw') this.raw![id as 'undo' | 'redo']();
       else { const view = this.visual!.view; (id === 'undo' ? undo : redo)(view.state, view.dispatch); }
     });
     this.commands.insert({
-      id: 'code:copy', label: 'Copy code', icon: 'copy', views: ['visual'],
+      id: 'code:copy', label: t('CODE.COPY'), icon: 'copy', views: ['visual'],
       enabled: () => this.visual?.view.state.selection.$from.parent.type.name === 'code_block',
       run: () => this.copyCodeBlock(this.visual!.view.state.selection.$from.before()),
     });
     this.commands.insert({
-      id: 'code:delete', label: 'Delete code block', icon: 'delete', mutates: true, views: ['visual'],
+      id: 'code:delete', label: t('CODE.DELETE'), icon: 'delete', mutates: true, views: ['visual'],
       enabled: () => this.visual?.view.state.selection.$from.parent.type.name === 'code_block',
       run: () => this.deleteCodeBlock(this.visual!.view.state.selection.$from.before()),
     });
-    for (const [id, label, mark, wrapper] of [['bold', 'Bold', 'strong', '**'], ['italic', 'Italic', 'emphasis', '*'], ['code', 'Inline code', 'inlineCode', '`']]) {
-      add(id, label, id, true, ['visual', 'raw'], () => {
+    for (const [id, mark, wrapper] of [['bold', 'strong', '**'], ['italic', 'emphasis', '*'], ['code', 'inlineCode', '`']]) {
+      add(id, t(`TOOLBAR.${id.toUpperCase()}`), id, true, ['visual', 'raw'], () => {
         if (this.mode === 'raw') {
           const view = this.raw!.view;
           const selection = view.state.selection.main;
@@ -1282,7 +1302,7 @@ export class EditorInstance implements MarkianInstance {
         }
       });
     }
-    add('heading', 'Heading 2', 'heading', true, ['visual'], () => {
+    add('heading', this.translate('TOOLBAR.HEADING', { level: 2 }), 'heading', true, ['visual'], () => {
       const view = this.visual!.view;
       const block = view.state.selection.$from.parent;
       const isHeading = block.type === view.state.schema.nodes.heading && block.attrs.level === 2;
@@ -1292,21 +1312,21 @@ export class EditorInstance implements MarkianInstance {
       )(view.state, transaction => view.dispatch(closeHistory(transaction)));
       view.focus();
     });
-    add('bullet', 'Bullet list', 'bullet', true, ['visual', 'raw'], async () => { await this.execute('list:bullet'); });
-    add('raw', 'Switch visual / source', 'raw', false, ['visual'], () => this.setMode('raw'));
-    for (const [id, label, mode] of [['visual', 'Visual', 'visual'], ['source', 'Source', 'raw']] as const) {
-      this.commands.insert({ id, label, icon: id === 'source' ? 'raw' : 'visual', views: ['visual', 'raw', 'preview'], active: () => this.activeView === mode,
+    add('bullet', t('TOOLBAR.BULLET'), 'bullet', true, ['visual', 'raw'], async () => { await this.execute('list:bullet'); });
+    add('raw', t('TOOLBAR.RAW'), 'raw', false, ['visual'], () => this.setMode('raw'));
+    for (const [id, mode] of [['visual', 'visual'], ['source', 'raw']] as const) {
+      this.commands.insert({ id, label: t(`VIEW.${mode.toUpperCase()}`), icon: id === 'source' ? 'raw' : 'visual', views: ['visual', 'raw', 'preview'], active: () => this.activeView === mode,
         run: () => { if (this.activeView === 'preview') this.back(); this.setMode(mode); },
       });
     }
     const allViews = ['*'];
-    add('preview', 'Preview', 'preview', false, allViews, () => { if (this.activeView !== 'preview') this.openView('preview'); });
-    add('help', 'Help', 'help', false, allViews, () => { if (this.activeView !== 'help') this.openView('help'); });
-    add('copy', 'Copy Markdown', 'copy', false, allViews, async () => { await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(this.get()); });
-    add('fullscreen', 'Maximize', 'fullscreen', false, allViews, () => this.toggleFullscreen());
-    add('search', 'Find and replace', 'search', false, allViews, () => this.openSearch());
-    add('outline', 'Document outline', 'outline', false, ['visual', 'raw'], () => { this.element.classList.toggle('markian-outline-open'); this.resize(); });
-    this.commands.insert({ id: 'link:open', label: 'Open link', icon: 'link', views: ['visual'],
+    add('preview', t('VIEW.PREVIEW'), 'preview', false, allViews, () => { if (this.activeView !== 'preview') this.openView('preview'); });
+    add('help', t('VIEW.HELP'), 'help', false, allViews, () => { if (this.activeView !== 'help') this.openView('help'); });
+    add('copy', t('TOOLBAR.COPY'), 'copy', false, allViews, async () => { await this.host.ownerDocument.defaultView!.navigator.clipboard.writeText(this.get()); });
+    add('fullscreen', t('TOOLBAR.FULLSCREEN'), 'fullscreen', false, allViews, () => this.toggleFullscreen());
+    add('search', t('TOOLBAR.SEARCH'), 'search', false, allViews, () => this.openSearch());
+    add('outline', t('TOOLBAR.OUTLINE'), 'outline', false, ['visual', 'raw'], () => { this.element.classList.toggle('markian-outline-open'); this.resize(); });
+    this.commands.insert({ id: 'link:open', label: t('TOOLBAR.OPEN_LINK'), icon: 'link', views: ['visual'],
       enabled: () => Boolean(this.visual!.view.state.selection.$from.marks().some(mark => mark.type.name === 'link')),
       run: async () => {
         const destination = String(this.visual!.view.state.selection.$from.marks().find(mark => mark.type.name === 'link')!.attrs.href);
@@ -1322,7 +1342,7 @@ export class EditorInstance implements MarkianInstance {
       id,
       mount: ({ element }) => {
         element.classList.add('markian-document', ...this.options.markdownCssClasses!);
-        element.innerHTML = renderMarkdown(id === 'help' ? '# Markian\n\n## Keyboard\n\n- Ctrl/Cmd+Z: Undo\n- Ctrl/Cmd+Shift+Z: Redo\n- Ctrl/Cmd+S: Request host save\n\n## Source\n\nSource preserves unsupported Markdown. Back restores the previous task.\n' + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors, this.options.allowedHtml);
+        element.innerHTML = renderMarkdown(id === 'help' ? t('HELP.CORE') + this.help.items().map(item => item.markdown).join('\n\n') : this.get(), this.options.softbreaks, this.options.allowTextColors, this.options.allowedHtml);
         if (this.options.documentBase) for (const image of element.querySelectorAll('img[src]')) {
           const source = image.getAttribute('src') ?? '';
           if (safeUrl(source, true)) image.setAttribute('src', new URL(source, new URL(this.options.documentBase, this.host.ownerDocument.baseURI)).href);

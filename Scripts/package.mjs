@@ -11,6 +11,7 @@ const viewerOnly = process.argv.includes('--viewer');
 const codeOnly = process.argv.includes('--code');
 const [pack] = JSON.parse(execFileSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], { encoding: 'utf8', shell: process.platform === 'win32' }));
 const paths = new Set(pack.files.map(file => file.path));
+for (const path of ['Translations/en.json', 'Translations/de.json']) assert.ok(paths.has(path), `Missing translation asset: ${path}`);
 for (const path of ['dist/markian.min.js', 'dist/markian.css', 'dist/markian-viewer.min.js', 'dist/markian-viewer.css', 'dist/types/viewer.d.ts', 'dist/extensions/viewer-mermaid.min.js', 'dist/types/viewer-mermaid.d.ts', 'dist/sizes.json', 'dist/extensions/code.min.js', 'dist/extensions/mermaid.min.js', 'dist/extensions/mermaid.css', 'dist/types/extensions/mermaid.d.ts', 'dist/types/index.d.ts', 'dist/manifest.json', 'includes.json', 'Examples/index.html', 'Examples/minimal-editor.html', 'Examples/mermaid-diagrams.html', 'Examples/viewer.html']) assert.ok(paths.has(path), `Missing package file: ${path}`);
 assert.ok(!paths.has('dist/THIRD_PARTY_NOTICES.txt'), 'includes.json replaces the legacy notices artifact.');
 for (const path of ['dist/extensions/code.css', 'dist/types/extensions/code.d.ts', 'Examples/code-blocks.html', ...['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml'].map(language => `dist/extensions/languages/${language}.min.js`)]) assert.ok(paths.has(path), `Missing Code package file: ${path}`);

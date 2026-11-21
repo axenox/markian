@@ -25,7 +25,7 @@ await editor.ready;
 editor.focus();
 ```
 
-Readiness waits for configured CSS, enabled extensions, and initial import. Initialization failure rejects and restores the host. A visual-preservation fallback instead resolves in Source view and reports an error. Catch `ready` rejection and surface it in the host UI.
+Readiness waits for configured translations, CSS, enabled extensions, and initial import. Translations are available before extension initialization. Initialization failure rejects and restores the host. A visual-preservation fallback instead resolves in Source view and reports an error. Catch `ready` rejection and surface it in the host UI.
 
 | Read-only property | Type | Meaning |
 | --- | --- | --- |
@@ -50,6 +50,27 @@ Readiness waits for configured CSS, enabled extensions, and initial import. Init
 | `destroy()` | `void` | Cancel/release owned work, restore the host, and permit remounting. Safe twice. |
 
 Await readiness before document operations, commands, search, or view navigation. Do not retain or use handles after destruction. `Disposer` means `() => void`.
+
+### Translations
+
+| Method | Return | Behavior |
+| --- | --- | --- |
+| `translate(key: string, parameters?: TranslationParameters)` | `string` | Resolve an uppercase dotted key with English fallback; replace `{name}` placeholders. Unknown keys remain visible. Invalid keys throw. |
+| `registerTranslations(defaults: TranslationDictionary)` | `Disposer` | Register owned extension English defaults below host overrides. Duplicate default keys, including core English keys, throw before registration. Removal is idempotent and affects only these defaults. |
+
+`TranslationDictionary` is `Readonly<Record<string, string>>`; `TranslationParameters` is `Readonly<Record<string, string | number>>`. A `TranslationSource` is a URL string or dictionary. The [configuration reference](Configuration.md#translations) owns file loading, merge order and limits.
+
+Both methods are available during extension initialization; do not await `ready` there. Before readiness, `translate` can only guarantee core English until configured assets finish. Register defaults before translating labels, Help or creating controls, and retain the returned disposer. Registration is not a live UI-language switch and does not retranslate already constructed text.
+
+```javascript
+const removeDefaults = editor.registerTranslations({
+  'MYEXTENSION.ACTION': 'Insert example',
+  'MYEXTENSION.COUNT': '{count} examples',
+});
+const label = editor.translate('MYEXTENSION.ACTION');
+const message = editor.translate('MYEXTENSION.COUNT', { count: 3 });
+// Remove owned controls before removing their defaults.
+```
 
 ### Document Replacement
 

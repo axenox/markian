@@ -60,6 +60,23 @@ Return removal handles for every contribution. Never replace host callbacks or c
 
 Mark mutating commands with `mutates: true`, declare supported views, and use public permission-aware operations. A command supporting one workspace must not edit a hidden visual/source session. No public unrestricted selection-insertion helper is currently supplied.
 
+## Translations
+
+Configured translation files finish loading before `init`. Use a unique uppercase namespace, register extension-owned English defaults first, then translate labels and other UI text:
+
+```typescript
+const removeDefaults = instance.registerTranslations({
+  'MYEXTENSION.INSERT': 'Insert example',
+  'MYEXTENSION.COUNT': '{count} examples',
+});
+const label = instance.translate('MYEXTENSION.INSERT');
+const message = instance.translate('MYEXTENSION.COUNT', { count: 3 });
+```
+
+Ship flat language JSON files alongside your prebuilt extension. Hosts add their URLs to the editor's `translations` array; do not add a separate loader or await `ready` inside `init`. Host translations override extension English even though defaults register later. Default collisions throw rather than replacing another extension's text. Remove owned controls and subscriptions before calling the default disposer, including partial initialization failure.
+
+For dynamic controls, call `translate` when updating text. Use full message keys with placeholders rather than joining translated words. Set text through `textContent` or shared controls, not unsanitized HTML. Markdown Help still uses the existing safe renderer. Core English/German already contain bundled-extension keys; do not register those again. See [translation API](../API.md#translations) for signatures and [configuration](../Configuration.md#translations) for loading rules.
+
 ## Views and Source Editing
 
 A view owns its mount element and main-work-area presentation, not a separate authoritative Markdown document. It receives `{ element, signal, session? }` and returns cleanup. Supply optional `focus`, `resize`, and `setReadOnly` hooks when needed.

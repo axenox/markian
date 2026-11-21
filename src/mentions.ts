@@ -111,7 +111,7 @@ export function installMentions(instance: MarkianInstance, view: EditorView, opt
     const element = document.createElement('div');
     element.className = 'markian-popup markian-panel markian-tag-details';
     element.setAttribute('role', 'status');
-    element.textContent = 'Loading details...';
+    element.textContent = instance.translate('MENTIONS.LOADING');
     element.popover = 'manual';
     details = element; instance.element.append(element); element.showPopover(); position(element, match.from);
     try {
@@ -145,8 +145,8 @@ export function installMentions(instance: MarkianInstance, view: EditorView, opt
     const element = document.createElement('div');
     element.className = 'markian-menu-items markian-suggestions markian-tag-suggestions';
     element.id = `markian-tags-${crypto.randomUUID()}`;
-    element.setAttribute('role', 'listbox'); element.setAttribute('aria-label', `${match.rule.id} suggestions`);
-    element.textContent = 'Searching...';
+    element.setAttribute('role', 'listbox'); element.setAttribute('aria-label', instance.translate('MENTIONS.SUGGESTIONS', { rule: match.rule.id }));
+    element.textContent = instance.translate('MENTIONS.SEARCHING');
     element.popover = 'manual';
     panel = element; instance.element.append(element); element.showPopover(); position(element, match.from);
     view.dom.setAttribute('aria-controls', element.id);
@@ -176,7 +176,7 @@ export function installMentions(instance: MarkianInstance, view: EditorView, opt
         });
         buttons.push(button); element.append(button);
       }
-      if (!results.length) element.textContent = 'No suggestions';
+      if (!results.length) element.textContent = instance.translate('DIALOG.NO_SUGGESTIONS');
       highlight(); position(element, match.from);
     } catch (error) { if (fresh(request, revision)) { element.textContent = error instanceof Error ? error.message : String(error); report(error); } }
   };

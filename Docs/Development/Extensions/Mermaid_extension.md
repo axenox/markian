@@ -14,6 +14,8 @@ The shared loader and renderer contract live in [mermaid-runtime.ts](../../../sr
 
 [mermaid-snippets.ts](../../../src/extensions/mermaid-snippets.ts) owns ordinary source templates, grouped literal fragments and declaration detection. The extension mounts an instance-owned sidebar, updates it on draft events and disposes that subscription with the view. Unknown declarations use only generic comments. A normal comment distinguishes the flowchart-based use-case template; it is not removed from saved Markdown.
 
+Diagram, group and snippet `label` fields are `MERMAID.*` translation keys. The editor extension resolves them with `instance.translate` when building captions, tooltips and accessible names. Shared controls and Help use core dictionary keys too. Literal `template`/`code` fragments are never translated. The render-only viewer adapter does not load editor translations.
+
 Template and snippet commands use core `SourceHandle.select` and `replaceSelection`, so CodeMirror remains authoritative for selection and local history. Commands are restricted to the active editable Mermaid view. The read-only hook disables sidebar buttons as well as source editing; the command dispatcher also guards mutations. See [workspace usage](../../Extensions/Mermaid.md#editing-diagrams) for replacement and fragment limits.
 
 ## Syntax Highlighting

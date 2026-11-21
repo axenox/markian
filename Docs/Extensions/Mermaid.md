@@ -37,6 +37,8 @@ Use Insert diagram to add a simple flowchart, or Edit diagram on an existing ren
 
 The workspace provides local Undo/Redo, indentation, search and Back. Tab inserts indentation; Shift+Tab outdents. Press Escape then Tab to leave source Tab handling. Help suspends the workspace without losing its draft, selection or history.
 
+Workspace controls, diagram-type names, snippet captions, loading text and Help use the editor's shared [translations](../Configuration.md#translations), including bundled German. Templates, snippet source and labels written inside diagrams stay literal; UI translation never rewrites saved diagrams.
+
 Source and sidebar fragments have syntax colors for declarations, keywords, connections, labels, strings, comments, numbers and hex colors. Highlighting works without the Code extension and even when diagram rendering is unavailable. It is lexical help, not syntax validation or complete coverage of every Mermaid feature. Incomplete drafts remain editable and saveable. Colors follow the editor's light/dark theme without changing source, selection or history.
 
 Workspace highlighting uses the configured character and line limits. Oversized source stays editable with a highlighting diagnostic; shortening it restores colors. Rendering failures do not disable highlighting.

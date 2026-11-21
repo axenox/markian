@@ -8,6 +8,7 @@ Until now we have used the open source UI library Toast UI Editor ([https://ui.t
 
 - prebuilt modular vanilla JS delivery: a core script/CSS plus optional extension and dependency assets, compatible with ordinary script/link tags. No consumer build step. Mermaid, programming-language syntax highlighting, and other optional features must not be loaded for an editor that does not enable them.
 	- easy to integrate with frameworks and other libs: jeasyui, Openui5,  codiware, jQuery comments. 
+- translatable editor UI: flat JSON files with uppercase dotted keys, always-available English fallback, ordered additional translation sources, and separate namespaces for third-party extensions. UI translation must not change saved Markdown or source examples.
 - turns an HTML element (text or div) into an interactive editor
 - editor looks like an editor (not regular content becoming editable on hover or so)
 - get/set value and persisted content use Markdown, not editor-specific JSON or HTML as the document format. Markdown syntax and whitespace may be normalized, but supported content and formatting semantics must be preserved, including meaningful whitespace such as hard line breaks and code indentation. The stored Markdown must remain renderable by regular Markdown software, including GitHub and GitLab, without Markian-specific processing.

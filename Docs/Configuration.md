@@ -9,6 +9,7 @@ This JSON is the default declarative configuration with an empty required docume
 ```json
 {
   "markdown": "",
+  "translations": [],
   "templates": [],
   "allowedHtml": [],
   "tags": [],
@@ -21,18 +22,18 @@ This JSON is the default declarative configuration with an empty required docume
   "disabled": false,
   "softbreaks": false,
   "tabWidth": 4,
-  "label": "Markdown editor",
+  "label": "EDITOR.LABEL",
   "toolbar": [
     { "id": "history", "type": "group", "items": ["undo", "redo"] },
     { "id": "format", "type": "group", "items": [
       "headings",
-      { "id": "formatting", "type": "menu", "label": "Formatting", "icon": "bold", "items": ["bold", "italic", "strike"] },
-      { "id": "lists", "type": "menu", "label": "Lists", "icon": "lists", "items": ["ordered", "bullet", "task"] },
+      { "id": "formatting", "type": "menu", "label": "TOOLBAR.FORMATTING", "icon": "bold", "items": ["bold", "italic", "strike"] },
+      { "id": "lists", "type": "menu", "label": "TOOLBAR.LISTS", "icon": "lists", "items": ["ordered", "bullet", "task"] },
       "indent", "outdent"
     ] },
     { "id": "insert", "type": "group", "items": ["code", "codeblock", "quotes", "link", "image", "table", "rule"] },
     { "id": "document", "type": "group", "items": [
-      { "id": "modes", "type": "menu", "label": "View mode", "icon": "preview", "items": ["visual", "source", "preview"] },
+      { "id": "modes", "type": "menu", "label": "TOOLBAR.MODES", "icon": "preview", "items": ["visual", "source", "preview"] },
       "clear", "copy", "help"
     ] },
     { "id": "utilities", "type": "group", "align": "opposite", "items": ["search", "fullscreen", "outline"] }
@@ -50,6 +51,7 @@ This JSON is the default declarative configuration with an empty required docume
 | Option              | Default                                         | Description                                                                                                                                                                                  |
 | ------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `markdown`          | Required                                        | Initial Markdown string, at most 1,000,000 characters. An empty string is valid; omission is not.                                                                                            |
+| `translations` | `[]`; embedded English always available | Ordered array of static JSON URLs and/or flat dictionaries. Later entries override earlier entries. See [translations](#translations). |
 | `templates` | `[]` | Fixed Markdown or literal selection wrappers; adds a Templates menu when nonempty. See below. |
 | `allowedHtml` | `[]` | Attribute-free inline tags selected from `kbd`, `sub`, `sup`, `mark`. Shared with editor Preview and the viewer. Other HTML stays opaque in Visual and is omitted from rendered output. |
 | `tags` | `[]` | Up to 30 instance-local mention rules. Visual suggestions and accessible details do not rewrite existing Markdown. |
@@ -63,7 +65,7 @@ This JSON is the default declarative configuration with an empty required docume
 | `disabled`          | `false`                                         | Also block user edits without making the editor inert or changing native textarea disabled/submission semantics.                                                                             |
 | `softbreaks`        | `false`                                         | Display ordinary soft line breaks as hard breaks in Preview/Help without rewriting source or code fences.                                                                                    |
 | `tabWidth` | `4` | Integer 1-8. Space-based tab stops for Visual code blocks, Source, and Code/Mermaid workspaces. Source handles and the Code extension can override this width locally. Existing tabs remain unchanged until their indentation is edited; incoming code tabs expand to spaces. |
-| `label`             | `"Markdown editor"`                             | Accessible editor-region name.                                                                                                                                                               |
+| `label`             | Translation of `EDITOR.LABEL` (`"Markdown editor"` in English) | Accessible editor-region name; literal text or an uppercase dotted translation key. |
 | `toolbar`           | Layout above                                    | Ordered recursive entries. `[]` removes pinned document controls. Layout controls visibility, not permissions.                                                                               |
 | `floatingToolbar`   | Array above                                     | Text-selection command IDs, including text inside table cells. Table carets and complete row/column selections use separate edge controls; partial multi-cell ranges and whole tables hide those controls.                                                                                                           |
 | `toolbarPlacement`  | `"top"`                                         | `"top"` or `"bottom"`; embedded editors retain this placement at every width. Maximized editors use bottom controls on viewports at 480px or less. |
@@ -90,13 +92,53 @@ Strings reference toolbar registrations or command IDs. Objects use these fields
 | --------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
 | `id`      | Required            | Unique nonempty item ID.                                                                                 |
 | `command` | Item ID             | Command for a leaf item; forbidden on containers.                                                        |
-| `label`   | Command label       | Accessible/menu label override.                                                                          |
+| `label`   | Command label       | Accessible/menu label override; literal text or an uppercase dotted translation key. |
 | `icon`    | Command icon        | Built-in icon ID or sanitized raw SVG string. See [icons](#icons).                                         |
 | `type`    | Unset, meaning leaf | `"group"` for inline controls or `"menu"` for a disclosure.                                              |
 | `items`   | Unset               | Required recursive array for a container; forbidden on leaves.                                           |
 | `align`   | `"default"`         | Top-level containers only: default-aligned, overflowable controls or `"opposite"` controls outside More. |
 
 Arrays allow at most 200 entries and eight nesting levels. Groups generate separators only when nonempty. Order is retained within each alignment side. More appears automatically before opposite containers, or at the end if none exist. Command names never imply pinning or alignment.
+
+## Translations
+
+English is the base dictionary, maintained in [Translations/en.json](../Translations/en.json) and embedded in the core editor script. It needs no separate request. [Translations/de.json](../Translations/de.json) supplies German, including bundled Code and Mermaid controls and Help. Both files ship with npm and Composer packages.
+
+```javascript
+const editor = Markian.create(host, {
+  markdown: '# Notizen',
+  translations: [
+    '/assets/markian/Translations/de.json',
+    '/assets/my-extension/Translations/de.json',
+    { 'TOOLBAR.BOLD': 'Fett schreiben' },
+  ],
+});
+await editor.ready;
+```
+
+URLs are examples: use the public asset path where your host serves the installed package. Relative URLs resolve against the browser document base URI, not `documentBase` or the Markian script. There is no automatic language detection or implicit locale download.
+
+Each file is a flat JSON object, not nested namespaces:
+
+```json
+{
+  "TOOLBAR.BOLD": "Fett",
+  "MYEXTENSION.ACTION": "Eigene Aktion",
+  "MYEXTENSION.COUNT": "{count} Einträge"
+}
+```
+
+Keys contain at least two dot-separated uppercase segments. Each segment starts with A-Z and may contain A-Z, digits and underscores. Values must be strings. Keep `{name}` placeholders unchanged when translating; `editor.translate(key, parameters)` substitutes string/number values without interpreting HTML. An omitted parameter remains visibly `{name}`. Empty strings are intentional overrides, not missing entries.
+
+Files may be partial. Lookup uses host entries first (last configured entry wins), then extension English defaults, then core English, then the uppercase key itself. File requests run in parallel, but merge order is always the array order. All files must succeed before overrides are installed or extensions initialize. Dictionaries are copied per instance; input changes and one editor's language do not affect another.
+
+Static files require HTTP(S), normal browser CORS access, and no URL credentials. Markian sends no credentials, custom headers or application requests. Loading has a 15-second whole-run limit and is cancelled on destruction. Invalid JSON, invalid entries, HTTP failures and timeouts reject `ready`, emit `error`, and restore the host; they are not silently treated as English success. Limits are 32 sources, 10,000 entries per dictionary, and 1,000,000 characters per dictionary/file.
+
+Toolbar/command labels and command hints accept literal text or translation keys. Template captions/hints use those same command controls. Provider suggestions, document headings, saved Markdown, code examples and diagram source are never automatically translated. Host/dependency errors and developer diagnostics retain their supplied messages. Shared rendered document content, including alert type labels, and the standalone viewer are outside editor UI localization. Changing language on a live instance is not supported; create a new editor with the desired configuration.
+
+Third-party extensions should use a unique namespace and register their own English defaults before constructing controls. Hosts list any extension translation files in the same array. See the [API](API.md#translations) and [extension guide](Development/Writing_extensions.md#translations). Bundled extension translations already belong to the core English/German files; no extension-specific translation option is required.
+
+## Toolbar Examples
 
 ```javascript
 toolbar: [

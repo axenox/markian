@@ -96,7 +96,7 @@ function moveAxis(view: EditorView, context: TableContext, axis: Axis, target: n
   view.dispatch(closeHistory(view.state.tr));
 }
 
-export function tableControls(readOnly: () => boolean, execute: (command: string) => void): Plugin {
+export function tableControls(readOnly: () => boolean, execute: (command: string) => void, translate: (key: string) => string): Plugin {
   return new Plugin({
     view(view) {
       const document = view.dom.ownerDocument;
@@ -211,10 +211,10 @@ export function tableControls(readOnly: () => boolean, execute: (command: string
         panel.className = 'markian-table-actions';
         panel.dataset.tableActions = axis;
         panel.setAttribute('role', 'group');
-        panel.setAttribute('aria-label', axis === 'row' ? 'Row actions' : 'Column actions');
+        panel.setAttribute('aria-label', translate(axis === 'row' ? 'TABLE.ROW_ACTIONS' : 'TABLE.COLUMN_ACTIONS'));
         for (const [operation, label, icon] of [
-          [`${axis}-after`, axis === 'row' ? 'Insert row below' : 'Insert column right', 'plus'],
-          [`delete-${axis}`, `Delete ${axis}`, 'rule'],
+          [`${axis}-after`, translate(axis === 'row' ? 'TABLE.ROW_AFTER' : 'TABLE.COLUMN_AFTER'), 'plus'],
+          [`delete-${axis}`, translate(axis === 'row' ? 'TABLE.DELETE_ROW' : 'TABLE.DELETE_COLUMN'), 'rule'],
         ]) {
           const command = `table:${operation}`;
           const action = commandButton(document, label, icon, () => {
@@ -226,7 +226,7 @@ export function tableControls(readOnly: () => boolean, execute: (command: string
         }
         panels.set(axis, panel);
         overlay.append(panel);
-        const button = commandButton(document, `Drag to move ${axis}; Alt+${axis === 'row' ? 'Up/Down' : 'Left/Right'} to reorder`, axis === 'row' ? 'table:grip-row' : 'table:grip-column', () => {
+        const button = commandButton(document, translate(axis === 'row' ? 'TABLE.DRAG_ROW' : 'TABLE.DRAG_COLUMN'), axis === 'row' ? 'table:grip-row' : 'table:grip-column', () => {
           const context = tableContext(view);
           if (context && !readOnly()) {
             if (context.axis !== axis) selectAxis(view, context, axis, context[axis]);

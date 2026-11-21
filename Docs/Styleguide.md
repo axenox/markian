@@ -2,6 +2,8 @@
 
 Markian is a focused writing tool: the document is dominant, controls are compact, and navigation stays predictable. This guide defines shared appearance and interaction patterns for integrators and contributors. See [configuration](Configuration.md) for options and [architecture](Architecture.md) for concepts.
 
+For a framework-neutral integration approach and a checklist of host controls to compare, see [matching the host application](Host_application_styling.md).
+
 ## Layout
 
 The editor has a toolbar, a bounded main work area, and a small status bar. The main work area contains the active view and, for document editing, an adjacent outline. Each scrollable surface owns its scrolling; navigation must not scroll the surrounding host page.
@@ -27,6 +29,8 @@ Give the host an explicit usable height. The editor fills it while retaining a u
 | Mention | A compact Material-style chip with a lightly tinted background and inherited prose/link text color. Keep it inline without extra line height; wrappers are never persisted. Keyboard focus and touch provide the same text details as hover. |
 
 Use selected MDI icons for built-in controls; search replacement uses the existing Codicon outlines. Custom commands, toolbar items and templates can supply raw SVG through the shared sanitized icon renderer. Keep SVG in named variables rather than long configuration values. Use static geometry and `currentColor` where possible; shared sizing and the control label remain authoritative. Do not introduce a second icon system or duplicate similar-looking controls. Use text for clear actions where appropriate, not as a substitute for familiar formatting symbols. See the [icon policy](Configuration.md#icons).
+
+Built-in editor labels, tooltips, accessible names, dialog text, loading states and Help use the owning instance's translation lookup. Visible captions and accessible names must stay consistent. Keep uppercase dotted keys out of ordinary UI except as an intentional missing-translation signal. English remains the fallback; longer translations must use the same shared overflow, wrapping and scrolling behavior rather than smaller text or separate controls. See [translations](Configuration.md#translations). Do not translate document/provider content automatically.
 
 ## Toolbar and Menus
 

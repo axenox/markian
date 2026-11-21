@@ -39,6 +39,7 @@ Options belong to each instance. This example uses a compact toolbar, a custom c
 const editor = Markian.create(document.querySelector('#notes'), {
   markdown: '# Notes',
   theme: 'dark',
+  translations: ['/assets/markian/Translations/de.json'],
   sidebarVisible: false,
   markdownCssUrls: ['/assets/markdown.css'],
   toolbar: [
@@ -52,6 +53,8 @@ const editor = Markian.create(document.querySelector('#notes'), {
 ```
 
 All options, effective defaults, callbacks, and bundled extension settings are in the [configuration reference](Docs/Configuration.md).
+
+English UI text is embedded by default. Add bundled German or your own flat JSON files through `translations`; later files override earlier ones, with English fallback. Extensions use the same instance-local lookup. See [translation configuration](Docs/Configuration.md#translations) for paths, custom namespaces and loading errors.
 
 ## Extensibility
 

@@ -1,5 +1,6 @@
 import { Items } from './registry';
 import { ToolbarItems } from './ui/toolbar';
+import type { TranslationDictionary, TranslationParameters } from './types';
 import type { BlockSession, BlockTarget, CommandDefinition, Disposer, EditorEvent, EditorOptions, EventName, ExtensionFactory, MarkianInstance, Mode, RendererDefinition, SetOptions, SourceHandle, SourceOptions, StructuralNode, Theme, ViewDefinition, SearchOptions, SearchMatch } from './types';
 export declare class EditorInstance implements MarkianInstance {
     private host;
@@ -50,6 +51,7 @@ export declare class EditorInstance implements MarkianInstance {
     private cleanups;
     private cssUrls;
     private lastValue;
+    private translations;
     private commands;
     private toolbarItems;
     private views;
@@ -58,6 +60,8 @@ export declare class EditorInstance implements MarkianInstance {
     constructor(host: HTMLElement, options: EditorOptions, factories: ReadonlyMap<string, ExtensionFactory>);
     get activeView(): string;
     get readOnly(): boolean;
+    translate(key: string, parameters?: TranslationParameters): string;
+    registerTranslations(defaults: TranslationDictionary): Disposer;
     getCommands(): Items<CommandDefinition>;
     getToolbar(): ToolbarItems;
     getViews(): Items<ViewDefinition>;

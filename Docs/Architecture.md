@@ -40,6 +40,10 @@ Markian owns editing, presentation, validation, cancellation signals, and reject
 
 General host callbacks are flat options such as `onImageInsert` and `onLinkSuggest`. They are trusted functions supplied by application code, never strings evaluated from Markdown. The viewer has a separate callback contract. See [configuration](Configuration.md).
 
+Editor UI translations are static presentation assets, not host data providers. Core embeds English from a flat JSON dictionary; each instance can load ordered additional JSON URLs or inline dictionaries. The instance owns merged overrides, lookup and cancellation. A narrow static-asset loader is the only library module allowed to use browser fetch; it has no credentials, headers, endpoints or application transport options. Hosts still own all application networking. See [translation configuration](Configuration.md#translations).
+
+Extensions use the same public translation lookup as hosts. Third-party extensions register owned English defaults below host overrides in unique namespaces. Core ships bundled-extension text in its base dictionary, without loading those extensions or their runtimes. Translation data changes presentation only, never Markdown or histories.
+
 Mention rules may opt into `suggestOnClick` to request their existing suggestion provider with the complete activated tag value. Markian owns that menu and its cancellation/permission handling; hosts still own lookup filtering and transport.
 
 Before saving, hosts await `whenIdle()` and then read `get()`. They must also serialize or recheck edits during their own asynchronous storage operation. Failed current-document image insertions block the save gate until retried or explicitly removed.
@@ -88,7 +92,7 @@ Each editor owns its document, revision, selection, histories, callbacks, pendin
 
 Visual table grips and cell-edge action panels are instance-owned presentation overlays, not document nodes. Their visual-engine plugin owns selection-aware visibility, focus tracking, measurement, drag cancellation and undoable row/column reordering, including contiguous selected groups. Panel actions route through the editor's registered commands rather than duplicating insertion/deletion logic. They never enter saved Markdown or reserve document space.
 
-Editor initialization waits for enabled extension initialization, configured stylesheets, engine construction, and initial import. Schema registration closes before engine construction. A rejected initialization restores the host. Preservation fallback to Source view instead resolves readiness and reports the incompatibility.
+Editor initialization waits for translation assets, enabled extension initialization, configured stylesheets, engine construction, and initial import. Schema registration closes before engine construction. A rejected initialization restores the host. Preservation fallback to Source view instead resolves readiness and reports the incompatibility.
 
 Hosts load base editor/viewer CSS explicitly. Both entry points support replacement content stylesheets and additional document-wrapper classes; the editor also accepts theme stylesheets. Shared alert presentation belongs to the base editor/viewer CSS, so replacing prose styles does not remove alert labels or colors. Markian preserves configured wrapper classes as views and rendered documents change. These are ordinary page styles, not shadow-DOM isolation, so hosts must scope them. See the [style guide](Styleguide.md).
 

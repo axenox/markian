@@ -5,13 +5,13 @@ export const defaultToolbar: readonly ToolbarEntry[] = [
   { id: 'history', type: 'group', items: ['undo', 'redo'] },
   { id: 'format', type: 'group', items: [
     'headings',
-    { id: 'formatting', type: 'menu', label: 'Formatting', icon: 'bold', items: ['bold', 'italic', 'strike'] },
-    { id: 'lists', type: 'menu', label: 'Lists', icon: 'lists', items: ['ordered', 'bullet', 'task'] },
+    { id: 'formatting', type: 'menu', label: 'TOOLBAR.FORMATTING', icon: 'bold', items: ['bold', 'italic', 'strike'] },
+    { id: 'lists', type: 'menu', label: 'TOOLBAR.LISTS', icon: 'lists', items: ['ordered', 'bullet', 'task'] },
     'indent', 'outdent',
   ] },
   { id: 'insert', type: 'group', items: ['code', 'codeblock', 'quotes', 'link', 'image', 'table', 'rule'] },
   { id: 'document', type: 'group', items: [
-    { id: 'modes', type: 'menu', label: 'View mode', icon: 'preview', items: ['visual', 'source', 'preview'] },
+    { id: 'modes', type: 'menu', label: 'TOOLBAR.MODES', icon: 'preview', items: ['visual', 'source', 'preview'] },
     'clear', 'copy', 'help',
   ] },
   { id: 'utilities', type: 'group', align: 'opposite', items: ['search', 'fullscreen', 'outline'] },

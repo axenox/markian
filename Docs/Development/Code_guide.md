@@ -15,6 +15,7 @@ This guide maps current source responsibilities for contributors. Public concept
 | [mentions.ts](../../src/mentions.ts) | Bounded prefix matching, source-neutral ProseMirror decorations and rule-local suggestion/detail/action callbacks with cancellation and keyboard routing. |
 | [registry.ts](../../src/registry.ts) | Ordered owned registrations and disposal. |
 | [styles.ts](../../src/styles.ts) | Stylesheet URL validation, ordered loading, and owned link cleanup. |
+| [translations.ts](../../src/translations.ts) | Instance-local English defaults, ordered static JSON loading, placeholder lookup and disposable extension defaults. English/German text lives in `Translations`, not control code. |
 | [search.ts](../../src/search.ts) | Bounded literal Unicode-aware matching independent of engines. |
 | [visual.ts](../../src/engines/visual.ts) | Milkdown construction, schema bridge, import/serialization checks, and ProseMirror integration. |
 | [inline-code.ts](../../src/engines/inline-code.ts) | Selection-local code delimiter decorations and keyboard/pointer boundary navigation, without document or history mutations. |
@@ -48,6 +49,8 @@ Only the visual adapter imports Milkdown. Ordinary editing uses Markian-owned de
 
 Shared rendering cannot import editor controllers, engines, sessions, history, commands, or toolbar UI. Viewer builds embed shared rendering source independently, with no hidden runtime chunk. Build checks inspect the actual viewer module graph and enforce dependency/size boundaries. Keep host data transport out of all library modules.
 
+Only `translations.ts` may reference browser fetch, and only for explicitly configured static translation assets without credentials or application transport settings. Its load is bounded, abortable and atomic; extensions initialize after all configured files merge. English is a JSON import embedded by the build. The manifest identifies package-root translation files separately from `dist` assets; npm and Composer ship them without a consumer build.
+
 Keep ProseMirror versions compatible and deduplicated. A second `prosemirror-model` copy can fail only during browser editing even when compilation succeeds.
 
 ## Document and View Ownership
@@ -65,6 +68,8 @@ Milkdown GFM already installs table editing. Reuse it instead of registering ano
 `ToolbarItems` copies configuration and projects removable contributions. Registration order is not toolbar placement: explicit container IDs and local ordering targets control placement. Existing configured references win. Empty groups disappear without separators; opposite alignment comes only from top-level configuration.
 
 Native popovers remain instance-owned while escaping parent clipping. Shared controls and panels supply keyboard behavior, selection retention, and focus restoration. Height-only resize notifications must not rebuild a focused toolbar. Outline navigation resolves live headings, not stale ProseMirror DOM references, and scrolls the active surface after focus.
+
+Add built-in UI strings to `Translations/en.json` and update the corresponding German entries. Use uppercase dotted keys and whole messages with `{name}` placeholders instead of concatenating translated fragments. Engines receive the instance's lookup; optional extensions use the public `translate` method and do not import dictionaries into their bundles. Keep document examples and programming-language names literal. Host/dependency failures and developer diagnostics keep their supplied messages.
 
 The outline passes derived heading IDs to the visual engine, which applies them as ProseMirror decorations. Do not write attributes directly to editable heading DOM: ProseMirror can treat those writes as document damage, rebuilding unchanged blocks and restarting Mermaid renders.
 

@@ -66,6 +66,8 @@ Fullscreen callbacks return the paired restore operation. Markian calls it once 
 
 ## Editor Extensions
 
+Extensions share the editor's [translation API](API.md#translations). Third-party extensions supply English defaults in a unique namespace and ship flat JSON files that hosts list in [translation configuration](Configuration.md#translations). See [writing translatable extensions](Development/Writing_extensions.md#translations).
+
 Load an extension's script explicitly, register its factory once, then enable it per editor. Loading or registration alone does not activate a feature. Enabled unknown IDs fail configuration; omitted/disabled entries contribute nothing.
 
 ```javascript

@@ -6,6 +6,7 @@ import { defaultColors } from './render/colors';
 import { quoteMarker } from './render/markdown';
 
 export function installEditing(instance: MarkianInstance, visual: () => EditorView, raw: () => SourceEditor, options: EditorOptions, destination: (image: boolean) => void, registerToolbar: (item: ToolbarItem) => void): void {
+  const t = (key: string) => instance.translate(key);
   const add = (definition: CommandDefinition, pinned = false) => {
     instance.getCommands().insert(definition);
     if (pinned) registerToolbar({ id: definition.id, command: definition.id });
@@ -43,7 +44,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
         }
       },
     });
-    add({ id: 'colors', label: 'Text color', icon: 'color', views: ['visual', 'raw'], run: () => {} });
+    add({ id: 'colors', label: t('TOOLBAR.COLOR'), icon: 'color', views: ['visual', 'raw'], run: () => {} });
     instance.getToolbar().insert({ id: 'colors', type: 'menu', items: palette.map(color => `color:${color.toLowerCase()}`) }, 'format');
   }
   const sourceLines = (transform: (line: string) => string) => {
@@ -78,7 +79,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     return wrapInList(state.schema.nodes[name])(state, dispatch);
   };
   for (let level = 1; level <= 6; level++) add({
-    id: `heading:${level}`, label: `Heading ${level}`, icon: `heading${level}`, views: ['visual', 'raw'], mutates: true,
+    id: `heading:${level}`, label: instance.translate('TOOLBAR.HEADING', { level }), icon: `heading${level}`, views: ['visual', 'raw'], mutates: true,
     active: () => instance.activeView === 'visual' && visual().state.selection.$from.parent.attrs.level === level,
     run: () => {
       if (instance.activeView === 'raw') {
@@ -88,9 +89,9 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       } else run(setBlockType(visual().state.schema.nodes.heading, { level }));
     },
   });
-  add({ id: 'headings', label: 'Headings', icon: 'heading', views: ['visual', 'raw'], run: () => {} });
+  add({ id: 'headings', label: t('TOOLBAR.HEADINGS'), icon: 'heading', views: ['visual', 'raw'], run: () => {} });
   registerToolbar({ id: 'headings', type: 'menu', items: [1, 2, 3, 4, 5, 6].map(level => `heading:${level}`) });
-  add({ id: 'strike', label: 'Strikethrough', icon: 'strike', views: ['visual', 'raw'], mutates: true, run: () => {
+  add({ id: 'strike', label: t('TOOLBAR.STRIKE'), icon: 'strike', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') {
       const { from, to } = raw().view.state.selection.main;
       sourceInsert(`~~${raw().view.state.sliceDoc(from, to)}~~`);
@@ -102,16 +103,16 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       view.dispatch(closeHistory(active ? view.state.tr.removeMark(from, to, mark) : view.state.tr.addMark(from, to, mark.create())));
     }
   } }, true);
-  for (const [id, label, prefix, node] of [['list:bullet', 'Bullet list', '- ', 'bullet_list'], ['ordered', 'Numbered list', '1. ', 'ordered_list']]) add({
-    id, label, icon: id === 'ordered' ? 'ordered' : 'bullet', views: ['visual', 'raw'], mutates: true,
+  for (const [id, key, prefix, node] of [['list:bullet', 'TOOLBAR.BULLET', '- ', 'bullet_list'], ['ordered', 'TOOLBAR.ORDERED', '1. ', 'ordered_list']]) add({
+    id, label: t(key), icon: id === 'ordered' ? 'ordered' : 'bullet', views: ['visual', 'raw'], mutates: true,
     run: () => { if (instance.activeView === 'raw') sourceLines(line => prefix + line.replace(/^(?:[-+*]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')); else run(list(node)); },
   }, id === 'ordered');
-  for (const [id, label, command] of [['indent', 'Indent list item', sinkListItem], ['outdent', 'Outdent list item', liftListItem]] as const) add({
-    id, label, icon: id, views: ['visual', 'raw'], mutates: true,
+  for (const [id, command] of [['indent', sinkListItem], ['outdent', liftListItem]] as const) add({
+    id, label: t(`TOOLBAR.${id.toUpperCase()}`), icon: id, views: ['visual', 'raw'], mutates: true,
     enabled: () => instance.activeView === 'raw' || command(visual().state.schema.nodes.list_item)(visual().state),
     run: () => { if (instance.activeView === 'raw') sourceLines(line => id === 'indent' ? '  ' + line : line.replace(/^(?: {1,2}|\t)/, '')); else run(command(visual().state.schema.nodes.list_item)); },
   }, true);
-  add({ id: 'task', label: 'Task list', icon: 'task', views: ['visual', 'raw'], mutates: true, run: () => {
+  add({ id: 'task', label: t('TOOLBAR.TASK'), icon: 'task', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') { sourceLines(line => '- [ ] ' + line.replace(/^(?:[-+*]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')); return; }
     const view = visual();
     const apply = (transaction: Transaction) => {
@@ -124,14 +125,14 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     if (selectedListItems(view.state).length) apply(view.state.tr);
     else wrapInList(view.state.schema.nodes.bullet_list)(view.state, apply);
   } }, true);
-  add({ id: 'rule', label: 'Horizontal rule', icon: 'rule', views: ['visual', 'raw'], mutates: true, run: () => {
+  add({ id: 'rule', label: t('TOOLBAR.RULE'), icon: 'rule', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') sourceInsert('\n\n---\n\n');
     else {
       const view = visual();
       view.dispatch(closeHistory(view.state.tr.replaceSelectionWith(view.state.schema.nodes.hr.create()).scrollIntoView()));
     }
   } }, true);
-  add({ id: 'codeblock', label: 'Code block', icon: 'expand', views: ['visual', 'raw'], mutates: true, run: () => {
+  add({ id: 'codeblock', label: t('TOOLBAR.CODEBLOCK'), icon: 'expand', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') {
       const { from, to } = raw().view.state.selection.main;
       const value = raw().view.state.sliceDoc(from, to);
@@ -154,7 +155,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       });
     });
   } }, true);
-  add({ id: 'clear', label: 'Clear formatting', icon: 'clear', views: ['visual'], mutates: true, run: () => {
+  add({ id: 'clear', label: t('TOOLBAR.CLEAR'), icon: 'clear', views: ['visual'], mutates: true, run: () => {
     const view = visual();
     const { from, to } = view.state.selection;
     const transaction = closeHistory(view.state.tr.removeMark(from, to));
@@ -184,7 +185,7 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     return { view, first, last, lines, marker, kind: quoted ? marker?.[1] ?? '' : null };
   };
   for (const kind of ['', 'NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']) add({
-    id: kind ? `quote:${kind.toLowerCase()}` : 'quote', label: kind ? kind[0] + kind.slice(1).toLowerCase() : 'Quote', icon: kind ? `quote:${kind.toLowerCase()}` : 'quote', views: ['visual', 'raw'], mutates: true,
+    id: kind ? `quote:${kind.toLowerCase()}` : 'quote', label: t(`TOOLBAR.${kind || 'QUOTE'}`), icon: kind ? `quote:${kind.toLowerCase()}` : 'quote', views: ['visual', 'raw'], mutates: true,
     active: () => (instance.activeView === 'raw' ? sourceQuoteContext().kind : quoteContext().kind) === kind,
     run: () => {
       if (instance.activeView === 'raw') {
@@ -217,10 +218,10 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       }
     },
   });
-  add({ id: 'quotes', label: 'Quote', icon: 'quote', views: ['visual', 'raw'], run: () => {} });
+  add({ id: 'quotes', label: t('TOOLBAR.QUOTE'), icon: 'quote', views: ['visual', 'raw'], run: () => {} });
   registerToolbar({ id: 'quotes', type: 'menu', items: ['quote', 'quote:note', 'quote:tip', 'quote:important', 'quote:warning', 'quote:caution'] });
-  for (const image of [false, true]) add({ id: image ? 'image' : 'link', label: image ? 'Insert image' : 'Edit link', icon: image ? 'image' : 'link', views: ['visual', 'raw'], mutates: true, run: () => destination(image) }, true);
-  add({ id: 'unlink', label: 'Remove link', icon: 'unlink', views: ['visual'], mutates: true, run: () => {
+  for (const image of [false, true]) add({ id: image ? 'image' : 'link', label: t(image ? 'TOOLBAR.IMAGE' : 'TOOLBAR.LINK'), icon: image ? 'image' : 'link', views: ['visual', 'raw'], mutates: true, run: () => destination(image) }, true);
+  add({ id: 'unlink', label: t('TOOLBAR.UNLINK'), icon: 'unlink', views: ['visual'], mutates: true, run: () => {
     const view = visual();
     const { from, to, $from } = view.state.selection;
     let start = from;
@@ -234,8 +235,8 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     }
     view.dispatch(closeHistory(view.state.tr.removeMark(start, end, view.state.schema.marks.link)));
   } });
-  add({ id: 'table', label: 'Table', icon: 'table', views: ['visual'], run: () => {} });
-  add({ id: 'table:insert', label: 'Insert table', icon: 'table:insert', views: ['visual', 'raw'], mutates: true, run: (_instance, payload) => {
+  add({ id: 'table', label: t('TOOLBAR.TABLE'), icon: 'table', views: ['visual'], run: () => {} });
+  add({ id: 'table:insert', label: t('TABLE.INSERT'), icon: 'table:insert', views: ['visual', 'raw'], mutates: true, run: (_instance, payload) => {
     const shape = payload as { rows?: number; columns?: number } | undefined;
     const rows = shape?.rows ?? 3;
     const columns = shape?.columns ?? 3;
@@ -256,11 +257,11 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
     view.focus();
   } });
   const tableCommands: [string, string, Command][] = [
-    ['row-before', 'Insert row above', addRowBefore], ['row-after', 'Insert row below', addRowAfter],
-    ['column-before', 'Insert column left', addColumnBefore], ['column-after', 'Insert column right', addColumnAfter],
-    ['delete-row', 'Delete row', deleteRow], ['delete-column', 'Delete column', deleteColumn], ['delete', 'Delete table', deleteTable],
-    ['header', 'Use row as header', addRowAfter],
-    ['left', 'Align left', setCellAttr('alignment', 'left')], ['center', 'Align center', setCellAttr('alignment', 'center')], ['right', 'Align right', setCellAttr('alignment', 'right')],
+    ['row-before', t('TABLE.ROW_BEFORE'), addRowBefore], ['row-after', t('TABLE.ROW_AFTER'), addRowAfter],
+    ['column-before', t('TABLE.COLUMN_BEFORE'), addColumnBefore], ['column-after', t('TABLE.COLUMN_AFTER'), addColumnAfter],
+    ['delete-row', t('TABLE.DELETE_ROW'), deleteRow], ['delete-column', t('TABLE.DELETE_COLUMN'), deleteColumn], ['delete', t('TABLE.DELETE'), deleteTable],
+    ['header', t('TABLE.HEADER'), addRowAfter],
+    ['left', t('TABLE.LEFT'), setCellAttr('alignment', 'left')], ['center', t('TABLE.CENTER'), setCellAttr('alignment', 'center')], ['right', t('TABLE.RIGHT'), setCellAttr('alignment', 'right')],
   ];
   const rowCommand = (operation: string): Command => (state, dispatch) => {
     const selected = state.selection.$from;

@@ -100,7 +100,7 @@ export function installTemplates(instance: MarkianInstance, options: EditorOptio
     });
     return id;
   });
-  instance.getCommands().insert({ id: 'templates', label: 'Templates', icon: 'templates', views: ['visual', 'raw'], mutates: true, run: () => {} });
+  instance.getCommands().insert({ id: 'templates', label: instance.translate('TOOLBAR.TEMPLATES'), icon: 'templates', views: ['visual', 'raw'], mutates: true, run: () => {} });
   const toolbar = instance.getToolbar();
   const group = (options.toolbar ?? defaultToolbar).find(entry => typeof entry !== 'string' && entry.id === 'insert');
   const beforeRule = typeof group !== 'string' && group?.items?.some(entry => (typeof entry === 'string' ? entry : entry.id) === 'rule') ? 'rule' : undefined;

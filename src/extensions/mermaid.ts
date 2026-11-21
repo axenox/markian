@@ -41,6 +41,7 @@ function safeSvg(document: Document, source: string): SVGElement {
 
 export const mermaidExtension: ExtensionFactory = () => ({
   init(instance, supplied, lifetime) {
+    const t = (key: string) => instance.translate(key);
     const config = (supplied ?? {}) as MermaidConfig;
     if (typeof config !== 'object' || config === null) throw new TypeError('Mermaid config must be an object.');
     if ('asset' in config) throw new TypeError('Mermaid asset is no longer supported. Use source: URL string.');
@@ -61,7 +62,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
       const controls = document.createElement('div');
       controls.className = 'markian-floating markian-diagram-controls';
       controls.setAttribute('role', 'toolbar');
-      controls.setAttribute('aria-label', 'Diagram controls');
+      controls.setAttribute('aria-label', t('MERMAID.CONTROLS'));
       const status = document.createElement('div');
       status.className = 'markian-diagram-status';
       status.setAttribute('role', 'status');
@@ -69,7 +70,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
       viewport.className = 'markian-diagram-viewport';
       viewport.tabIndex = 0;
       viewport.setAttribute('role', 'img');
-      viewport.setAttribute('aria-label', 'Mermaid diagram. Arrow keys pan; plus and minus zoom; Home resets.');
+      viewport.setAttribute('aria-label', t('MERMAID.DIAGRAM'));
       const canvas = document.createElement('div');
       canvas.className = 'markian-diagram-canvas';
       viewport.append(canvas);
@@ -84,14 +85,14 @@ export const mermaidExtension: ExtensionFactory = () => ({
       const transform = () => { canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`; };
       const zoom = (factor: number) => { scale = Math.max(0.2, Math.min(5, scale * factor)); transform(); };
       const button = (label: string, icon: string, action: () => void) => controls.append(commandButton(document, label, icon, action));
-      if (context) button('Edit diagram', 'visual', () => context.open('mermaid'));
-      button('Zoom in', 'zoomIn', () => zoom(1.25));
-      button('Zoom out', 'zoomOut', () => zoom(0.8));
-      button('Reset diagram view', 'reset', () => { scale = 1; offsetX = offsetY = 0; transform(); });
-      button('Retry diagram', 'retry', () => refresh());
+      if (context) button(t('MERMAID.EDIT'), 'visual', () => context.open('mermaid'));
+      button(t('MERMAID.ZOOM_IN'), 'zoomIn', () => zoom(1.25));
+      button(t('MERMAID.ZOOM_OUT'), 'zoomOut', () => zoom(0.8));
+      button(t('MERMAID.RESET'), 'reset', () => { scale = 1; offsetX = offsetY = 0; transform(); });
+      button(t('MERMAID.RETRY'), 'retry', () => refresh());
       if (context) {
-        button('Copy code', 'copy', () => context.copy());
-        const deletion = commandButton(document, 'Delete code block', 'delete', () => context.delete());
+        button(t('CODE.COPY'), 'copy', () => context.copy());
+        const deletion = commandButton(document, t('CODE.DELETE'), 'delete', () => context.delete());
         deletion.dataset.markianBlockDelete = '';
         controls.append(deletion);
       }
@@ -99,7 +100,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
         request?.abort();
         clearTimeout(timer);
         element.dataset.state = 'loading';
-        status.textContent = 'Rendering diagram...';
+        status.textContent = t('MERMAID.LOADING');
         viewport.hidden = false;
         const current = new AbortController();
         request = current;
@@ -108,7 +109,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
             const text = value();
             bounded(text, characters, lines);
             const renderer = config.renderer ?? (config.source ? await loadMermaid(document, config.source) : undefined);
-            if (!renderer) throw new Error('Mermaid URL is not configured. Set extensions.mermaid.config.source.');
+            if (!renderer) throw new Error(t('MERMAID.NOT_CONFIGURED'));
             if (disposed || current.signal.aborted) return;
             const id = `markian-diagram-${++sequence}`;
             const svg = await renderer.render({ source: text, id, theme: instance.element.dataset.theme === 'dark' ? 'dark' : 'light', signal: current.signal });
@@ -157,7 +158,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
         element.classList.add('markian-mermaid');
         const sidebar = document.createElement('aside');
         sidebar.className = 'markian-mermaid-snippets';
-        sidebar.setAttribute('aria-label', 'Diagram snippets');
+        sidebar.setAttribute('aria-label', t('MERMAID.SNIPPETS'));
         const code = document.createElement('div');
         code.className = 'markian-mermaid-source';
         const input = document.createElement('div');
@@ -177,21 +178,22 @@ export const mermaidExtension: ExtensionFactory = () => ({
           if (sidebar.childElementCount && currentType === diagram?.id) return;
           currentType = diagram?.id;
           const title = document.createElement('h2');
-          title.textContent = `${diagram?.label ?? 'Mermaid'} snippets`;
+          title.textContent = instance.translate('MERMAID.SNIPPETS_TITLE', { type: diagram ? t(diagram.label) : 'Mermaid' });
           const hint = document.createElement('p');
-          hint.textContent = diagram ? 'Insert at the cursor. Edit names and colors in source.' : 'Choose a diagram type for more snippets. Existing source is kept until you choose a template.';
+          hint.textContent = t(diagram ? 'MERMAID.SNIPPETS_HINT' : 'MERMAID.CHOOSE_TYPE');
           sidebar.replaceChildren(title, hint);
           for (const group of diagram?.groups ?? genericSnippets) {
             const heading = document.createElement('h3');
-            heading.textContent = group.label;
+            heading.textContent = t(group.label);
             sidebar.append(heading);
             for (const snippet of group.snippets) {
-              const button = commandButton(document, `Insert ${snippet.label}`, undefined, () => { void instance.execute('mermaid:snippet', snippet.code); });
+              const caption = t(snippet.label);
+              const button = commandButton(document, instance.translate('MERMAID.INSERT_SNIPPET', { label: caption }), undefined, () => { void instance.execute('mermaid:snippet', snippet.code); });
               button.classList.add('markian-mermaid-snippet');
               button.disabled = instance.readOnly;
-              button.title = `${snippet.label}\n${snippet.code}`;
+              button.title = `${caption}\n${snippet.code}`;
               const label = document.createElement('span');
-              label.textContent = snippet.label;
+              label.textContent = caption;
               const fragment = document.createElement('code');
               renderTokens(fragment, snippet.code, mermaidHighlighter.highlight(snippet.code));
               button.replaceChildren(label, fragment);
@@ -208,7 +210,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
             if (disposed || lifetime.aborted) return;
             try {
               const text = activeSource.get();
-              if (text.length > characters || text.split('\n').length > lines) throw new Error('Highlighting limit exceeded; source remains editable.');
+              if (text.length > characters || text.split('\n').length > lines) throw new Error(t('CODE.LIMIT'));
               activeSource.setHighlights(mermaidHighlighter.highlight(text));
               highlightStatus.textContent = '';
             } catch (error) {
@@ -217,7 +219,7 @@ export const mermaidExtension: ExtensionFactory = () => ({
             }
           }, 100);
         };
-        source = instance.createSourceEditor(input, session.get(), value => { session.set(value); refreshHighlight(); }, { label: 'Mermaid source' });
+        source = instance.createSourceEditor(input, session.get(), value => { session.set(value); refreshHighlight(); }, { label: t('MERMAID.SOURCE') });
         const activeSource = source;
         refreshHighlight();
         updateSnippets();
@@ -229,10 +231,10 @@ export const mermaidExtension: ExtensionFactory = () => ({
         instance.element.querySelectorAll<HTMLButtonElement>('.markian-mermaid-snippet').forEach(button => { button.disabled = value; });
       } }));
       disposers.push(instance.getRenderers().insert({ id: 'mermaid', language: 'mermaid', visual: true, render: (code, element, context) => preview(() => code, element, context) }));
-      disposers.push(instance.getCommands().insert({ id: 'mermaid:insert', label: 'Insert diagram', icon: 'diagram', views: ['visual'], mutates: true, run: () => instance.insertCodeBlock('flowchart LR\n  A[Start] --> B[Finish]', 'mermaid') }));
+      disposers.push(instance.getCommands().insert({ id: 'mermaid:insert', label: t('MERMAID.INSERT'), icon: 'diagram', views: ['visual'], mutates: true, run: () => instance.insertCodeBlock('flowchart LR\n  A[Start] --> B[Finish]', 'mermaid') }));
       disposers.push(instance.getToolbar().insert({ id: 'mermaid:insert', command: 'mermaid:insert' }, 'insert', 'rule'));
       disposers.push(instance.getCommands().insert({
-        id: 'mermaid:snippet', label: 'Insert diagram snippet', views: ['mermaid'], mutates: true,
+        id: 'mermaid:snippet', label: t('MERMAID.SNIPPET_COMMAND'), views: ['mermaid'], mutates: true,
         run: (_, value) => {
           if (typeof value !== 'string') throw new TypeError('Diagram snippets must be source text.');
           if (!source) throw new Error('The Mermaid source editor is not available.');
@@ -241,8 +243,8 @@ export const mermaidExtension: ExtensionFactory = () => ({
         },
       }));
       for (const diagram of diagrams) disposers.push(instance.getCommands().insert({
-        id: `mermaid:type:${diagram.id}`, label: diagram.label, icon: 'diagram', views: ['mermaid'], mutates: true,
-        hint: `Replace the current diagram with a ${diagram.label} template. Undo restores the previous source.`,
+        id: `mermaid:type:${diagram.id}`, label: t(diagram.label), icon: 'diagram', views: ['mermaid'], mutates: true,
+        hint: instance.translate('MERMAID.TEMPLATE_HINT', { type: t(diagram.label) }),
         active: () => diagramFor(source?.get() ?? '')?.id === diagram.id,
         run: () => {
           if (!source) throw new Error('The Mermaid source editor is not available.');
@@ -252,14 +254,14 @@ export const mermaidExtension: ExtensionFactory = () => ({
         },
       }));
       disposers.push(instance.getToolbar().insert({
-        id: 'mermaid:types', type: 'menu', label: 'Diagram type', icon: 'diagram',
+        id: 'mermaid:types', type: 'menu', label: t('MERMAID.TYPE'), icon: 'diagram',
         items: diagrams.map(diagram => `mermaid:type:${diagram.id}`),
       }, 'insert'));
       for (const id of ['undo', 'redo', 'indent', 'outdent'] as const) {
-        disposers.push(instance.getCommands().insert({ id: `mermaid:${id}`, label: { undo: 'Undo', redo: 'Redo', indent: 'Indent', outdent: 'Outdent' }[id], icon: id, mutates: true, views: ['mermaid'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
+        disposers.push(instance.getCommands().insert({ id: `mermaid:${id}`, label: t(`${id === 'undo' || id === 'redo' ? 'TOOLBAR' : 'CODE'}.${id.toUpperCase()}`), icon: id, mutates: true, views: ['mermaid'], run: () => { if (id === 'indent' || id === 'outdent') source?.indent(id === 'outdent'); else source?.[id](); } }));
         disposers.push(instance.getToolbar().insert({ id: `mermaid:${id}`, command: `mermaid:${id}` }, id === 'undo' || id === 'redo' ? 'history' : 'format', id));
       }
-      disposers.push(instance.getHelp().insert({ id: 'mermaid', markdown: '\n## Mermaid diagrams\n\nUse Insert diagram or Edit diagram to open the code/preview workspace. Diagram type replaces the current source with a Class, Flowchart, Sequence, State, Use case, ERD, or Git graph template; Undo restores it. Use case uses ordinary flowchart syntax. The left sidebar follows the source declaration and inserts literal snippets at the cursor or replaces selected text. Edit example names and hex colors in source; add line breaks where needed. Git graph offers commits, branches and comments, not unsupported shape/color controls. Unsupported declarations keep source and offer comments only.\n\nBack applies the draft as one document edit. Source drafts are included in saved Markdown before Back. Undo/redo and indentation affect the diagram session. Press Escape then Tab to leave source Tab handling. Diagram arrow keys pan, plus/minus zoom, and Home resets; pointer dragging and zoom buttons also work when read-only. Syntax errors retain the ordinary Mermaid fence.\n' }));
+      disposers.push(instance.getHelp().insert({ id: 'mermaid', markdown: t('HELP.MERMAID') }));
     } catch (error) { observer.disconnect(); disposers.reverse().forEach(dispose => dispose()); throw error; }
     return () => { observer.disconnect(); previews.clear(); disposers.reverse().forEach(dispose => dispose()); };
   },

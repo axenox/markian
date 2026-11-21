@@ -13,7 +13,7 @@ async function check(directory) {
       const localRender = dependency.startsWith('.') && posix.normalize(posix.join(posix.dirname(path), dependency)).startsWith('src/render/');
       if (path.startsWith('src/render/') && !localRender && !['unified', 'remark-', 'rehype-', 'mdast', 'hast'].some(prefix => dependency.startsWith(prefix))) throw new Error(`Rendering boundary: ${path} -> ${dependency}`);
     }
-    if (/\bfetch\s*\(|XMLHttpRequest|\beval\s*\(/.test(source)) throw new Error(`Forbidden transport or evaluation: ${path}`);
+    if (/XMLHttpRequest|\beval\s*\(/.test(source) || path !== 'src/translations.ts' && /\bfetch\b/.test(source)) throw new Error(`Forbidden transport or evaluation: ${path}`);
   }
 }
 await check('src');

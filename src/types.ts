@@ -8,6 +8,9 @@ export type { TemplateStyle } from './render/template-styles';
 export type Mode = 'visual' | 'raw';
 export type Theme = 'light' | 'dark';
 export type Disposer = () => void;
+export type TranslationDictionary = Readonly<Record<string, string>>;
+export type TranslationParameters = Readonly<Record<string, string | number>>;
+export type TranslationSource = string | TranslationDictionary;
 export type EventName = 'change' | 'draft' | 'ready' | 'mode' | 'focus' | 'blur' | 'error' | 'save-request' | 'tag-click';
 export interface EditorEvent {
   instance: MarkianInstance;
@@ -166,6 +169,7 @@ export interface TagRule {
 }
 export interface EditorOptions {
   markdown: string;
+  translations?: readonly TranslationSource[];
   templates?: readonly TemplateDefinition[];
   allowedHtml?: readonly InlineHtmlTag[];
   tags?: readonly TagRule[];
@@ -200,6 +204,8 @@ export interface MarkianInstance {
   readonly revision: number;
   readonly activeView: string;
   readonly readOnly: boolean;
+  translate(key: string, parameters?: TranslationParameters): string;
+  registerTranslations(defaults: TranslationDictionary): Disposer;
   get(): string;
   set(markdown: string, options?: SetOptions): void;
   execute(id: string, payload?: unknown): Promise<boolean>;

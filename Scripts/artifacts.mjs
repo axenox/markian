@@ -5,7 +5,7 @@ import { gzipSync, brotliCompressSync } from 'node:zlib';
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const sizes = {};
 const codeLanguages = ['javascript', 'typescript', 'json', 'css', 'html', 'xml', 'php', 'sql', 'python', 'yaml'];
-for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css', 'extensions/code.min.js', 'extensions/code.css', ...codeLanguages.map(language => `extensions/languages/${language}.min.js`)]) {
+for (const path of ['markian.min.js', 'markian.css', 'markdown-github.css', 'markian-viewer.min.js', 'markian-viewer.css', 'extensions/viewer-mermaid.min.js', 'extensions/viewer-mermaid.css', 'extensions/mermaid.min.js', 'extensions/mermaid.css', 'extensions/code.min.js', 'extensions/code.css', '../Translations/en.json', '../Translations/de.json', ...codeLanguages.map(language => `extensions/languages/${language}.min.js`)]) {
   const bytes = await readFile(`dist/${path}`);
   sizes[path] = { bytes: bytes.length, gzip: gzipSync(bytes, { level: 9 }).length, brotli: brotliCompressSync(bytes).length };
 }
@@ -38,6 +38,7 @@ await collect('dist');
 await writeFile('dist/manifest.json', JSON.stringify({
   name: pkg.name, version: pkg.version, format: 'classic-script', sourceMaps: false,
   core: { script: 'markian.min.js', stylesheet: 'markian.css', contentStylesheet: 'markdown-github.css', types: 'types/index.d.ts' },
+  translations: { englishEmbedded: true, files: { en: '../Translations/en.json', de: '../Translations/de.json' } },
   viewer: { script: 'markian-viewer.min.js', stylesheet: 'markian-viewer.css', types: 'types/viewer.d.ts', global: 'MarkianViewer', dependencies: [], measurements: 'sizes.json' },
   extensions: {
     code: { script: 'extensions/code.min.js', stylesheet: 'extensions/code.css', types: 'types/extensions/code.d.ts', global: 'MarkianCode.codeExtension', requires: pkg.version,
