@@ -28,13 +28,14 @@ This JSON is the default declarative configuration with an empty required docume
     { "id": "format", "type": "group", "items": [
       "headings",
       { "id": "formatting", "type": "menu", "label": "TOOLBAR.FORMATTING", "icon": "bold", "items": ["bold", "italic", "strike"] },
+      "clear",
       { "id": "lists", "type": "menu", "label": "TOOLBAR.LISTS", "icon": "lists", "items": ["ordered", "bullet", "task"] },
       "indent", "outdent"
     ] },
     { "id": "insert", "type": "group", "items": ["code", "codeblock", "quotes", "link", "image", "table", "rule"] },
     { "id": "document", "type": "group", "items": [
       { "id": "modes", "type": "menu", "label": "TOOLBAR.MODES", "icon": "preview", "items": ["visual", "source", "preview"] },
-      "clear", "copy", "help"
+      "copy", "help"
     ] },
     { "id": "utilities", "type": "group", "align": "opposite", "items": ["search", "fullscreen", "outline"] }
   ],
@@ -99,6 +100,8 @@ Strings reference toolbar registrations or command IDs. Objects use these fields
 | `align`   | `"default"`         | Top-level containers only: default-aligned, overflowable controls or `"opposite"` controls outside More. |
 
 Arrays allow at most 200 entries and eight nesting levels. Groups generate separators only when nonempty. Order is retained within each alignment side. More appears automatically before opposite containers, or at the end if none exist. Command names never imply pinning or alignment.
+
+The built-in `headings` menu is labeled Text style. It contains Normal text (`paragraph`, Visual only) followed by `heading:1` through `heading:6`. Its default `text` icon is neutral; in Visual headings it shows the active level instead. Inline code (`code`) and Code block (`codeblock`) remain separate controls.
 
 ## Translations
 

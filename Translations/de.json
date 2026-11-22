@@ -22,6 +22,8 @@
   "TOOLBAR.REDO": "Wiederholen",
   "TOOLBAR.HEADING": "Überschrift {level}",
   "TOOLBAR.HEADINGS": "Überschriften",
+  "TOOLBAR.TEXT_STYLE": "Textstil",
+  "TOOLBAR.NORMAL_TEXT": "Normaler Text",
   "TOOLBAR.BULLET": "Aufzählung",
   "TOOLBAR.ORDERED": "Nummerierte Liste",
   "TOOLBAR.INDENT": "Listeneintrag einrücken",

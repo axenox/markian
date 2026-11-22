@@ -2,14 +2,14 @@
   "compression": "Independent resources; gzip level 9, Brotli default quality 11. Bytes, not KiB. No editor or viewer optional features enabled in baseline totals.",
   "assets": {
     "markian.min.js": {
-      "bytes": 1027700,
-      "gzip": 321526,
-      "brotli": 269027
+      "bytes": 1028832,
+      "gzip": 321885,
+      "brotli": 269228
     },
     "markian.css": {
-      "bytes": 17273,
-      "gzip": 3835,
-      "brotli": 3359
+      "bytes": 17314,
+      "gzip": 3841,
+      "brotli": 3362
     },
     "markdown-github.css": {
       "bytes": 3553,
@@ -37,9 +37,9 @@
       "brotli": 309
     },
     "extensions/mermaid.min.js": {
-      "bytes": 91326,
-      "gzip": 34857,
-      "brotli": 30253
+      "bytes": 91745,
+      "gzip": 35075,
+      "brotli": 30421
     },
     "extensions/mermaid.css": {
       "bytes": 6582,
@@ -47,9 +47,9 @@
       "brotli": 1239
     },
     "extensions/code.min.js": {
-      "bytes": 57006,
-      "gzip": 22719,
-      "brotli": 19607
+      "bytes": 57425,
+      "gzip": 22934,
+      "brotli": 19659
     },
     "extensions/code.css": {
       "bytes": 2599,
@@ -57,14 +57,14 @@
       "brotli": 560
     },
     "../Translations/en.json": {
-      "bytes": 10711,
-      "gzip": 3721,
-      "brotli": 3030
+      "bytes": 10791,
+      "gzip": 3745,
+      "brotli": 3048
     },
     "../Translations/de.json": {
-      "bytes": 12157,
-      "gzip": 4129,
-      "brotli": 3726
+      "bytes": 12237,
+      "gzip": 4155,
+      "brotli": 3746
     },
     "extensions/languages/javascript.min.js": {
       "bytes": 27938,
@@ -119,9 +119,9 @@
   },
   "totals": {
     "editor": {
-      "bytes": 1048526,
-      "gzip": 326396,
-      "brotli": 273220
+      "bytes": 1049699,
+      "gzip": 326761,
+      "brotli": 273424
     },
     "viewer": {
       "bytes": 220770,
@@ -129,9 +129,9 @@
       "brotli": 60454
     },
     "combined": {
-      "bytes": 1269296,
-      "gzip": 396270,
-      "brotli": 333674
+      "bytes": 1270469,
+      "gzip": 396635,
+      "brotli": 333878
     }
   },
   "budget": {

@@ -67,7 +67,7 @@
 .markian-status { flex: 0 0 25px; padding: 3px 12px; border-top: 1px solid var(--markian-line); color: var(--markian-muted); font-size: 11px; }
 .markian-diagnostic { padding: 8px 12px; color: #a82736; background: #fff0ef; border-bottom: 1px solid #e6b9b9; font-size: 12px; max-height: 90px; overflow: auto; }
 .markian-fullscreen { position: fixed; inset: auto; top: calc(var(--markian-viewport-top, 0px) + 12px); left: calc(var(--markian-viewport-left, 0px) + 12px); width: max(0px, calc(var(--markian-viewport-width, 100vw) - 24px)); height: max(0px, calc(var(--markian-viewport-height, 100dvh) - 24px)); min-height: 0; max-height: none; box-sizing: border-box; z-index: 10000; }
-.markian-button[aria-pressed='true'] { background: var(--markian-soft); color: var(--markian-accent); }
+.markian-button[aria-pressed='true'], .markian-menu > summary[aria-pressed='true'] { background: var(--markian-soft); color: var(--markian-accent); }
 .markian-separator { flex: 0 0 1px; align-self: stretch; margin: 5px 5px; background: var(--markian-line); }
 .markian-toolbar > .markian-button > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-label, .markian-toolbar > .markian-menu > summary > .markian-menu-chevron { display: none; }
 .markian-toolbar > .markian-menu:not(.markian-overflow) > summary > .markian-menu-chevron { display: block; position: absolute; right: 0; bottom: 1px; width: var(--markian-toolbar-chevron-size, 8px); height: var(--markian-toolbar-chevron-size, 8px); transform: rotate(90deg); }

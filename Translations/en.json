@@ -22,6 +22,8 @@
   "TOOLBAR.REDO": "Redo",
   "TOOLBAR.HEADING": "Heading {level}",
   "TOOLBAR.HEADINGS": "Headings",
+  "TOOLBAR.TEXT_STYLE": "Text style",
+  "TOOLBAR.NORMAL_TEXT": "Normal text",
   "TOOLBAR.BULLET": "Bullet list",
   "TOOLBAR.ORDERED": "Numbered list",
   "TOOLBAR.INDENT": "Indent list item",

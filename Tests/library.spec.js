@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { mdiSitemapOutline, mdiFileEditOutline } from '@mdi/js';
+import { mdiSitemapOutline, mdiFileEditOutline, mdiFormatText, mdiFormatHeader1, mdiFormatHeader2, mdiFormatHeader3, mdiFormatHeader4, mdiFormatHeader5, mdiFormatHeader6 } from '@mdi/js';
 import { equivalentMarkdown } from '../src/render/markdown';
 
 const browserErrors = new WeakMap();
@@ -1403,7 +1403,7 @@ for (const width of [1440, 390]) test(`popup labels, anchoring and outside dismi
     await expect(root.locator('.markian-overflow')).not.toHaveAttribute('open');
   }
   if (width === 1440) {
-    const heading = root.locator('.markian-toolbar > .markian-menu').filter({ has: page.locator('summary[aria-label="Headings"]') });
+    const heading = root.locator('.markian-toolbar > .markian-menu').filter({ has: page.locator('summary[aria-label="Text style"]') });
     await heading.locator('summary').click();
     const anchor = await heading.locator('summary').boundingBox();
     const menu = await heading.locator('.markian-menu-items').boundingBox();
@@ -1490,7 +1490,7 @@ test('overflow commands close their disclosures before destination dialogs', asy
     await root.getByRole('button', { name: 'Close', exact: true }).click();
   }
   await root.locator('.markian-overflow > summary').click();
-  const headings = root.locator('summary[aria-label="Headings"]').locator('..');
+  const headings = root.locator('summary[aria-label="Text style"]').locator('..');
   await headings.locator('summary').click();
   await headings.getByRole('button', { name: 'Heading 3', exact: true }).click();
   await expect(root.locator('details[open]')).toHaveCount(0);
@@ -1502,6 +1502,7 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
   const endCommands = () => root.locator('.markian-toolbar > [data-command]').evaluateAll(buttons => buttons.slice(-3).map(button => button.dataset.command));
   expect(await endCommands()).toEqual(['search', 'fullscreen', 'outline']);
   await expect(root.locator('.markian-toolbar > [data-command="bold"]')).toHaveCount(0);
+  await expect(root.locator('[data-toolbar-item="formatting"] + [data-command="clear"]')).toHaveCount(1);
   for (const name of ['Formatting', 'Lists', 'View mode']) await expect(root.locator(`summary[aria-label="${name}"]`)).toHaveCount(1);
   await (await revealCommand(root, 'source')).click();
   await expect(root).toHaveAttribute('data-view', 'raw');
@@ -1515,6 +1516,94 @@ test('default toolbar groups formatting, lists and modes and keeps fixed control
     await expect(root.locator(`.markian-overflow [data-command="${id}"]`)).toHaveCount(0);
   }
   expect(await endCommands()).toEqual(['search', 'fullscreen', 'outline']);
+  await expect(root.locator('[data-toolbar-item="formatting"] + [data-command="clear"]')).toHaveCount(1);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`heading menu follows the caret and heading changes (${theme}, ${width})`, async ({ page }, testInfo) => {
+  const markdown = [1, 2, 3, 4, 5, 6].map(level => `${'#'.repeat(level)} Level ${level}`).join('\n\n') + '\n\nPlain paragraph';
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(({ markdown, theme }) => {
+    editor.set(markdown);
+    editor.setTheme(theme);
+  }, { markdown, theme });
+  const root = page.locator('[data-markian]').first();
+  const summary = root.locator('[data-toolbar-item="headings"] > summary');
+  const icon = summary.locator('svg:not(.markian-menu-chevron) path');
+  const paths = [mdiFormatHeader1, mdiFormatHeader2, mdiFormatHeader3, mdiFormatHeader4, mdiFormatHeader5, mdiFormatHeader6];
+  const secondary = await page.evaluate(() => secondary.get());
+  for (let level = 1; level <= 6; level++) {
+    await root.locator(`.ProseMirror h${level}`).click();
+    await expect(summary).toHaveAttribute('aria-pressed', 'true');
+    await expect(icon).toHaveAttribute('d', paths[level - 1]);
+  }
+  await root.locator('.ProseMirror p').click();
+  await expect(summary).toHaveAttribute('aria-pressed', 'false');
+  await expect(icon).toHaveAttribute('d', mdiFormatText);
+  await (await revealCommand(root, 'heading:4')).click();
+  await expect(root.locator('details[open]')).toHaveCount(0);
+  await expect(root.locator('.ProseMirror')).toBeFocused();
+  await expect(summary).toHaveAttribute('aria-pressed', 'true');
+  await expect(icon).toHaveAttribute('d', mdiFormatHeader4);
+  if (width === 390) await root.locator('.markian-overflow > summary').click();
+  expect(await summary.evaluate(element => {
+    const style = getComputedStyle(element);
+    const rootStyle = getComputedStyle(element.closest('[data-markian]'));
+    const probe = document.createElement('span');
+    probe.style.color = rootStyle.getPropertyValue('--markian-accent');
+    element.append(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    const bounds = element.getBoundingClientRect();
+    return style.color === accent && bounds.left >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+  })).toBe(true);
+  await root.screenshot({ path: testInfo.outputPath(`heading-menu-${theme}-${width}.png`) });
+  if (width === 390) await root.locator('.markian-overflow > summary').click();
+  await page.evaluate(() => editor.execute('undo'));
+  await expect(summary).toHaveAttribute('aria-pressed', 'false');
+  await expect(icon).toHaveAttribute('d', mdiFormatText);
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  expect(await page.evaluate(() => window.secondary.get())).toBe(secondary);
+  expect(browserErrors.get(page)).toEqual([]);
+});
+
+for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`text style restores paragraphs and code buttons follow the caret (${theme}, ${width})`, async ({ page }, testInfo) => {
+  const markdown = '## **Bold** and `inline` [link](https://example.com)\n\n```text\nblock body\n```\n\nPlain text';
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(({ markdown, theme }) => { editor.set(markdown); editor.setTheme(theme); }, { markdown, theme });
+  const root = page.locator('[data-markian]').first();
+  const prose = root.locator('.ProseMirror');
+  const summary = root.locator('[data-toolbar-item="headings"] > summary');
+  const inline = root.locator('.markian-toolbar [data-command="code"]');
+  const block = root.locator('.markian-toolbar [data-command="codeblock"]');
+  await prose.locator('h2 code').click();
+  await expect(inline).toHaveAttribute('aria-pressed', 'true');
+  await expect(block).toHaveAttribute('aria-pressed', 'false');
+  await expect(summary.locator('svg:not(.markian-menu-chevron) path')).toHaveAttribute('d', mdiFormatHeader2);
+  const normal = await revealCommand(root, 'paragraph');
+  await expect(normal).toHaveText('Normal text');
+  await expect(root.locator('[data-toolbar-item="headings"] > .markian-menu-items > :first-child')).toHaveAttribute('data-command', 'paragraph');
+  await normal.click();
+  await expect(prose.locator('h2')).toHaveCount(0);
+  await expect(prose.locator('p strong')).toHaveText('Bold');
+  await expect(prose.locator('p code')).toHaveText('inline');
+  await expect(prose.locator('p a')).toHaveAttribute('href', 'https://example.com');
+  await expect(summary).toHaveAttribute('aria-pressed', 'false');
+  await expect(summary.locator('svg:not(.markian-menu-chevron) path')).toHaveAttribute('d', mdiFormatText);
+  await expect(prose).toBeFocused();
+  await page.evaluate(() => editor.execute('undo'));
+  await expect(prose.locator('h2')).toBeVisible();
+  await prose.locator('pre code').click();
+  await expect(block).toHaveAttribute('aria-pressed', 'true');
+  await expect(inline).toHaveAttribute('aria-pressed', 'false');
+  await expect(summary).toHaveAttribute('aria-pressed', 'false');
+  await expect(summary.locator('svg:not(.markian-menu-chevron) path')).toHaveAttribute('d', mdiFormatText);
+  await revealCommand(root, 'codeblock');
+  await root.screenshot({ path: testInfo.outputPath(`code-button-state-${theme}-${width}.png`) });
+  await prose.locator('p').last().click();
+  await expect(inline).toHaveAttribute('aria-pressed', 'false');
+  await expect(block).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => editor.get())).toBe(markdown);
+  expect(browserErrors.get(page)).toEqual([]);
 });
 
 for (const [width, theme] of [[1440, 'light'], [390, 'dark']]) test(`view menu stays in the document group across source and preview (${theme}, ${width})`, async ({ page }, testInfo) => {

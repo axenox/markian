@@ -862,7 +862,11 @@ export class EditorInstance implements MarkianInstance {
         const summary = this.host.ownerDocument.createElement('summary');
         summary.title = label;
         summary.setAttribute('aria-label', label);
-        summary.append(...commandButton(this.host.ownerDocument, label, item.icon ?? command?.icon, () => {}).childNodes);
+        const activeHeading = item.id === 'headings' ? children.find(child => child.dataset.command?.startsWith('heading:') && child.getAttribute('aria-pressed') === 'true') : undefined;
+        const headingIcon = activeHeading?.querySelector('svg');
+        if (item.id === 'headings') summary.setAttribute('aria-pressed', String(Boolean(activeHeading)));
+        if (headingIcon) summary.append(headingIcon.cloneNode(true));
+        else summary.append(...commandButton(this.host.ownerDocument, label, item.icon ?? command?.icon, () => {}).childNodes);
         const text = this.host.ownerDocument.createElement('span');
         text.className = 'markian-menu-label';
         text.textContent = label;

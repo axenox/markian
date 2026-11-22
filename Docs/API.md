@@ -153,6 +153,8 @@ This is not a storage transaction. Hosts must handle subsequent edits during the
 
 Run a registered command with `await editor.execute(id, payload?)`. Commands apply to the active view and respect editing permissions. See [toolbar configuration](Configuration.md#toolbar) to place commands in menus or toolbars.
 
+`paragraph` converts the selected Visual text blocks to normal paragraphs while preserving inline formatting. It is the Normal text choice in Text style (`headings`). It is unavailable in Source view, where paragraph syntax is edited directly.
+
 Core block commands act on the fence containing the Visual caret or text selection, including plain-text and unknown-language fences without the Code extension. They are disabled outside a code block:
 
 | Command ID | Behavior |

@@ -30,11 +30,17 @@ Give the host an explicit usable height. The editor fills it while retaining a u
 
 Use selected MDI icons for built-in controls; search replacement uses the existing Codicon outlines. Custom commands, toolbar items and templates can supply raw SVG through the shared sanitized icon renderer. Keep SVG in named variables rather than long configuration values. Use static geometry and `currentColor` where possible; shared sizing and the control label remain authoritative. Do not introduce a second icon system or duplicate similar-looking controls. Use text for clear actions where appropriate, not as a substitute for familiar formatting symbols. See the [icon policy](Configuration.md#icons).
 
+Clear formatting uses the MDI eraser icon (`clear`) in both pinned and floating controls, keeping it visually distinct from Strikethrough.
+
 Built-in editor labels, tooltips, accessible names, dialog text, loading states and Help use the owning instance's translation lookup. Visible captions and accessible names must stay consistent. Keep uppercase dotted keys out of ordinary UI except as an intentional missing-translation signal. English remains the fallback; longer translations must use the same shared overflow, wrapping and scrolling behavior rather than smaller text or separate controls. See [translations](Configuration.md#translations). Do not translate document/provider content automatically.
 
 ## Toolbar and Menus
 
 The default groups are History, Format, Insert, Document, and opposite-aligned Utilities. Utilities contains Search, Maximize, and Outline, with Outline last. Other groups can overflow into More. Alignment comes from top-level configuration, never a command's name. More precedes opposite-aligned controls.
+
+Clear formatting follows the Bold/Italic Formatting menu in Format. In Visual view, the Text style menu button appears pressed while the caret is in a heading and shows that heading's level icon. Everywhere else it shows a neutral text icon and is unpressed. Normal text is the first menu choice in Visual view; it converts headings to paragraphs without removing inline formatting. This selection indicator is independent of whether the menu is open and also works inside More.
+
+Inline code and Code block remain separate buttons. In Visual view, each appears pressed when the caret is inside its matching code context; moving out clears that state. Inline code inside a heading does not replace the Text style button's heading icon.
 
 Groups generate separators only when they have visible content. Custom layouts and live contributions use the same recursive `group`/`menu` structure. Insertion targets explicit group IDs and optional direct-child ordering IDs. Missing groups are not created implicitly. See [toolbar configuration](Configuration.md#toolbar).
 

@@ -89,8 +89,14 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       } else run(setBlockType(visual().state.schema.nodes.heading, { level }));
     },
   });
-  add({ id: 'headings', label: t('TOOLBAR.HEADINGS'), icon: 'heading', views: ['visual', 'raw'], run: () => {} });
-  registerToolbar({ id: 'headings', type: 'menu', items: [1, 2, 3, 4, 5, 6].map(level => `heading:${level}`) });
+  add({
+    id: 'paragraph', label: t('TOOLBAR.NORMAL_TEXT'), icon: 'text', views: ['visual'], mutates: true,
+    active: () => instance.activeView === 'visual' && visual().state.selection.$from.parent.type.name === 'paragraph',
+    enabled: () => setBlockType(visual().state.schema.nodes.paragraph)(visual().state),
+    run: () => run(setBlockType(visual().state.schema.nodes.paragraph)),
+  });
+  add({ id: 'headings', label: t('TOOLBAR.TEXT_STYLE'), icon: 'text', views: ['visual', 'raw'], run: () => {} });
+  registerToolbar({ id: 'headings', type: 'menu', items: ['paragraph', ...[1, 2, 3, 4, 5, 6].map(level => `heading:${level}`)] });
   add({ id: 'strike', label: t('TOOLBAR.STRIKE'), icon: 'strike', views: ['visual', 'raw'], mutates: true, run: () => {
     if (instance.activeView === 'raw') {
       const { from, to } = raw().view.state.selection.main;
@@ -132,7 +138,9 @@ export function installEditing(instance: MarkianInstance, visual: () => EditorVi
       view.dispatch(closeHistory(view.state.tr.replaceSelectionWith(view.state.schema.nodes.hr.create()).scrollIntoView()));
     }
   } }, true);
-  add({ id: 'codeblock', label: t('TOOLBAR.CODEBLOCK'), icon: 'expand', views: ['visual', 'raw'], mutates: true, run: () => {
+  add({ id: 'codeblock', label: t('TOOLBAR.CODEBLOCK'), icon: 'expand', views: ['visual', 'raw'], mutates: true,
+    active: () => instance.activeView === 'visual' && visual().state.selection.$from.parent.type.name === 'code_block',
+    run: () => {
     if (instance.activeView === 'raw') {
       const { from, to } = raw().view.state.selection.main;
       const value = raw().view.state.sliceDoc(from, to);
